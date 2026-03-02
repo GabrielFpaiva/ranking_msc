@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Dados (não versionar arquivos de dados)
+data/snapshots/
+data/reports/
+data/logs/
+*.parquet
+*.jsonl
+
+# Config real (só o .example vai pro repo)
+config/settings.yaml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testes
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/

@@ -1,0 +1,30 @@
+# ============================================================
+# ranking_msc — Configuração principal
+# ============================================================
+# Copie este arquivo para config/settings.yaml e ajuste.
+# Não commite o settings.yaml real (ele está no .gitignore).
+
+app:
+  title: "Ranking MSC — Validação Contábil"
+  debug: false
+
+paths:
+  data_dir: "./data"
+  snapshots_dir: "./data/snapshots"
+  reports_dir: "./data/reports"
+  logs_dir: "./data/logs"
+  ref_dir: "./ref"                    # tabelas de referência (PCASP, domínios)
+
+rules:
+  # Lista de regras habilitadas. Adicione/remova conforme necessário.
+  enabled:
+    - "R082"
+    - "R083"
+    - "R084"
+    - "R085"
+    # ... adicionar até R111
+  fail_fast: false                    # true = para ao primeiro ERRO
+
+security:
+  max_concurrent_jobs: 3              # máximo de processamentos simultâneos
+  allowed_users: []                   # vazio = todos; ou lista de logins
