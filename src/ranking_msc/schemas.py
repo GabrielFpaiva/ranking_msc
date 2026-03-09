@@ -23,24 +23,57 @@ Uso típico:
 from typing import Final
 
 # ---------------------------------------------------------------------------
-# Fact_MSC — DataFrame resultante da leitura do CSV MSC
+# Raw_MSC — DataFrame bruto saído de read_msc_csv() (antes de normalize_ic)
 # ---------------------------------------------------------------------------
-# TODO: expandir conforme o layout real do CSV MSC for definido.
+# Contém as colunas IC1-IC6/TIPO1-TIPO6 originais do CSV, valores já pivotados
+# por Tipo_valor × Natureza_valor, mais metadados (competencia, siconfi).
+RAW_MSC_COLUMNS: Final[list[str]] = [
+    "competencia",              # YYYY-MM (extraído da linha 1 do CSV)
+    "siconfi",                  # código SICONFI do ente (extraído da linha 1)
+    "conta_contabil",           # conta PCASP, 9 dígitos sem pontos (ex: "111110200")
+    "ic1",                      # informação complementar 1 — código
+    "tipo1",                    # tipo da IC1 (ex: "PO")
+    "ic2",                      # informação complementar 2
+    "tipo2",                    # tipo da IC2 (ex: "FP", "FS")
+    "ic3",                      # informação complementar 3
+    "tipo3",                    # tipo da IC3 (ex: "FR")
+    "ic4",                      # informação complementar 4
+    "tipo4",                    # tipo da IC4 (ex: "CO", "NR")
+    "ic5",                      # informação complementar 5
+    "tipo5",                    # tipo da IC5 (ex: "ND")
+    "ic6",                      # informação complementar 6
+    "tipo6",                    # tipo da IC6 (ex: "AI")
+    "saldo_inicial_debito",     # beginning_balance;D
+    "saldo_inicial_credito",    # beginning_balance;C
+    "movimento_debito",         # period_change;D
+    "movimento_credito",        # period_change;C
+    "saldo_final_debito",       # ending_balance;D
+    "saldo_final_credito",      # ending_balance;C
+]
+
+# ---------------------------------------------------------------------------
+# Fact_MSC — DataFrame normalizado (após normalize_ic), entrada do motor
+# ---------------------------------------------------------------------------
+# Contém as colunas IC já mapeadas por TIPO (po, fr, co, etc.) e valores
+# pivotados. É o contrato de dados que as regras esperam.
 FACT_MSC_COLUMNS: Final[list[str]] = [
-    "competencia",      # YYYY-MM
-    "siconfi",          # código SICONFI do ente
-    "conta_contabil",   # conta PCASP (ex: "1.1.1.1.1.01.00")
-    "tipo_ic",          # indicador contábil original (IC)
-    "po",               # poder/órgão
-    "fr",               # fonte de recurso
-    "co",               # complemento do órgão
-    "nr",               # natureza da receita
-    "nd",               # natureza da despesa
-    "fs",               # função/subfunção
-    "saldo_inicial",
-    "debito",
-    "credito",
-    "saldo_final",
+    "competencia",              # YYYY-MM
+    "siconfi",                  # código SICONFI do ente
+    "conta_contabil",           # conta PCASP, 9 dígitos sem pontos
+    "po",                       # poder/órgão (IC onde TIPO=PO)
+    "fp",                       # função/subfunção (IC onde TIPO=FP)
+    "fs",                       # fonte sub (IC onde TIPO=FS)
+    "fr",                       # fonte de recurso (IC onde TIPO=FR)
+    "co",                       # complemento da fonte (IC onde TIPO=CO)
+    "nr",                       # natureza da receita (IC onde TIPO=NR)
+    "nd",                       # natureza da despesa (IC onde TIPO=ND)
+    "ai",                       # ano de inscrição RP (IC onde TIPO=AI)
+    "saldo_inicial_debito",     # beginning_balance;D
+    "saldo_inicial_credito",    # beginning_balance;C
+    "movimento_debito",         # period_change;D
+    "movimento_credito",        # period_change;C
+    "saldo_final_debito",       # ending_balance;D
+    "saldo_final_credito",      # ending_balance;C
 ]
 
 # ---------------------------------------------------------------------------

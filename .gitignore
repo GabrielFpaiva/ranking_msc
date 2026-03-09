@@ -31,8 +31,9 @@ config/settings.yaml
 .DS_Store
 Thumbs.db
 
-# Testes
+# Testes e ferramentas
 .coverage
 htmlcov/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
