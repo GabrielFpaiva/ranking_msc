@@ -9,23 +9,68 @@ O CSV MSC é o arquivo mensal enviado ao SICONFI. Cada arquivo contém:
     - Dados: saldos contábeis por conta PCASP.
 
 Este módulo NÃO aplica regras de validação de negócio. Ele apenas:
-    1. Lê o CSV.
-    2. Extrai competência e siconfi (do nome do arquivo ou cabeçalho).
+    1. Lê o CSV (detectando encoding e tratando line terminator ``\\r``).
+    2. Extrai competência e siconfi da linha 1 de metadata.
     3. Valida o layout mínimo (colunas obrigatórias presentes?).
-    4. Retorna um ``RawMSC`` com o DataFrame + metadados.
+    4. Pivota Tipo_valor × Natureza_valor em 6 colunas de valor.
+    5. Retorna um ``RawMSC`` com o DataFrame + metadados.
 
 Validações de conteúdo (domínios, PCASP, etc.) ficam nas regras.
 """
 
 from __future__ import annotations
 
+import io
+import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO
 
 import pandas as pd
 
 from ranking_msc.exceptions import InputFormatError
+from ranking_msc.schemas import RAW_MSC_COLUMNS
+
+logger = logging.getLogger("ranking_msc")
+
+# Colunas obrigatórias no header do CSV original (linha 2)
+_REQUIRED_CSV_COLUMNS: list[str] = [
+    "CONTA", "IC1", "TIPO1", "Valor", "Tipo_valor", "Natureza_valor",
+]
+
+# Todas as colunas esperadas no CSV original
+_ALL_CSV_COLUMNS: list[str] = [
+    "CONTA", "IC1", "TIPO1", "IC2", "TIPO2", "IC3", "TIPO3",
+    "IC4", "TIPO4", "IC5", "TIPO5", "IC6", "TIPO6",
+    "Valor", "Tipo_valor", "Natureza_valor",
+]
+
+# Mapeamento Tipo_valor × Natureza_valor → nome da coluna pivotada
+_PIVOT_MAP: dict[tuple[str, str], str] = {
+    ("beginning_balance", "D"): "saldo_inicial_debito",
+    ("beginning_balance", "C"): "saldo_inicial_credito",
+    ("period_change", "D"): "movimento_debito",
+    ("period_change", "C"): "movimento_credito",
+    ("ending_balance", "D"): "saldo_final_debito",
+    ("ending_balance", "C"): "saldo_final_credito",
+}
+
+# Colunas de agrupamento para o pivot (chave da linha pivotada)
+_GROUP_COLS: list[str] = [
+    "CONTA", "IC1", "TIPO1", "IC2", "TIPO2", "IC3", "TIPO3",
+    "IC4", "TIPO4", "IC5", "TIPO5", "IC6", "TIPO6",
+]
+
+# Mapeamento de nomes CSV originais → nomes padronizados (minúsculos)
+_RENAME_MAP: dict[str, str] = {
+    "CONTA": "conta_contabil",
+    "IC1": "ic1", "TIPO1": "tipo1",
+    "IC2": "ic2", "TIPO2": "tipo2",
+    "IC3": "ic3", "TIPO3": "tipo3",
+    "IC4": "ic4", "TIPO4": "tipo4",
+    "IC5": "ic5", "TIPO5": "tipo5",
+    "IC6": "ic6", "TIPO6": "tipo6",
+}
 
 
 @dataclass
@@ -34,10 +79,11 @@ class RawMSC:
 
     Attributes:
         competencia: mês de referência no formato "YYYY-MM".
-        siconfi: código SICONFI do ente (ex: "250400").
-        df: DataFrame bruto (sem normalização de IC).
+        siconfi: código SICONFI do ente (ex: "2507507EX").
+        df: DataFrame com colunas de RAW_MSC_COLUMNS (valores já pivotados).
         source: caminho ou nome do arquivo de origem.
     """
+
     competencia: str
     siconfi: str
     df: pd.DataFrame
@@ -45,46 +91,250 @@ class RawMSC:
 
 
 def read_msc_csv(
-    file: str | Path | BinaryIO,
+    file: str | Path | io.BytesIO,
     *,
-    encoding: str = "latin-1",
+    encoding: str = "ascii",
     separator: str = ";",
 ) -> RawMSC:
     """Lê o CSV MSC e devolve um ``RawMSC``.
 
+    O CSV MSC possui uma estrutura peculiar:
+    - Linha 1: metadata ``<SICONFI>;<competencia>``
+    - Linha 2: header das colunas
+    - Linha 3+: dados
+    - Line terminator: ``\\r`` (CR only)
+
+    O método lê o arquivo em modo binário, trata o line terminator,
+    extrai metadados e pivota os valores por Tipo_valor × Natureza_valor.
+
     Args:
-        file: caminho do arquivo ou objeto file-like (ex: upload do Panel).
-        encoding: encoding do CSV (padrão latin-1, comum em arquivos brasileiros).
-        separator: separador de colunas.
+        file: caminho do arquivo ou objeto BytesIO (ex: upload do Panel).
+        encoding: encoding do CSV (padrão ASCII, compatível UTF-8).
+        separator: separador de colunas (padrão ``;``).
 
     Returns:
-        ``RawMSC`` com metadados e DataFrame.
+        ``RawMSC`` com metadados e DataFrame no formato RAW_MSC_COLUMNS.
 
     Raises:
         InputFormatError: se o arquivo estiver vazio, ilegível ou sem
                           as colunas mínimas esperadas.
-
-    TODO (implementar):
-        - Detectar competência: pode vir do nome do arquivo (ex: MSC_250400_2024-01.csv)
-          ou de um campo no cabeçalho. Definir padrão com a equipe.
-        - Detectar siconfi: idem.
-        - Mapear nomes de colunas do CSV original para os nomes padronizados
-          de ``FACT_MSC_COLUMNS``.
-        - Tratar colunas numéricas (vírgula → ponto, etc.).
     """
-    # --- STUB ---
-    raise NotImplementedError(
-        "read_msc_csv() ainda não implementado. "
-        "Consulte os comentários para o fluxo esperado."
+    source = _resolve_source(file)
+    text = _read_and_decode(file, encoding)
+    lines = text.strip().split("\n")
+
+    if len(lines) < 3:
+        raise InputFormatError(
+            f"Arquivo MSC com apenas {len(lines)} linha(s) — "
+            "esperado no mínimo 3 (metadata + header + dados). "
+            f"Fonte: {source}"
+        )
+
+    competencia, siconfi = _extract_metadata(lines[0])
+    logger.info(
+        "Lendo CSV MSC: siconfi=%s, competencia=%s, fonte=%s",
+        siconfi, competencia, source,
+    )
+
+    csv_text = "\n".join(lines[1:])
+    df = _parse_csv(csv_text, separator, source)
+    _validate_columns(df, source)
+    df = _pivot_values(df, competencia, siconfi)
+
+    logger.info(
+        "CSV MSC lido com sucesso: %d linhas pivotadas. Fonte: %s",
+        len(df), source,
+    )
+
+    return RawMSC(
+        competencia=competencia,
+        siconfi=siconfi,
+        df=df,
+        source=source,
     )
 
 
-def _extract_metadata(filename: str) -> tuple[str, str]:
-    """Extrai competência e siconfi a partir do nome do arquivo.
+# ---------------------------------------------------------------------------
+# Funções internas
+# ---------------------------------------------------------------------------
 
-    Padrão esperado: MSC_<SICONFI>_<YYYY-MM>.csv
-    Exemplo: MSC_250400_2024-01.csv → ("2024-01", "250400")
+def _resolve_source(file: str | Path | io.BytesIO) -> str:
+    """Retorna o nome/caminho do arquivo para mensagens de erro e log."""
+    if isinstance(file, (str, Path)):
+        return str(file)
+    name = getattr(file, "name", None)
+    return str(name) if name else "<BytesIO>"
 
-    TODO: ajustar regex conforme padrão real dos arquivos.
+
+def _read_and_decode(file: str | Path | io.BytesIO, encoding: str) -> str:
+    """Lê o arquivo em modo binário e decodifica, tratando line terminator \\r.
+
+    O CSV MSC usa ``\\r`` (CR only) como line terminator. Esta função
+    normaliza para ``\\n`` para compatibilidade com pd.read_csv.
     """
-    raise NotImplementedError("_extract_metadata() — definir padrão de nomes.")
+    try:
+        if isinstance(file, (str, Path)):
+            raw = Path(file).read_bytes()
+        else:
+            raw = file.read()
+    except OSError as exc:
+        raise InputFormatError(
+            f"Não foi possível ler o arquivo MSC: {exc}"
+        ) from exc
+
+    if not raw:
+        raise InputFormatError("Arquivo MSC está vazio.")
+
+    try:
+        text = raw.decode(encoding)
+    except (UnicodeDecodeError, LookupError) as exc:
+        raise InputFormatError(
+            f"Falha ao decodificar o arquivo MSC com encoding '{encoding}': {exc}"
+        ) from exc
+
+    # Normalizar line terminators: \r\n → \n, depois \r → \n
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return text
+
+
+_METADATA_RE = re.compile(r"^(.+);(\d{4}-\d{2})$")
+
+
+def _extract_metadata(first_line: str) -> tuple[str, str]:
+    """Extrai competência e siconfi a partir da primeira linha do CSV.
+
+    Formato esperado: ``<SICONFI>;<YYYY-MM>``
+    Exemplo: ``2507507EX;2025-11`` → (``"2025-11"``, ``"2507507EX"``)
+
+    Args:
+        first_line: primeira linha do arquivo (metadata).
+
+    Returns:
+        Tupla ``(competencia, siconfi)``.
+
+    Raises:
+        InputFormatError: se a linha não seguir o formato esperado.
+    """
+    line = first_line.strip()
+    match = _METADATA_RE.match(line)
+    if not match:
+        raise InputFormatError(
+            f"Linha de metadata com formato inesperado: '{line}'. "
+            "Esperado: '<SICONFI>;<YYYY-MM>' (ex: '2507507EX;2025-11')."
+        )
+    siconfi = match.group(1)
+    competencia = match.group(2)
+    return competencia, siconfi
+
+
+def _parse_csv(csv_text: str, separator: str, source: str) -> pd.DataFrame:
+    """Faz o parse do CSV (sem a linha de metadata) usando pandas."""
+    try:
+        df = pd.read_csv(
+            io.StringIO(csv_text),
+            sep=separator,
+            dtype=str,
+            keep_default_na=False,
+        )
+    except Exception as exc:
+        raise InputFormatError(
+            f"Falha ao parsear o CSV MSC: {exc}. Fonte: {source}"
+        ) from exc
+
+    if df.empty:
+        raise InputFormatError(
+            f"CSV MSC sem dados (apenas header encontrado). Fonte: {source}"
+        )
+
+    return df
+
+
+def _validate_columns(df: pd.DataFrame, source: str) -> None:
+    """Valida que as colunas obrigatórias estão presentes no DataFrame."""
+    missing = set(_REQUIRED_CSV_COLUMNS) - set(df.columns)
+    if missing:
+        raise InputFormatError(
+            f"Colunas obrigatórias ausentes no CSV MSC: {sorted(missing)}. "
+            f"Colunas encontradas: {list(df.columns)}. "
+            f"Fonte: {source}"
+        )
+
+
+def _pivot_values(
+    df: pd.DataFrame,
+    competencia: str,
+    siconfi: str,
+) -> pd.DataFrame:
+    """Pivota Tipo_valor × Natureza_valor em 6 colunas de valor.
+
+    Agrupa por conta + ICs e espalha as combinações de
+    (Tipo_valor, Natureza_valor) em colunas individuais:
+        - saldo_inicial_debito, saldo_inicial_credito
+        - movimento_debito, movimento_credito
+        - saldo_final_debito, saldo_final_credito
+
+    Args:
+        df: DataFrame com colunas originais do CSV.
+        competencia: competência extraída da metadata.
+        siconfi: código SICONFI extraído da metadata.
+
+    Returns:
+        DataFrame pivotado com colunas de RAW_MSC_COLUMNS.
+    """
+    # Converter Valor para float
+    df["Valor"] = pd.to_numeric(df["Valor"].str.replace(",", "."), errors="coerce").fillna(0.0)
+
+    # Criar coluna combinada para pivot
+    df["_pivot_col"] = list(zip(df["Tipo_valor"], df["Natureza_valor"], strict=True))
+
+    # Verificar combinações desconhecidas
+    known = set(_PIVOT_MAP.keys())
+    found = set(df["_pivot_col"].unique())
+    unknown = found - known
+    if unknown:
+        logger.warning(
+            "Combinações Tipo_valor × Natureza_valor desconhecidas: %s",
+            sorted(str(c) for c in unknown),
+        )
+
+    # Mapear para nomes de coluna
+    df["_pivot_name"] = df["_pivot_col"].map(_PIVOT_MAP)
+
+    # Filtrar linhas com combinação desconhecida (não mapeada)
+    df_valid = df[df["_pivot_name"].notna()].copy()
+
+    # Colunas de agrupamento presentes no DataFrame
+    group_cols = [c for c in _GROUP_COLS if c in df_valid.columns]
+
+    # Pivot
+    pivoted = df_valid.pivot_table(
+        index=group_cols,
+        columns="_pivot_name",
+        values="Valor",
+        aggfunc="sum",
+        fill_value=0.0,
+    ).reset_index()
+
+    # Garantir que todas as 6 colunas de valor existem (mesmo que zeradas)
+    value_cols = list(_PIVOT_MAP.values())
+    for col in value_cols:
+        if col not in pivoted.columns:
+            pivoted[col] = 0.0
+
+    # Renomear colunas (CONTA → conta_contabil, IC1 → ic1, etc.)
+    pivoted = pivoted.rename(columns=_RENAME_MAP)
+
+    # Adicionar metadados
+    pivoted.insert(0, "competencia", competencia)
+    pivoted.insert(1, "siconfi", siconfi)
+
+    # Garantir strings vazias (não NaN) nas colunas de texto
+    str_cols = [c for c in pivoted.columns if c not in value_cols]
+    for col in str_cols:
+        pivoted[col] = pivoted[col].astype(str).replace("nan", "")
+
+    # Reordenar conforme RAW_MSC_COLUMNS (colunas extras são descartadas)
+    final_cols = [c for c in RAW_MSC_COLUMNS if c in pivoted.columns]
+    pivoted = pivoted[final_cols]
+
+    return pivoted

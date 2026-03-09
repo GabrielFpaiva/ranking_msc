@@ -48,9 +48,12 @@ class TestImports:
             FACT_EXECUCAO_COLUMNS,
             FACT_MSC_COLUMNS,
             FACT_RESULTADO_REGRAS_COLUMNS,
+            RAW_MSC_COLUMNS,
         )
         assert len(FACT_MSC_COLUMNS) > 0
         assert "competencia" in FACT_MSC_COLUMNS
+        assert len(RAW_MSC_COLUMNS) > 0
+        assert "conta_contabil" in RAW_MSC_COLUMNS
         assert "regra_id" in FACT_RESULTADO_REGRAS_COLUMNS
         assert "execucao_id" in FACT_EXECUCAO_COLUMNS
 

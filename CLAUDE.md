@@ -411,13 +411,18 @@ pytest --cov=ranking_msc         # com cobertura
 
 ### Commits
 
-Formato: `F2-XX: descrição curta em português`
+Formato: `F<N>-XX: short description in English` (uma linha só, máximo ~72 caracteres)
 
 ```
-F2-03: implementar read_msc_csv() com CSV real
-F2-12: regra R082 - fechamento débito = crédito
-F2-18: teste de integração pipeline completo
+F3-03: implement read_msc_csv() with real CSV
+F3-12: rule R082 - debit = credit closing check
+F3-18: end-to-end pipeline integration test
 ```
+
+**Regras de commit:**
+- Mensagem curta e direta **em inglês** — **nunca** mensagem multi-linha ou detalhada
+- **Nunca** adicionar `Co-Authored-By` ou tags extras
+- Um commit por task, exceto se a task for muito grande
 
 ### Antes de commitar
 
