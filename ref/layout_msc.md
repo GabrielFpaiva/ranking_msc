@@ -94,6 +94,10 @@ para extrair o código SICONFI e a competência, e usar a linha 2 como header re
 | `ND` | Natureza da Despesa        | IC5           |
 | `AI` | Ano de Inscrição (RP)      | IC6           |
 
+> Todas as 14 combinações únicas de TIPO1–TIPO6 observadas nos CSVs reais estão
+> documentadas em [`ref/mapeamento_ic_tipo.csv`](mapeamento_ic_tipo.csv), incluindo
+> quais colunas complementares (po, fp, fs, fr, co, nr, nd, ai) se aplicam a cada uma.
+
 ---
 
 ## Padrões observados nos dados
