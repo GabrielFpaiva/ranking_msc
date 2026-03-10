@@ -146,15 +146,16 @@ class TestEngineContext:
         assert ctx.execucao_id  # UUID gerado automaticamente
         assert ctx.usuario == "teste"
 
-    def test_engine_stub_raises(self) -> None:
+    def test_engine_sem_regras_retorna_ok(self) -> None:
         from ranking_msc.config.settings import Settings
         from ranking_msc.engine.executor import EngineContext, run_engine
 
         ctx = EngineContext(
             competencia="2024-01", siconfi="250400", settings=Settings(),
         )
-        with pytest.raises(NotImplementedError):
-            run_engine(pd.DataFrame(), ctx)
+        result = run_engine(pd.DataFrame(), ctx)
+        assert result.status == "OK"
+        assert result.total_pendencias == 0
 
 
 # ---------------------------------------------------------------------------
