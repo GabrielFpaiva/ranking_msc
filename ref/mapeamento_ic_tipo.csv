@@ -1,0 +1,15 @@
+tipo1;tipo2;tipo3;tipo4;tipo5;tipo6;colunas_aplicaveis;descricao
+PO;;;;;;po;Apenas Poder/Órgão
+PO;;FR;;;;po,fr;Poder + Fonte de Recurso
+PO;FP;;;;;po,fp;Poder + Função/Subfunção
+PO;FP;FR;;;;po,fp,fr;Poder + Função + Fonte de Recurso
+PO;FP;FR;CO;;;po,fp,fr,co;Poder + Função + Fonte de Recurso + Complemento
+PO;FR;;;;;po,fr;Poder + Fonte de Recurso (IC2)
+PO;FR;;NR;;;po,fr,nr;Poder + Fonte de Recurso (IC2) + Natureza da Receita
+PO;FR;CO;;;;po,fr,co;Poder + Fonte de Recurso (IC2) + Complemento
+PO;FR;CO;NR;;;po,fr,co,nr;Poder + Fonte de Recurso (IC2) + Complemento + Natureza da Receita
+PO;FS;;;ND;;po,fs,nd;Poder + Fonte Sub + Natureza da Despesa
+PO;FS;FR;;ND;;po,fs,fr,nd;Poder + Fonte Sub + Fonte de Recurso + Natureza da Despesa
+PO;FS;FR;;ND;AI;po,fs,fr,nd,ai;Poder + Fonte Sub + Fonte de Recurso + Natureza da Despesa + Ano Inscrição
+PO;FS;FR;CO;ND;;po,fs,fr,co,nd;Poder + Fonte Sub + Fonte de Recurso + Complemento + Natureza da Despesa
+PO;FS;FR;CO;ND;AI;po,fs,fr,co,nd,ai;Poder + Fonte Sub + Fonte de Recurso + Complemento + Natureza da Despesa + Ano Inscrição
