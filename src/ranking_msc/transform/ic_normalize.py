@@ -51,7 +51,7 @@ _TIPO_TO_COL: dict[str, str] = {
     "AI": "ai",
 }
 _NORMALIZED_COLS: list[str] = list(_TIPO_TO_COL.values())
-_DEFAULT_MAPPING_PATH = Path("ref/mapeamento_ic_tipo.csv")
+_DEFAULT_MAPPING_PATH = Path(__file__).resolve().parents[3] / "ref" / "mapeamento_ic_tipo.csv"
 
 _KNOWN_COMBINATIONS_CACHE: dict[Path, set[tuple[str, ...]]] = {}
 

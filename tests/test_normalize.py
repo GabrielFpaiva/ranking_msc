@@ -164,3 +164,33 @@ def test_normalize_ic_sem_colunas_tipo_levanta_inputformaterror() -> None:
     df = pd.DataFrame([{"ic1": "10131", "tipo1": "PO"}])
     with pytest.raises(InputFormatError, match="colunas obrigatórias"):
         normalize_ic(df)
+
+
+def test_normalize_ic_caminho_default_independente_do_cwd(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Funciona com caminho padrão do mapeamento mesmo fora do diretório raiz."""
+    project_root = Path(__file__).resolve().parent.parent
+    monkeypatch.chdir(project_root / "tests")
+
+    df = pd.DataFrame(
+        [
+            {
+                "ic1": "10131",
+                "tipo1": "PO",
+                "ic2": "",
+                "tipo2": "",
+                "ic3": "",
+                "tipo3": "",
+                "ic4": "",
+                "tipo4": "",
+                "ic5": "",
+                "tipo5": "",
+                "ic6": "",
+                "tipo6": "",
+            },
+        ],
+    )
+
+    result = normalize_ic(df)
+    assert result.iloc[0]["po"] == "10131"

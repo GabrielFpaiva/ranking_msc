@@ -146,3 +146,23 @@ def test_run_engine_fail_fast_true_interrompe_na_primeira_falha(isolated_registr
     assert len(result.erros) == 1
     assert result.erros[0]["rule_id"] == RErrorDummy.rule_id
     assert result.erros[0]["fatal"] is True
+
+
+def test_run_engine_regra_nao_registrada_nao_conta_como_executada(
+    isolated_registry: None,
+) -> None:
+    """Regra ausente no registry não deve inflar contador de regras executadas."""
+    RULE_REGISTRY[RIssueDummy.rule_id] = RIssueDummy
+    context = _build_context(
+        enabled=["R_MISSING", RIssueDummy.rule_id],
+        fail_fast=False,
+    )
+
+    result = run_engine(pd.DataFrame(), context)
+
+    assert result.regras_executadas == 1
+    assert result.regras_com_erro == 1
+    assert result.total_pendencias == 1
+    assert result.status == "PARCIAL"
+    assert len(result.erros) == 1
+    assert result.erros[0]["rule_id"] == "R_MISSING"
