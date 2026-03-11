@@ -102,7 +102,6 @@ def run_engine(df: pd.DataFrame, context: EngineContext) -> EngineResult:
     result = EngineResult(context=context)
 
     for rule_id in enabled_rule_ids:
-        result.regras_executadas += 1
         rule_class = RULE_REGISTRY.get(rule_id)
 
         if rule_class is None:
@@ -120,6 +119,8 @@ def run_engine(df: pd.DataFrame, context: EngineContext) -> EngineResult:
             if context.settings.rules.fail_fast:
                 break
             continue
+
+        result.regras_executadas += 1
 
         try:
             rule = rule_class()
