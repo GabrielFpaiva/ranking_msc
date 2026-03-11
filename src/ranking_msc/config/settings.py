@@ -31,7 +31,7 @@ Uso:
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
@@ -104,9 +104,9 @@ class Settings:
 # Loader
 # ---------------------------------------------------------------------------
 
-def _parse_section(raw: dict[str, Any], cls: type, section: str) -> Any:
+def _parse_section(raw: dict[str, Any], cls: type[Any], section: str) -> Any:
     """Instancia uma dataclass a partir de um dict, filtrando campos válidos."""
-    valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+    valid_fields = {f.name for f in fields(cls)}
     filtered = {k: v for k, v in raw.items() if k in valid_fields}
     unknown = set(raw) - valid_fields
     if unknown:
