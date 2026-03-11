@@ -156,10 +156,14 @@ def _validate_rule_output(raw_output: object, *, rule_id: str) -> pd.DataFrame:
         )
 
     df = raw_output.copy()
-
-    for column in FACT_RESULTADO_REGRAS_COLUMNS:
-        if column not in df.columns:
-            df[column] = None
+    missing_columns = [
+        column for column in FACT_RESULTADO_REGRAS_COLUMNS if column not in df.columns
+    ]
+    if missing_columns:
+        raise RuleExecutionError(
+            rule_id,
+            f"Retorno da regra sem colunas obrigatórias: {missing_columns}",
+        )
 
     extra_columns = [c for c in df.columns if c not in FACT_RESULTADO_REGRAS_COLUMNS]
     ordered_columns = FACT_RESULTADO_REGRAS_COLUMNS + extra_columns

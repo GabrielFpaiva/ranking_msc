@@ -77,6 +77,17 @@ class RErrorDummy(Rule):
         raise ValueError("Falha simulada na regra")
 
 
+class RInvalidOutputDummy(Rule):
+    """Regra dummy que retorna DataFrame sem colunas obrigatórias."""
+
+    rule_id = "R_INVALID_OUTPUT"
+    rule_name = "Dummy inválida"
+    dimensao = "Teste"
+
+    def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
+        return pd.DataFrame([{"severidade": "ERRO"}])
+
+
 def test_run_engine_sem_regras_retorna_resultado_vazio(isolated_registry: None) -> None:
     """Com 0 regras habilitadas, retorno é vazio e status é OK."""
     context = _build_context(enabled=[], fail_fast=False)
@@ -148,21 +159,21 @@ def test_run_engine_fail_fast_true_interrompe_na_primeira_falha(isolated_registr
     assert result.erros[0]["fatal"] is True
 
 
-def test_run_engine_regra_nao_registrada_nao_conta_como_executada(
-    isolated_registry: None,
-) -> None:
-    """Regra ausente no registry não deve inflar contador de regras executadas."""
+def test_run_engine_output_malformado_gera_erro_de_regra(isolated_registry: None) -> None:
+    """Output sem schema obrigatório vira erro de execução e não pendência."""
+    RULE_REGISTRY[RInvalidOutputDummy.rule_id] = RInvalidOutputDummy
     RULE_REGISTRY[RIssueDummy.rule_id] = RIssueDummy
     context = _build_context(
-        enabled=["R_MISSING", RIssueDummy.rule_id],
+        enabled=[RInvalidOutputDummy.rule_id, RIssueDummy.rule_id],
         fail_fast=False,
     )
 
     result = run_engine(pd.DataFrame(), context)
 
-    assert result.regras_executadas == 1
+    assert result.status == "PARCIAL"
+    assert result.regras_executadas == 2
     assert result.regras_com_erro == 1
     assert result.total_pendencias == 1
-    assert result.status == "PARCIAL"
     assert len(result.erros) == 1
-    assert result.erros[0]["rule_id"] == "R_MISSING"
+    assert result.erros[0]["rule_id"] == RInvalidOutputDummy.rule_id
+    assert "colunas obrigatórias" in result.erros[0]["erro"]
