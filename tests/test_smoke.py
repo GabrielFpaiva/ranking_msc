@@ -17,7 +17,6 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # 1. Imports básicos funcionam
 # ---------------------------------------------------------------------------
@@ -31,16 +30,20 @@ class TestImports:
 
     def test_import_exceptions(self) -> None:
         from ranking_msc.exceptions import (
-            ConfigError,
             ConcurrencyError,
+            ConfigError,
             InputFormatError,
             RankingMSCError,
             ReportError,
             RuleExecutionError,
             SnapshotError,
         )
-        # Todas herdam da base
+        # Todas herdam da base.
         assert issubclass(ConfigError, RankingMSCError)
+        assert issubclass(ConcurrencyError, RankingMSCError)
+        assert issubclass(InputFormatError, RankingMSCError)
+        assert issubclass(ReportError, RankingMSCError)
+        assert issubclass(RuleExecutionError, RankingMSCError)
         assert issubclass(SnapshotError, RankingMSCError)
 
     def test_import_schemas(self) -> None:
@@ -59,14 +62,22 @@ class TestImports:
 
     def test_import_engine(self) -> None:
         from ranking_msc.engine.executor import EngineContext, EngineResult, run_engine
+
+        assert EngineContext.__name__ == "EngineContext"
+        assert EngineResult.__name__ == "EngineResult"
         assert callable(run_engine)
 
     def test_import_rules_base(self) -> None:
         from ranking_msc.rules.base import RULE_REGISTRY, Rule, register_rule
+
         assert isinstance(RULE_REGISTRY, dict)
+        assert callable(register_rule)
+        assert Rule.__name__ == "Rule"
 
     def test_import_io(self) -> None:
         from ranking_msc.io.reader_msc import RawMSC, read_msc_csv
+
+        assert RawMSC.__name__ == "RawMSC"
         assert callable(read_msc_csv)
 
     def test_import_transform(self) -> None:
@@ -74,9 +85,15 @@ class TestImports:
         assert callable(normalize_ic)
 
     def test_import_outputs(self) -> None:
-        from ranking_msc.outputs.snapshot import read_snapshot, write_snapshot_atomic
+        from ranking_msc.outputs.logs import log_execucao, setup_logging
         from ranking_msc.outputs.reports import export_issues_excel
-        from ranking_msc.outputs.logs import setup_logging, log_execucao
+        from ranking_msc.outputs.snapshot import read_snapshot, write_snapshot_atomic
+
+        assert callable(setup_logging)
+        assert callable(log_execucao)
+        assert callable(export_issues_excel)
+        assert callable(write_snapshot_atomic)
+        assert callable(read_snapshot)
 
 
 # ---------------------------------------------------------------------------
@@ -166,8 +183,8 @@ class TestRulesBase:
     """Testa infraestrutura de regras."""
 
     def test_register_rule(self) -> None:
-        from ranking_msc.rules.base import RULE_REGISTRY, Rule, register_rule
         from ranking_msc.engine.executor import EngineContext
+        from ranking_msc.rules.base import RULE_REGISTRY, Rule, register_rule
 
         @register_rule
         class RTest(Rule):
@@ -183,8 +200,8 @@ class TestRulesBase:
         del RULE_REGISTRY["RTEST"]
 
     def test_build_issues_empty(self) -> None:
-        from ranking_msc.rules.base import Rule
         from ranking_msc.engine.executor import EngineContext
+        from ranking_msc.rules.base import Rule
 
         class RDummy(Rule):
             rule_id = "RDUMMY"
@@ -200,8 +217,8 @@ class TestRulesBase:
         assert len(result) == 0
 
     def test_build_issues_with_data(self) -> None:
-        from ranking_msc.rules.base import Rule
         from ranking_msc.engine.executor import EngineContext
+        from ranking_msc.rules.base import Rule
 
         class RDummy(Rule):
             rule_id = "RDUMMY"

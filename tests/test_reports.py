@@ -10,12 +10,13 @@ from __future__ import annotations
 import shutil
 import uuid
 from collections.abc import Iterator
+from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
 import pytest
 from openpyxl import load_workbook
-from openpyxl.cell import Cell
+from openpyxl.cell.cell import Cell, MergedCell
 from openpyxl.worksheet.worksheet import Worksheet
 
 from ranking_msc.exceptions import ReportError
@@ -143,7 +144,7 @@ def test_export_issues_excel_resumo_tem_contagens_corretas(
             if not isinstance(header, str):
                 continue
             value = ws_resumo.cell(row=row_idx, column=offset).value or 0
-            row_values[header] = int(value)
+            row_values[header] = _to_int(value)
         summary_map[severity] = row_values
 
     assert summary_map["ERRO"]["Fechamento"] == 1
@@ -208,7 +209,23 @@ def _find_column_index(ws: Worksheet, header_name: str) -> int | None:
     return None
 
 
-def _extract_rgb(cell: Cell) -> str:
+def _to_int(value: object) -> int:
+    """Converte valores de célula do Excel para inteiro de forma segura."""
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float, Decimal)):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
+
+
+def _extract_rgb(cell: Cell | MergedCell) -> str:
     """Extrai valor RGB da cor da célula em formato string."""
     color = cell.fill.fgColor
     if color is None:
