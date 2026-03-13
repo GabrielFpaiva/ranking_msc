@@ -268,6 +268,9 @@ Pronto. O executor já carregará a regra automaticamente.
 ### Comandos rápidos
 
 ```bash
+# Rodar pipeline completo via CLI
+python scripts/run_pipeline.py --csv ref/amostras/msc_2025-11.csv
+
 # Rodar app local
 panel serve app/web_app.py --show --autoreload
 
