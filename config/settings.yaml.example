@@ -18,6 +18,8 @@ paths:
 rules:
   # Lista de regras habilitadas. Adicione/remova conforme necessário.
   enabled:
+    - "R003"
+    - "R004"
     - "R010"
     - "R021"
     - "R030"

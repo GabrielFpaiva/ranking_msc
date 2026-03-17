@@ -196,6 +196,7 @@ def _execute_pipeline(
         siconfi=raw_msc.siconfi,
         settings=settings,
         usuario="cli",
+        pre_pivot_issues=raw_msc.pre_pivot_issues,
     )
     logger.info(
         "Executando motor de regras para competencia=%s siconfi=%s",
