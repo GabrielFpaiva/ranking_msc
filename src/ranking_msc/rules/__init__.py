@@ -11,3 +11,5 @@ a registre automaticamente no RULE_REGISTRY.
 Exemplo:
     from ranking_msc.rules.r082 import R082  # noqa: F401
 """
+
+from ranking_msc.rules.r010 import R010  # noqa: F401
