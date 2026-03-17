@@ -14,3 +14,4 @@ Exemplo:
 
 from ranking_msc.rules.r010 import R010  # noqa: F401
 from ranking_msc.rules.r021 import R021  # noqa: F401
+from ranking_msc.rules.r030 import R030  # noqa: F401
