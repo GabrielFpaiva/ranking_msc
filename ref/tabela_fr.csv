@@ -1,0 +1,285 @@
+codigo_base;nome
+500;Recursos não Vinculados de Impostos
+501;Outros Recursos não Vinculados
+502;Recursos não vinculados da compensação de impostos.
+503;Apoio financeiro da União em decorrência de estado de calamidade pública.
+540;Transferências do FUNDEB - Impostos e Transferências de Impostos
+541;Transferências do FUNDEB - Complementação da União - VAAF
+542;Transferências do FUNDEB - Complementação da União - VAAT
+543;Transferências do FUNDEB - Complementação da União - VAAR
+544;Recursos de Precatórios do FUNDEF
+545;Recursos de Precatórios do FUNDEB (2007- 2020)
+546;Transferências do FUNDEB - Complementação da União - ETI
+550;Transferência do Salário-Educação
+551;Transferências de Recursos do FNDE referentes ao Programa Dinheiro Direto na Escola (PDDE)
+552;Transferências de Recursos do FNDE referentes ao Programa Nacional de Alimentação Escolar (PNAE)
+553;Transferências de Recursos do FNDE Referentes ao Programa Nacional de Apoio ao Transporte Escolar (PNATE)
+569;Outras Transferências de Recursos do FNDE
+570;Transferências do Governo Federal referentes a Convênios e Instrumentos Congêneres vinculados à Educação
+571;Transferências do Estado referentes a Convênios e Instrumentos Congêneres vinculados à Educação
+572;Transferências de Municípios referentes a Convênios e Instrumentos Congêneres vinculados à Educação
+573;Royalties e Participação Especial de Petróleo e Gás Natural Vinculados à Educação - Lei nº 12.858/2013
+574;Operações de Crédito Vinculadas à Educação
+575;Outras Transferências de Convênios e Instrumentos Congêneres vinculados à Educação
+576;Transferências de Recursos dos Estados para programas de educação
+599;Outros Recursos Vinculados à Educação
+600;Transferências Fundo a Fundo de Recursos do SUS provenientes do Governo Federal - Bloco de Manutenção das Ações e Serviços Públicos de Saúde
+601;Transferências Fundo a Fundo de Recursos do SUS provenientes do Governo Federal - Bloco de Estruturação da Rede de Serviços Públicos de Saúde
+602;Transferências Fundo a Fundo de Recursos do SUS provenientes do Governo Federal - Bloco de Manutenção das Ações e Serviços Públicos de Saúde – Recursos destinados ao enfrentamento da COVID-19 no bojo da ação 21C0.
+603;Transferências Fundo a Fundo de Recursos do SUS provenientes do Governo Federal - Bloco de Estruturação da Rede de Serviços Públicos de Saúde – Recursos destinados ao enfrentamento da COVID-19 no bojo da ação 21C0.
+604;Transferências provenientes do Governo Federal destinadas ao vencimento dos agentes comunitários de saúde e dos agentes de combate às endemias
+605;Assistência financeira da União destinada à complementação ao pagamento dos pisos salariais para profissionais da enfermagem.
+621;Transferências Fundo a Fundo de Recursos do SUS provenientes do Governo Estadual
+622;Transferências Fundo a Fundo de Recursos do SUS provenientes dos Governos Municipais
+631;Transferências do Governo Federal referentes a Convênios e Instrumentos Congêneres vinculados à Saúde
+632;Transferências do Estado referentes a Convênios e Instrumentos Congêneres vinculados à Saúde
+633;Transferências de Municípios referentes a Convênios Instrumentos Congêneres vinculados à Saúde
+634;Operações de Crédito vinculadas à Saúde
+635;Royalties e Participação Especial de Petróleo e Gás Natural vinculados à Saúde - Lei nº 12.858/2013
+636;Outras Transferências de Convênios e Instrumentos Congêneres vinculados à Saúde
+659;Outros Recursos Vinculados à Saúde
+660;Transferência de Recursos do Fundo Nacional de Assistência Social - FNAS
+661;Transferência de Recursos dos Fundos Estaduais de Assistência Social
+662;Transferências de Recursos dos Fundos Municipais de Assistência Social
+665;Transferências de Convênios e Instrumentos Congêneres vinculados à Assistência Social
+669;Outros Recursos Vinculados à Assistência Social
+700;Outras Transferências de Convênios ou Instrumentos Congêneres da União
+701;Outras Transferências de Convênios ou Instrumentos Congêneres dos Estados
+702;Outras Transferências de Convênios ou Instrumentos Congêneres dos Municípios
+703;Outras Transferências de Convênios ou Instrumentos Congêneres de outras Entidades
+704;Transferências da União Referentes a Compensações Financeiras pela Exploração de Recursos Naturais
+705;Transferências dos Estados Referentes a Compensações Financeiras pela Exploração de Recursos Naturais
+706;Transferência Especial da União
+707;Transferências da União – inciso I do art. 5º da Lei Complementar 173/2020
+708;Transferência da União Referente à Compensação Financeira de Recursos Minerais
+709;Transferência da União referente à Compensação Financeira de Recursos Hídricos
+710;Transferência Especial dos Estados
+711;Demais Transferências Obrigatórias não Decorrentes de Repartições de Receitas.
+712;Transferências Fundo a Fundo de Recursos do Fundo Penitenciário - FUNPEN
+713;Transferências Fundo a Fundo de Recursos do Fundo de Segurança Pública - FSP
+714;Transferências Fundo a Fundo de Recursos do Fundo de Amparo ao Trabalhador - FAT
+715;Transferências Destinadas ao Setor Cultural - LC nº 195/2022 – Art. 5º - Audiovisual
+716;Transferências Destinadas ao Setor cultural - LC nº 195/2022 – Art. 8º - Demais Setores da Cultura
+717;Assistência Financeira Transporte Coletivo – Art. 5º, Inciso IV, EC nº 123/2022
+718;Auxílio Financeiro – Outorga Crédito Tributário ICMS – Art. 5º, Inciso V, EC nº 123/2022
+719;Transferências da Política Nacional Aldir Blanc de Fomento à Cultura - Lei nº 14.399/2022
+720;Transferências da União Referentes às participações na exploração de Petróleo e Gás Natural destinadas ao FEP - Lei 9.478/1997
+721;Transferências da União Referentes a Cessão Onerosa de Petróleo – Lei  nº 13.885/2019
+722;Transferências do Fundo de Equalização Federativa (FEF) - LC nº 212/2025 – Propag
+747;Outras vinculações de transferências da União
+748;Outras vinculações de transferências dos Estados
+749;Outras vinculações de transferências
+750;Recursos da Contribuição de Intervenção no Domínio Econômico - CIDE
+751;Recursos da Contribuição para o Custeio do Serviço de Iluminação Pública - COSIP
+752;Recursos Vinculados ao Trânsito
+753;Recursos Provenientes de Taxas, Contribuições e Preços Públicos
+754;Recursos de Operações de Crédito
+755;Recursos de Alienação de Bens/Ativos - Administração Direta
+756;Recursos de Alienação de Bens/Ativos - Administração Indireta
+757;Recursos de Depósitos Judiciais – Lides das quais o Ente faz parte
+758;Recursos de Depósitos Judiciais – Lides das quais o Ente não faz parte
+759;Recursos Vinculados a Fundos
+760;Recursos de Emolumentos, Taxas e Custas
+761;Recursos Vinculados ao Fundo de Combate e Erradicação da Pobreza
+762;Recursos de Alienação de Ativos - Cessão de Direitos Creditórios
+763;Recursos próprios dos estados vinculados ao Propag – LC nº 212/2025
+799;Outras Vinculações Legais
+800;Recursos Vinculados ao RPPS - Fundo em Capitalização (Plano Previdenciário)
+801;Recursos Vinculados ao RPPS - Fundo em Repartição (Plano Financeiro)
+802;Recursos Vinculados ao RPPS - Taxa de Administração
+803;Recursos Vinculados ao Sistema de Proteção Social dos Militares (SPSM)
+804;Demais Recursos Previdenciários
+860;Recursos Extraorçamentários Vinculados a Precatórios
+861;Recursos Extraorçamentários Vinculados a Depósitos Judiciais
+862;Recursos de Depósitos de Terceiros
+863;Recursos a distribuir - Comitê Gestor IBS
+869;Outros Recursos Extraorçamentários
+880;Recursos Próprios dos Consórcios
+898;Recursos a Classificar
+899;Outros Recursos Vinculados
+010;Assistência Médico-Hospitalar dos Segurados Vitimados em Acidentes de Trânsito
+011;Destinações da Cide-Combustíveis
+012;Manutenção e Desenvolvimento do Ensino
+013;REC.PARA APLIC.DESPESAS DE CAPITAL DO PROAP
+014;REC.FS DEST.EDUC.PUB.,PRIOR.EDUC.BAS.E SAUDE
+015;Casa da Moeda
+016;Transferências para Entidades Delegatárias de Funções e Competências Relativas a Recursos Hídricos de Domínio da União
+017;Montepio Civil
+018;Órgão ou Entidade do Governo Federal Responsável pela Fiscalização da Distribuição Gratuita de Prêmios
+019;FUNAPOL
+020;Sinalização, Engenharia de Tráfego e de Campo, Policiamento, Fiscalização e Educação de Trânsito
+021;Fiscalização de Produtos Controlados pelo Exército
+022;Aplicações da Cota-Parte da Contribuição Sindical no FAT
+023;Pensões Militares da União e dos Ex-territórios
+024;Pensões Militares e Remuneração dos Inativos Militares do FCDF
+025;Reaparelhamento e Custeio das Atividades de Controle e Fiscalização de Produtos Químicos e de Repressão ao Tráfico Ilícito de Drogas
+026;Desenvolvimento Rural no Campo do Cooperativismo e do Associativismo, Eletrificação Rural, Extensão Rural e Fiscalização das Sociedades Cooperativas
+027;Serviços Afetos às Atividades Específicas da Justiça
+028;Financiamento de Estudos e Serviços de Geologia e Geofísica Aplicados à Prospecção de Combustíveis Fósseis
+029;Fundo Setorial do Audiovisual - FSA, para o Desenvolvimento de Atividades Audiovisuais
+030;Aparelhamento da Defensoria Pública e Capacitação Profissional dos Seus Integrantes
+031;FUNDAF - PGFN
+032;FUNDAF - RFB
+033;PROAP - Programa de Administração Patrimonial Imobiliária da União
+034;Desporto, com Recursos de Superávit Financeiro Vinculados à Amortização e ao Pagamento do Serviço da Dívida Pública Federal
+035;Ações e Serviços Públicos de Saúde - ASPS
+036;Fundação CPQd
+037;Melhoria dos Serviços de Radiodifusão Pública
+038;Unidades de Conservação do Sistema Nacional de Unidades de Conservação - SNUC
+039;Fiscalização e Supervisão das Atividades das Entidades Fechadas de Previdência Complementar
+040;Seguro-Desemprego, Abono Salarial e Previdência Social
+041;Programas de Desenvolvimento Econômico - BNDES
+042;Capitalização do Fundo Social
+043;Acordo FCA para Estudos, Obras, Recuperação, Desenvolvimento ou Implantação de Infraestrutura Ligada ao Aperfeiçoamento da Política de Transportes Ferroviários, Inclusive Modalidade Urbana
+044;Recursos do FISTEL destinados ao FUST
+045;Financiamento de Estudos, Atividades e Serviços de Levantamentos Geológicos Básicos no Território Nacional
+046;Estudos de Planejamento da Expansão do Sistema Energético
+047;Implantação e Manutenção de Unidades de Conservação Definidas como Beneficiárias pelo Órgão Ambiental Licenciador de Empreendimentos de Significativo Impacto Ambiental
+048;Recursos Próprios da UO para Aplicação Exclusiva em Despesas de Capital na Seguridade Social
+049;Recursos Próprios da UO para Aplicação em Seguridade Social
+050;Recursos Próprios Livres da UO
+051;Recursos Próprios da UO para Aplicação Exclusiva em Despesas de Capital
+052;Recursos Livres da UO
+053;Recursos Livres da UO, Vedado o Pagamento de Dívida e de Pessoal
+054;Benefícios do Regime Geral de Previdência Social
+055;Benefícios do Regime Próprio de Previdência Social do FCDF - Contribuição do Segurado
+056;Benefícios do Regime Próprio de Previdência Social da União
+057;Indenização de Imóveis Rurais Desapropriados por Interesse Social
+058;Segurança Nuclear, incluindo Controle e Fiscalização, P&D, Apoio Técnico Operacional, Materiais Didáticos e Pedagógicos
+059;Recursos Próprios Destinados aos Serviços de Proteção de Cultivares
+060;Política de Garantia de Preços Mínimos
+061;Programas Financiados por Operações Oficiais de Crédito
+062;Cobertura de Déficits nas Operações da PGPM
+063;Rede de Balizamento Marítimo, Fluvial e Lacustre
+064;Desenvolvimento e Fomento do Setor de Aviação Civil e da Infraestrutura Aeronáutica Civil
+065;REC.PROP.DEST.FOMENTO PESQ.REALIZ.PES.FISICAS
+066;Política Nacional de Recursos Hídricos, Sistema Nacional de Gerenciamento de Recursos Hídricos e Gestão da Rede Hidrometereológica Nacional
+067;Gestão das Unidades de Conservação de Uso Sustentável
+068;FNDF - Fundo Nacional de Desenvolvimento Florestal
+069;Recursos Arrecadados em Pagamento de Multas por Infração Ambiental a Serem Revertidos a Fundos
+070;Controle e Fiscalização Ambiental
+071;Implementação da Política Nacional de Recursos Hídricos e do Sistema Nacional de Gerenciamento de Recursos Hídricos
+072;Desenvolvimento de Atividades de Gestão Ambiental Relacionadas à Cadeia Produtiva do Petróleo, ou apoio a projetos ou estudos e financiamento de empreendimentos que visem à mitigação da mudança do clima e à adaptação à mudança do clima e aos seus efeitos
+073;PROJUS - Programa de Modernização e Aperfeiçoamento da Justiça do Distrito Federal
+074;Encargos de Responsabilidade do Fundo Contingente da Extinta Rede Ferroviária Federal S.A
+075;CCCCN - Comissão Coordenadora da Criação do Cavalo Nacional
+076;Recursos de Petróleo sem Destinação Definida em Decorrência da Suspensão Imposta pela Liminar do STF
+077;Fiscalização e Proteção das Áreas de Produção de Petróleo
+078;Desenvolvimento de Atividades de Gestão Ambiental Relacionadas à Cadeia Produtiva do Petróleo
+079;Programa de Proteção a Crianças e Adolescentes Ameaçados de Morte
+080;Pesquisas de Planejamento da Expansão do Sistema Energético, de Inventário e de Viabilidade de Aproveitamento dos Potenciais Hidroelétricos
+081;Convênios
+082;Atividades de Avaliação dos Impactos Econômicos e Sociais da Aplicação dos Recursos dos Fundos de Desenvolvimento Regionais
+083;Reparação de Danos Causados a Interesses Difusos e Coletivos
+084;FGTS
+085;Programas Habitacionais de Caráter Social
+086;Aplicação na Área de Comércio Exterior, Conforme Diretrizes Estabelecidas pela CAMEX
+087;CDE - Conta de Desenvolvimento Energético
+088;Fundo Aeroviário, para Execução e Manutenção do Sistema Aeroviário Nacional
+089;Fundo Aeroviário, para Desenvolvimento do Ensino Profissional Aeronáutico
+090;Despesas de Representação e Estudos Técnicos em Apoio às Posições Brasileiras na Organização Marítima Internacional - IMO
+091;Encargos da Intervenção da União no Apoio ao Desenvolvimento da Marinha Mercante e da Indústria de Construção e Reparação Naval Brasileiras
+092;Proteção Ambiental em Regiões Impactadas pela Mineração
+093;Desenvolvimento Institucional do BACEN
+094;Combate à Fome
+095;Doações Estrangeiras
+096;Doações Nacionais
+097;CT-Aeronáutico e Financiamentos Reembolsáveis, Subvenções Econômicas e Despesas Administrativas/Operacionais
+098;CT-Agronegócio e Financiamentos Reembolsáveis, Subvenções Econômicas e Despesas Administrativas/Operacionais
+099;CT-Biotecnologia e Recursos Genéticos, e Financiamentos Reembolsáveis, Subvenções Econômicas e Despesas Administrativas/Operacionais
+100;CT-Saúde e Financiamentos Reembolsáveis, Subvenções Econômicas e Despesas Administrativas/Operacionais
+101;CT-Verde Amarelo (Programa de Estímulo à Interação Universidade-Empresa para o Apoio à Inovação) e Financiamentos Reembolsáveis, Subvenções Econômicas e Despesas Administrativas/Operacionais
+102;CT-Verde Amarelo (Programa de Inovação para Competitividade) e Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais, Equalização de Taxas de Juros e Investimentos em Empresas Inovadoras
+103;CT-Aquaviário e Financiamentos Reembolsáveis, Subvenções Econômicas e Despesas Administrativas/Operacionais
+104;CT-Infra e Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais e Ações Transversais
+105;CT-Mineral e Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais e Ações Transversais
+106;Recursos do FISTEL destinados ao CT-Espacial e a Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais e Ações Transversais
+107;CT-Petro e Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais e Ações Transversais
+108;CT-Energia e Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais e Ações Transversais
+109;CT-Hidro e Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais e Ações Transversais
+110;CT-Info e Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais e Ações Transversais
+111;Inovar-Auto e Financiamentos Reembolsáveis, Subvenções Econômicas e Despesas Administrativas/Operacionais
+112;CT-Amazônia e Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais e Ações Transversais
+113;Pesquisas, Estudos e Projetos de Tratamento, Beneficiamento e Industrialização de Bens Minerais no Centro de Tecnologia Mineral - CETEM
+114;Pesquisa, Desenvolvimento e Tecnologia de Interesse do Desenvolvimento Regional
+115;Projetos do Comando da Marinha para Construção e Reparos de Embarcações em Estaleiros Brasileiros
+116;Recursos Próprios Destinados ao Sistema Nacional de Sementes e Mudas - SNSM
+117;Recursos Próprios Destinados ao Fundo Geral do Cacau
+118;CT-Infra e Financiamentos Reembolsáveis, Subvenções Econômicas e Despesas Administrativas/Operacionais
+119;Recursos do FISTEL Destinados ao CT-Infra e a Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais e Ações Transversais
+120;Recursos do FISTEL de Livre Aplicação na ANATEL e no Tesouro Nacional
+121;Recursos Livres da UO, com Recursos de Superávit Financeiro Vinculados à Amortização e ao Pagamento do Serviço da Dívida Pública Federal
+122;Recursos da UO para Aplicação na Seguridade Social, com Recursos de Superávit Financeiro Vinculados à Amortização e ao Pagamento do Serviço da Dívida Pública Federal
+123;Seguridade Social, com Recursos de Superávit Financeiro Vinculados à Amortização e ao Pagamento do Serviço da Dívida Pública Federal
+124;Fundo Garantidor do Fundo de Financiamento Estudantil - FG-FIES
+125;Benefícios do Regime Próprio de Previdência Social do FCDF - Contribuição Patronal
+126;Assistência Social e à Saúde do Bombeiro Militar do Distrito Federal e de Seus Dependentes
+127;REM.EMPRESA PPSA GESTAO CONTRATOS DE PARTILHA
+128;Custeio das Comissões de Avaliação - INEP
+129;REC. ABANDONADOS DOS PATRIMONIOS DO PIS PASEP
+130;EDUC.PUB., COM PRIOR.EDUC.BASICA E SAUDE
+131;RECURSOS LIVRES DO BANCO CENTRAL DO BRASIL
+132;REC.ACORDOS JUD. EXTRAJUD.REP.DANOS DESASTRE
+133;Educação Básica, Vedado o Pagamento de Despesas com Pessoal
+134;Recursos Próprios Destinados à Educação Básica, Vedado o Pagamento de Despesas com Pessoal
+135;RECURSOS DO FISTEL DESTINADOS AO FSA
+136;CT-Transporte e Financiamentos Reembolsáveis, Subvenções Econômicas, Despesas Administrativas/Operacionais e Ações Transversais
+137;CONCEA - Promoção e Incentivo da Utilização Ética de Animais em Atividades de Ensino e Pesquisa Científica
+138;Melhoria da Prestação Jurisdicional
+139;RECURSOS DA ICT
+140;REC.ACOES RELAC.MODAL AEREO E INCR. TURISMO
+141;REC.DEST.CONF.DEC.OU ACORDOS, JUD.OU EXTRAJUD
+142;ESCOLAS EDUC.BASICA REDE PUB.EST.E MUN.-PDDE
+143;FUNC.E MELHORIA INFRA.ESCOLA TEC.PUB.NIV.MED.
+144;SIN.,ENG.TRAF.,ENG.CAMPO,HAB.COND.BAIXA RENDA
+145;APLIC.REC.PETRO-ART. 46-D L12.351/10-DESP.CAP
+147;DESTINACOES DO FUNDO SOCIAL - FS
+148;DESTINACOES DO FUNDO SOCIAL-FS-DESP. CAPITAL
+149;FS-REC.ED.PUB.,SUP.,PROF.,CIENT.,TEC.E SAUDE
+150;FS-RECURSOS PARA EDUCACAO E SAUDE-DESP.CAP.
+151;REC.ED.PUB.,SUP.,PROFISS.,CIENT. E TECNOL.
+152;REC.ED.PUB.,SUP.,PROF.,CIENT.,TEC.E SAUDE
+153;RECURSOS PARA EDUCACAO E SAUDE-DESP.CAP.
+155;Ações e Serviços de Saúde, Vedada a Utilização para Pagamento de Serviços Prestados por Instituições Hospitalares com Finalidade Lucrativa
+156;Custeio da Previdência Social
+177;Aplicações Definidas na ADPF nº 568
+178;Recursos Destinados ao Enfrentamento da COVID-19
+179;Fundo de Combate e Erradicação da Pobreza
+180;INFRA.LOGISTICA OU DE MOB.FERROV.TITUL.PUB.
+181;INFRA.LOG.OU MOB.FERR.TIT.PUB.-LEI Nº 14.273
+182;FUNCAP
+183;SISFRON
+184;PREV.,CONTR. E MITIG.DANOS PRATICA JOGOS
+201;Transferência Constitucional do Fundo de Participação dos Municípios
+202;Transferência Constitucional do Fundo de Participação dos Estados e do Distrito Federal
+203;Transferência Constitucional do IPI Exportação
+206;Transferência Constitucional de Parcela do ITR para os Municípios
+207;Transferência Constitucional para Aplicação em Programas de Financiamento ao Setor Produtivo da Região Norte
+208;Transferência Constitucional para Aplicação em Programas de Financiamento ao Setor Produtivo da Região Centro-Oeste
+209;Transferência Constitucional para Aplicação em Programas de Financiamento ao Setor Produtivo da Região Nordeste
+210;Transferência Constitucional para Aplicação em Programas de Financiamento ao Setor Produtivo da Região Nordeste - Semiárido
+211;Transferência de Parcela da Cide Combustíveis aos Estados e DF
+213;Transferência das Cotas Estaduais e Municipais do Salário-Educação
+219;Transferência Constitucional do IOF Ouro para os Estados, DF e Municípios
+229;Transferência de Parcela da Arrecadação Relativa à Concessão Florestal para os Estados, DF e Municípios
+234;Transferência de Parcela da Compensação Financeira pela Utilização de Recursos Hídricos para os Estados, DF e Municípios - Demais Empresas
+235;Transferência de Parcela da Compensação Financeira pela Utilização de Recursos Hídricos para os Estados, DF e Municípios - Itaipu
+241;Transferências de Parcela da Compensação Financeira pela Exploração de Recursos Minerais para os Estados, DF e Municípios
+242;Transferências de Parcela dos Royalties de Petróleo, Gás Natural e Outros Hidrocarbonetos Fluidos aos Estados, DF e Municípios
+251;Transferências do Fundo Nacional de Segurança Pública - FNSP
+286;Transferências de Parcela das Taxas de Ocupação aos Municípios e ao DF
+287;TRF.MUN.E DF ALIEN.IMOV.APLIC.EXCL.DESP.CAP.
+288;TRF.BONUS DE ASSINAT.DE CONTR.PART.PRODUCAO
+289;TRANSF.SECRETARIAS ESPORTE DOS ESTADOS E DF
+400;Pagamento da Dívida Pública Mobiliária Federal
+401;Amortização da Dívida Pública Federal
+443;Refinanciamento da Dívida Pública Federal
+444;Demais Aplicações Autorizadas para Recursos Oriundos de Títulos do Tesouro Nacional, Excetuado o Refinanciamento da Dívida Pública
+447;OBJ.CONTRATUAL OP.CRED.INTERNA BENS/SERVICOS
+448;Objeto Contratual da Operação de Crédito Externa em Moeda
+449;Objeto Contratual da Operação de Crédito Externa em Bens e/ou Serviços
+490;Recursos a Classificar
+491;Recursos Diversos
+492;Recursos de entidades não integrantes do Orçamento da União
+495;Recursos do Orçamento de Investimento
+499;Recursos a Definir
