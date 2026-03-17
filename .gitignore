@@ -17,8 +17,7 @@ env/
 *.swp
 *.swo
 
-# Claude Code (config local)
-.claude/
+
 
 # Dados (não versionar arquivos de dados)
 data/snapshots/
