@@ -23,7 +23,7 @@ from __future__ import annotations
 import io
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
@@ -82,12 +82,15 @@ class RawMSC:
         siconfi: código SICONFI do ente (ex: "2507507EX").
         df: DataFrame com colunas de RAW_MSC_COLUMNS (valores já pivotados).
         source: caminho ou nome do arquivo de origem.
+        pre_pivot_issues: violações de Tipo_valor/Natureza_valor detectadas
+            antes do pivot (usadas pelas regras R003 e R004).
     """
 
     competencia: str
     siconfi: str
     df: pd.DataFrame
     source: str = ""
+    pre_pivot_issues: list[dict[str, object]] = field(default_factory=list)
 
 
 def read_msc_csv(
@@ -139,7 +142,7 @@ def read_msc_csv(
     csv_text = "\n".join(lines[1:])
     df = _parse_csv(csv_text, separator, source)
     _validate_columns(df, source)
-    df = _pivot_values(df, competencia, siconfi)
+    df, pre_pivot_issues = _pivot_values(df, competencia, siconfi)
 
     logger.info(
         "CSV MSC lido com sucesso: %d linhas pivotadas. Fonte: %s",
@@ -151,6 +154,7 @@ def read_msc_csv(
         siconfi=siconfi,
         df=df,
         source=source,
+        pre_pivot_issues=pre_pivot_issues,
     )
 
 
@@ -260,11 +264,17 @@ def _validate_columns(df: pd.DataFrame, source: str) -> None:
         )
 
 
+_TIPO_VALOR_DOMAIN: frozenset[str] = frozenset(
+    {"beginning_balance", "ending_balance", "period_change"}
+)
+_NATUREZA_VALOR_DOMAIN: frozenset[str] = frozenset({"D", "C"})
+
+
 def _pivot_values(
     df: pd.DataFrame,
     competencia: str,
     siconfi: str,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, list[dict[str, object]]]:
     """Pivota Tipo_valor × Natureza_valor em 6 colunas de valor.
 
     Agrupa por conta + ICs e espalha as combinações de
@@ -279,7 +289,9 @@ def _pivot_values(
         siconfi: código SICONFI extraído da metadata.
 
     Returns:
-        DataFrame pivotado com colunas de RAW_MSC_COLUMNS.
+        Tupla (DataFrame pivotado, lista de violações pré-pivot).
+        As violações registram linhas com Tipo_valor ou Natureza_valor
+        fora do domínio válido (usadas pelas regras R003 e R004).
     """
     # Converter Valor para float
     df["Valor"] = pd.to_numeric(df["Valor"].str.replace(",", "."), errors="coerce").fillna(0.0)
@@ -287,7 +299,30 @@ def _pivot_values(
     # Criar coluna combinada para pivot
     df["_pivot_col"] = list(zip(df["Tipo_valor"], df["Natureza_valor"], strict=True))
 
-    # Verificar combinações desconhecidas
+    # Capturar violações de domínio para R003 e R004
+    pre_pivot_issues: list[dict[str, object]] = []
+    for _, row in df.iterrows():
+        tipo = str(row["Tipo_valor"])
+        natureza = str(row["Natureza_valor"])
+        conta = str(row.get("CONTA", ""))
+        if tipo not in _TIPO_VALOR_DOMAIN:
+            pre_pivot_issues.append({
+                "regra": "R003",
+                "conta_contabil": conta,
+                "campo": "Tipo_valor",
+                "valor_encontrado": tipo,
+                "competencia": competencia,
+            })
+        if natureza not in _NATUREZA_VALOR_DOMAIN:
+            pre_pivot_issues.append({
+                "regra": "R004",
+                "conta_contabil": conta,
+                "campo": "Natureza_valor",
+                "valor_encontrado": natureza,
+                "competencia": competencia,
+            })
+
+    # Verificar combinações desconhecidas (log apenas)
     known = set(_PIVOT_MAP.keys())
     found = set(df["_pivot_col"].unique())
     unknown = found - known
@@ -337,4 +372,4 @@ def _pivot_values(
     final_cols = [c for c in RAW_MSC_COLUMNS if c in pivoted.columns]
     pivoted = pivoted[final_cols]
 
-    return pivoted
+    return pivoted, pre_pivot_issues

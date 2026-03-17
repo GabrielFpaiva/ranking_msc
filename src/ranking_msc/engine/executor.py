@@ -49,6 +49,9 @@ class EngineContext:
     execucao_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     usuario: str = "sistema"          # quem disparou a execução
     inicio: datetime = field(default_factory=datetime.now)
+    pre_pivot_issues: list[dict[str, object]] = field(default_factory=list)
+    # Violações de Tipo_valor/Natureza_valor capturadas antes do pivot
+    # pelo reader_msc. Usadas pelas regras R003 e R004.
 
     # TODO (multiusuário): adicionar campo ``lock_token`` para controle
     # de concorrência por competência.
