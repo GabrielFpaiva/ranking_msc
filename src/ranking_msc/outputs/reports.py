@@ -5,8 +5,8 @@ ranking_msc.outputs.reports
 Exportação de relatórios Excel com pendências e evidências.
 
 Formato gerado:
-    - "Resumo": totalizadores por severidade x dimensão.
-    - "Pendências": listagem completa das pendências.
+    - "Resumo": totalizadores por severidade x dimensão, com linha Total e cores.
+    - "Pendências": listagem completa das pendências, ordenada e com cabeçalhos PT.
 """
 
 from __future__ import annotations
@@ -32,6 +32,21 @@ _SEVERITY_COLORS: dict[str, str] = {
 
 _HEADER_FILL = PatternFill(fill_type="solid", fgColor="FFDDEBF7")
 _HEADER_FONT = Font(bold=True)
+
+_COLUMN_LABELS: dict[str, str] = {
+    "regra_id": "Regra",
+    "regra_nome": "Nome da Regra",
+    "dimensao": "Dimensão",
+    "severidade": "Severidade",
+    "conta_contabil": "Conta Contábil",
+    "descricao": "Descrição",
+    "valor_esperado": "Valor Esperado",
+    "valor_encontrado": "Valor Encontrado",
+    "competencia": "Competência",
+}
+
+_MAX_COLUMN_WIDTH = 60
+_MIN_COLUMN_WIDTH = 10
 
 
 def export_issues_excel(
@@ -64,13 +79,14 @@ def export_issues_excel(
         filename=filename,
     )
     resumo_df = _build_summary_dataframe(df_pendencias)
+    pendencias_sorted = _sort_pendencias(df_pendencias)
 
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
             resumo_df.to_excel(writer, sheet_name="Resumo", index_label="severidade")
-            df_pendencias.to_excel(writer, sheet_name="Pendências", index=False)
+            pendencias_sorted.to_excel(writer, sheet_name="Pendências", index=False)
 
             ws_resumo = writer.sheets["Resumo"]
             ws_pendencias = writer.sheets["Pendências"]
@@ -80,6 +96,10 @@ def export_issues_excel(
             _freeze_and_filter(ws_resumo)
             _freeze_and_filter(ws_pendencias)
             _apply_severity_colors(ws_pendencias)
+            _apply_severity_colors_resumo(ws_resumo)
+            _auto_fit_columns(ws_resumo)
+            _auto_fit_columns(ws_pendencias)
+            _rename_headers(ws_pendencias)
     except Exception as exc:  # noqa: BLE001
         raise ReportError(
             f"Falha ao exportar relatório Excel para competência {competencia}: {exc}"
@@ -115,7 +135,7 @@ def _build_output_path(
 
 
 def _build_summary_dataframe(df_pendencias: pd.DataFrame) -> pd.DataFrame:
-    """Monta tabela de resumo com contagem por severidade x dimensão."""
+    """Monta tabela de resumo com contagem por severidade x dimensão e linha Total."""
     summary_base = df_pendencias.copy()
     summary_base["severidade"] = summary_base["severidade"].fillna("SEM_SEVERIDADE").astype(str)
     summary_base["dimensao"] = summary_base["dimensao"].fillna("SEM_DIMENSAO").astype(str)
@@ -130,7 +150,21 @@ def _build_summary_dataframe(df_pendencias: pd.DataFrame) -> pd.DataFrame:
 
     ordered_index = [severity for severity in _SEVERITY_ORDER if severity in summary.index]
     remaining = sorted(severity for severity in summary.index if severity not in ordered_index)
-    return summary.reindex(ordered_index + remaining)
+    summary = summary.reindex(ordered_index + remaining)
+
+    summary.loc["Total"] = summary.sum()
+    return summary
+
+
+def _sort_pendencias(df: pd.DataFrame) -> pd.DataFrame:
+    """Ordena pendências: ERRO primeiro, depois ALERTA, INFO; depois regra_id e conta."""
+    order = {s: i for i, s in enumerate(_SEVERITY_ORDER)}
+    df = df.copy()
+    df["_sev_order"] = df["severidade"].map(order).fillna(len(_SEVERITY_ORDER))
+    df = df.sort_values(["_sev_order", "regra_id", "conta_contabil"]).drop(
+        columns=["_sev_order"]
+    )
+    return df.reset_index(drop=True)
 
 
 def _format_header(ws: Worksheet) -> None:
@@ -146,6 +180,25 @@ def _freeze_and_filter(ws: Worksheet) -> None:
     ws.auto_filter.ref = ws.dimensions
 
 
+def _auto_fit_columns(ws: Worksheet) -> None:
+    """Ajusta largura de cada coluna ao conteúdo mais longo."""
+    for col in ws.columns:
+        max_len = max(
+            (len(str(cell.value)) for cell in col if cell.value is not None),
+            default=_MIN_COLUMN_WIDTH,
+        )
+        ws.column_dimensions[col[0].column_letter].width = min(
+            max_len + 4, _MAX_COLUMN_WIDTH
+        )
+
+
+def _rename_headers(ws: Worksheet) -> None:
+    """Substitui cabeçalhos técnicos pelos rótulos em português na aba Pendências."""
+    for cell in ws[1]:
+        if isinstance(cell.value, str):
+            cell.value = _COLUMN_LABELS.get(cell.value, cell.value)
+
+
 def _apply_severity_colors(ws: Worksheet) -> None:
     """Aplica cores por severidade na aba de pendências."""
     severity_column = _find_column_index(ws, "severidade")
@@ -158,6 +211,22 @@ def _apply_severity_colors(ws: Worksheet) -> None:
             continue
 
         fill_color = _SEVERITY_COLORS.get(str(severity_value).upper())
+        if fill_color is None:
+            continue
+
+        fill = PatternFill(fill_type="solid", fgColor=fill_color)
+        for col_idx in range(1, ws.max_column + 1):
+            ws.cell(row=row_idx, column=col_idx).fill = fill
+
+
+def _apply_severity_colors_resumo(ws: Worksheet) -> None:
+    """Aplica cores por severidade na aba Resumo (coluna 1 = severidade)."""
+    for row_idx in range(2, ws.max_row + 1):
+        severity_value = ws.cell(row=row_idx, column=1).value
+        if not isinstance(severity_value, str):
+            continue
+
+        fill_color = _SEVERITY_COLORS.get(severity_value.upper())
         if fill_color is None:
             continue
 

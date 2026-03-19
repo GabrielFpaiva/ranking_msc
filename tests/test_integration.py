@@ -152,10 +152,14 @@ class TestCriterioDeAceite:
         assert "Resumo" in wb.sheetnames, "Aba 'Resumo' ausente no Excel"
         assert "Pendências" in wb.sheetnames, "Aba 'Pendências' ausente no Excel"
 
-        # Aba Pendências: cabeçalho bate com o schema
+        # Aba Pendências: cabeçalho usa rótulos em português (F2-21)
         ws = wb["Pendências"]
         header = [cell.value for cell in ws[1]]
-        for col in FACT_RESULTADO_REGRAS_COLUMNS:
+        expected_pt_headers = [
+            "Regra", "Nome da Regra", "Dimensão", "Severidade",
+            "Conta Contábil", "Descrição", "Valor Esperado", "Valor Encontrado", "Competência",
+        ]
+        for col in expected_pt_headers:
             assert col in header, f"Coluna '{col}' ausente no cabeçalho do Excel"
 
     def test_competencia_e_siconfi_propagados_corretamente(
