@@ -1,9 +1,11 @@
 tipo1;tipo2;tipo3;tipo4;tipo5;tipo6;colunas_aplicaveis;descricao
 PO;;;;;;po;Apenas Poder/Órgão
 PO;;FR;;;;po,fr;Poder + Fonte de Recurso
-PO;FP;;;;;po,fp;Poder + Função/Subfunção
-PO;FP;FR;;;;po,fp,fr;Poder + Função + Fonte de Recurso
-PO;FP;FR;CO;;;po,fp,fr,co;Poder + Função + Fonte de Recurso + Complemento
+PO;FP;;;;;po,fp;Poder + Financeiro/Permanente
+PO;FP;DC;;;;po,fp,dc;Poder + Financeiro/Permanente + Dívida Consolidada
+PO;FP;DC;FR;;;po,fp,dc,fr;Poder + Financeiro/Permanente + DC + Fonte de Recurso
+PO;FP;FR;;;;po,fp,fr;Poder + Financeiro/Permanente + Fonte de Recurso
+PO;FP;FR;CO;;;po,fp,fr,co;Poder + Financeiro/Permanente + Fonte de Recurso + Complemento
 PO;FR;;;;;po,fr;Poder + Fonte de Recurso (IC2)
 PO;FR;;NR;;;po,fr,nr;Poder + Fonte de Recurso (IC2) + Natureza da Receita
 PO;FR;CO;;;;po,fr,co;Poder + Fonte de Recurso (IC2) + Complemento

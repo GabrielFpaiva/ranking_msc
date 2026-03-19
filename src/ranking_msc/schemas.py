@@ -61,8 +61,9 @@ FACT_MSC_COLUMNS: Final[list[str]] = [
     "siconfi",                  # código SICONFI do ente
     "conta_contabil",           # conta PCASP, 9 dígitos sem pontos
     "po",                       # poder/órgão (IC onde TIPO=PO)
-    "fp",                       # função/subfunção (IC onde TIPO=FP)
-    "fs",                       # fonte sub (IC onde TIPO=FS)
+    "fp",                       # Atributo Superávit Financeiro (F=1, P=2) — IC onde TIPO=FP
+    "dc",                       # Dívida Consolidada (1=não compõe DC) — IC onde TIPO=DC
+    "fs",                       # Classificação Funcional / Função e Subfunção — IC onde TIPO=FS
     "fr",                       # fonte de recurso (IC onde TIPO=FR)
     "co",                       # complemento da fonte (IC onde TIPO=CO)
     "nr",                       # natureza da receita (IC onde TIPO=NR)

@@ -94,7 +94,7 @@ class TestMapeamentoIcTipo:
     ) -> None:
         """Campo colunas_aplicaveis é consistente com os TIPOs preenchidos."""
         tipo_to_col = {
-            "PO": "po", "FP": "fp", "FS": "fs", "FR": "fr",
+            "PO": "po", "FP": "fp", "DC": "dc", "FS": "fs", "FR": "fr",
             "CO": "co", "NR": "nr", "ND": "nd", "AI": "ai",
         }
         for idx, row in mapeamento_df.iterrows():
@@ -112,7 +112,7 @@ class TestMapeamentoIcTipo:
 
     def test_tipos_validos(self, mapeamento_df: pd.DataFrame) -> None:
         """Todos os valores de TIPO são válidos ou vazios."""
-        valid_tipos = {"PO", "FP", "FS", "FR", "CO", "NR", "ND", "AI", ""}
+        valid_tipos = {"PO", "FP", "DC", "FS", "FR", "CO", "NR", "ND", "AI", ""}
         for tc in _TIPO_COLS:
             found = set(mapeamento_df[tc].unique())
             invalid = found - valid_tipos

@@ -46,7 +46,7 @@ para extrair o código SICONFI e a competência, e usar a linha 2 como header re
 | 2  | IC1              | str      | Sim         | `10131`           | Informação Complementar 1 — código              |
 | 3  | TIPO1            | str(2)   | Sim         | `PO`              | Tipo da IC1 — sempre `PO` (Poder/Órgão)         |
 | 4  | IC2              | str      | Não         | `01031`           | Informação Complementar 2 — código              |
-| 5  | TIPO2            | str(2)   | Não         | `FP`              | Tipo da IC2 — ex: `FP` (Função/Subfunção)       |
+| 5  | TIPO2            | str(2)   | Não         | `FP`              | Tipo da IC2 — ex: `FP` (Superávit F/P), `FS` (Funcional) |
 | 6  | IC3              | str      | Não         | `1500`            | Informação Complementar 3 — código              |
 | 7  | TIPO3            | str(2)   | Não         | `FR`              | Tipo da IC3 — sempre `FR` (Fonte de Recurso)    |
 | 8  | IC4              | str      | Não         | `1001`            | Informação Complementar 4 — código              |
@@ -86,8 +86,9 @@ para extrair o código SICONFI e a competência, e usar a linha 2 como header re
 | TIPO | Significado                | Posição usual |
 |------|----------------------------|---------------|
 | `PO` | Poder/Órgão                | IC1           |
-| `FP` | Função/Subfunção           | IC2           |
-| `FS` | Fonte (sub)                | IC2           |
+| `FP` | Atributo Superávit Financeiro (F=1, P=2) | IC2 |
+| `DC` | Dívida Consolidada         | IC2 ou IC3    |
+| `FS` | Classificação Funcional (Função e Subfunção) | IC2 |
 | `FR` | Fonte de Recurso           | IC3           |
 | `CO` | Complemento da Fonte       | IC4           |
 | `NR` | Natureza da Receita        | IC4           |
