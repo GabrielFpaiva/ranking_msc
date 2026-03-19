@@ -943,3 +943,230 @@ IC_DIGITOS: dict[str, int] = {
   SE Valor > percentil_99 * 10 → INFO("valor outlier")
   ```
 - **Depende:** R005
+
+---
+
+## Regras adicionais — Conferência Ranking MSC (SIGEF/JPA)
+
+> As regras abaixo foram extraídas do relatório "Imprimir Conferência Ranking MSC"
+> do SIGEF/JPA — Prefeitura Municipal de João Pessoa, Ano Base 2026.
+> Marcadas com o prefixo SIGEF Vxx correspondente à numeração do relatório.
+
+---
+
+### CATEGORIA: Temporal (novas)
+
+#### R083 — Dados do executivo idênticos entre meses (SIGEF V7)
+- **Severidade:** ALERTA | **Prioridade:** P2
+- **Lógica:** Se os registros do Poder Executivo (PO=10131 para município) de um mês são idênticos ao mês anterior em TODAS as contas, indica que o ente copiou o arquivo ao invés de gerar dados reais. Verificação do Ranking Siconfi.
+- **Pseudocódigo:**
+  ```
+  SE existe_snapshot_anterior:
+    df_exec_atual = filtrar(df WHERE PO == po_executivo_ente)
+    df_exec_ant = filtrar(snapshot_anterior WHERE PO == po_executivo_ente)
+    # Comparar ending_balance de todas contas
+    merged = merge(df_exec_atual, df_exec_ant, on=[CONTA, ICs])
+    SE merged.ending_balance_atual == merged.ending_balance_anterior PARA TODAS linhas:
+      → ALERTA("dados do executivo idênticos entre meses — possível copy-paste")
+  ```
+- **Entrada:** Snapshots de 2 meses consecutivos + filtro PO executivo
+- **OK:** Pelo menos alguma diferença de saldo entre meses
+- **ERRO:** Dados 100% iguais ao mês anterior
+- **Depende:** R054
+
+---
+
+### CATEGORIA: Superávit (novas)
+
+#### R084 — Conta Financeira (FP=1) sem FR detalhada (SIGEF V11)
+- **Severidade:** ALERTA | **Prioridade:** P2
+- **Lógica:** Contas com atributo FP=1 (Financeiro) devem ter Fonte de Recursos (FR) associada. Conta financeira sem FR impede identificação da origem dos recursos. Vai além da R020 porque verifica o cruzamento FP×FR independente do ID_IC.
+- **Pseudocódigo:**
+  ```
+  PARA CADA registro WHERE FP == "1":
+    fr_presente = ANY(TIPO_n == "FR" AND pd.notna(IC_n) for n in 1..6)
+    SE NOT fr_presente:
+      id_ic = pcasp[CONTA].ID_IC
+      SE id_ic IN {4, 5, 6, 7, 8, 9}:  # ICs que incluem FR
+        → ALERTA("conta financeira sem FR detalhada")
+  ```
+- **Entrada:** FP + FR + PCASP.ID_IC
+- **Tabela:** PcaspEstendido2026 (ID_IC, IND_SF)
+- **Depende:** R022, R024
+
+---
+
+### CATEGORIA: Completude (novas)
+
+#### R085 — Depreciação/amortização/exaustão sem movimentação mensal (SIGEF V19)
+- **Severidade:** ALERTA | **Prioridade:** P2
+- **Lógica:** Contas patrimoniais de depreciação acumulada, exaustão ou amortização acumulada devem ter `period_change` todo mês. Ausência indica que o ente não está registrando depreciação conforme MCASP. Identificar contas pelo título no PCASP (contém "DEPRECIA", "AMORTIZA" ou "EXAUST" e natureza Credora).
+- **Pseudocódigo:**
+  ```
+  contas_deprec = pcasp[
+    pcasp.TITULO_DESC.str.contains("DEPRECIA|AMORTIZA|EXAUST", case=False)
+    & (pcasp.NAT_SALDO == "Credora")
+  ].CONTA
+  PARA CADA conta IN contas_deprec:
+    mov = df[(df.CONTA == conta) & (df.Tipo_valor == "period_change")]
+    SE len(mov) == 0:
+      → ALERTA("conta de depreciação sem movimentação no mês")
+  ```
+- **Entrada:** CONTA + Tipo_valor + PCASP.TITULO_DESC
+- **Tabela:** PcaspEstendido2026 (TITULO_DESC, NAT_SALDO)
+- **Depende:** R010, R040
+
+---
+
+### CATEGORIA: Fechamento — Saldo invertido por classe (desmembramento R032)
+
+> As regras R086–R088 são desmembramentos da R032 genérica, alinhadas com as
+> verificações V5, V9 e V10 do relatório SIGEF. O Ranking Siconfi pontua cada
+> classe separadamente.
+
+#### R086 — Ativo (classe 1) com saldo credor invertido (SIGEF V5)
+- **Severidade:** ALERTA | **Prioridade:** P1
+- **Lógica:** Contas do Ativo (classe 1) com natureza devedora no PCASP não devem apresentar saldo final credor. Exceção: contas retificadoras (NAT_SALDO="Credora" no PCASP mesmo sendo classe 1, ex: (-) Provisão para Perdas) e contas Credora/Devedora.
+- **Pseudocódigo:**
+  ```
+  PARA CADA conta WHERE classe == "1":
+    nat = pcasp[CONTA].NAT_SALDO
+    SE nat == "Devedora":
+      sf = ending_balance
+      SE sf.Natureza_valor == "C":
+        → ALERTA("ativo com saldo credor invertido", conta)
+    # nat == "Credora" → conta retificadora, saldo C é esperado
+    # nat == "Credora/Devedora" → aceita ambos
+  ```
+- **Entrada:** ending_balance classe 1 + PCASP.NAT_SALDO
+- **Depende:** R010, R032
+
+#### R087 — Passivo (classe 2, exceto PL) com saldo devedor invertido (SIGEF V9)
+- **Severidade:** ALERTA | **Prioridade:** P1
+- **Lógica:** Contas do Passivo (classe 2, grupo ≠ 3) com natureza credora não devem ter saldo final devedor. Exceção: contas Credora/Devedora.
+- **Pseudocódigo:**
+  ```
+  PARA CADA conta WHERE classe == "2" AND grupo != "3":
+    nat = pcasp[CONTA].NAT_SALDO
+    SE nat == "Credora":
+      sf = ending_balance
+      SE sf.Natureza_valor == "D":
+        → ALERTA("passivo com saldo devedor invertido", conta)
+  ```
+- **Entrada:** ending_balance classe 2 (exceto grupo 3) + PCASP.NAT_SALDO + GRUPO
+- **Depende:** R010, R032
+
+#### R088 — Patrimônio Líquido (grupo 2.3) com saldo invertido (SIGEF V10)
+- **Severidade:** ALERTA | **Prioridade:** P1
+- **Lógica:** Contas de PL (classe 2, grupo 3) com natureza credora não devem ter saldo devedor. Exceção: 86 contas Credora/Devedora (ex: Ajustes de Avaliação Patrimonial, Superávits/Déficits Acumulados).
+- **Pseudocódigo:**
+  ```
+  PARA CADA conta WHERE classe == "2" AND grupo == "3":
+    nat = pcasp[CONTA].NAT_SALDO
+    SE nat == "Credora":
+      sf = ending_balance
+      SE sf.Natureza_valor == "D":
+        → ALERTA("PL com saldo invertido", conta)
+    # "Credora/Devedora": aceita ambos (Ajustes, Resultados Acumulados, etc.)
+  ```
+- **Entrada:** ending_balance grupo 2.3 + PCASP.NAT_SALDO
+- **Depende:** R010, R032
+
+---
+
+### CATEGORIA: IC — Detalhamento faltante por tipo (desmembramento R020)
+
+> As regras R089–R093 são verificações específicas extraídas do Ranking Siconfi
+> (SIGEF V13–V17). A R020 genérica valida o conjunto completo de ICs, mas o
+> Ranking pontua cada tipo de IC faltante como verificação separada.
+
+#### R089 — Receita orçamentária sem FR (SIGEF V13)
+- **Severidade:** ALERTA | **Prioridade:** P2
+- **Lógica:** Contas de receita orçamentária e deduções (ID_IC=6, que exige PO+FR+CO+NR) devem ter FR preenchida.
+- **Pseudocódigo:**
+  ```
+  contas_receita = pcasp[pcasp.ID_IC == 6].CONTA
+  PARA CADA registro WHERE CONTA IN contas_receita:
+    fr_presente = ANY(TIPO_n == "FR" for n in 1..6)
+    SE NOT fr_presente → ALERTA("receita sem FR")
+  ```
+- **Entrada:** Registros de contas com ID_IC=6 + TIPO1–TIPO6
+- **Tabela:** PcaspEstendido2026 (ID_IC=6: 24 contas)
+- **Depende:** R020, R024
+
+#### R090 — Receita orçamentária sem NR (SIGEF V14)
+- **Severidade:** ALERTA | **Prioridade:** P2
+- **Lógica:** Contas de receita orçamentária (ID_IC=6) devem ter Natureza da Receita (NR).
+- **Pseudocódigo:**
+  ```
+  contas_receita = pcasp[pcasp.ID_IC == 6].CONTA
+  PARA CADA registro WHERE CONTA IN contas_receita:
+    nr_presente = ANY(TIPO_n == "NR" for n in 1..6)
+    SE NOT nr_presente → ALERTA("receita sem NR")
+  ```
+- **Tabela:** PcaspEstendido2026 (ID_IC=6)
+- **Depende:** R020, R026
+
+#### R091 — Despesa orçamentária sem ND (SIGEF V15)
+- **Severidade:** ALERTA | **Prioridade:** P2
+- **Lógica:** Contas de despesa orçamentária (ID_IC=7 ou 9) devem ter Natureza da Despesa (ND).
+- **Pseudocódigo:**
+  ```
+  contas_despesa = pcasp[pcasp.ID_IC.isin([7, 9])].CONTA
+  PARA CADA registro WHERE CONTA IN contas_despesa:
+    nd_presente = ANY(TIPO_n == "ND" for n in 1..6)
+    SE NOT nd_presente → ALERTA("despesa sem ND")
+  ```
+- **Tabela:** PcaspEstendido2026 (ID_IC=7,9: 114 contas)
+- **Depende:** R020, R027
+
+#### R092 — Despesa orçamentária sem FS (SIGEF V16)
+- **Severidade:** ALERTA | **Prioridade:** P2
+- **Lógica:** Contas de despesa orçamentária (ID_IC=7 ou 9) devem ter Função/Subfunção (FS).
+- **Pseudocódigo:**
+  ```
+  contas_despesa = pcasp[pcasp.ID_IC.isin([7, 9])].CONTA
+  PARA CADA registro WHERE CONTA IN contas_despesa:
+    fs_presente = ANY(TIPO_n == "FS" for n in 1..6)
+    SE NOT fs_presente → ALERTA("despesa sem FS")
+  ```
+- **Tabela:** PcaspEstendido2026 (ID_IC=7,9)
+- **Depende:** R020, R028
+
+#### R093 — Despesa orçamentária sem FR (SIGEF V17)
+- **Severidade:** ALERTA | **Prioridade:** P2
+- **Lógica:** Contas de despesa orçamentária (ID_IC=7 ou 9) devem ter Fonte de Recursos (FR).
+- **Pseudocódigo:**
+  ```
+  contas_despesa = pcasp[pcasp.ID_IC.isin([7, 9])].CONTA
+  PARA CADA registro WHERE CONTA IN contas_despesa:
+    fr_presente = ANY(TIPO_n == "FR" for n in 1..6)
+    SE NOT fr_presente → ALERTA("despesa sem FR")
+  ```
+- **Tabela:** PcaspEstendido2026 (ID_IC=7,9)
+- **Depende:** R020, R024
+
+---
+
+## Mapeamento completo: SIGEF V## → Regra do catálogo
+
+| SIGEF | Descrição | Regra(s) | Status |
+|---|---|---|---|
+| V1 | Valores negativos | R0011 | Coberta |
+| V2 | SI + MOV ≠ SF | R031 | Coberta |
+| V3 | PO incorretos | R021 | Coberta |
+| V4 | Diferenças saldos entre meses | R054 | Coberta |
+| V5 | Ativo saldo invertido | **R086** (+ R032) | **Nova R086** |
+| V6 | Todos os PO | R034 | Coberta |
+| V7 | Dados executivo iguais entre meses | **R083** | **Nova** |
+| V9 | Passivo saldo invertido | **R087** (+ R032) | **Nova R087** |
+| V10 | PL saldo invertido | **R088** (+ R032) | **Nova R088** |
+| V11 | Conta F sem FR | **R084** | **Nova** |
+| V12 | Todas as classes | R068 | Coberta |
+| V13 | Receita sem FR | **R089** (+ R020) | **Nova R089** |
+| V14 | Receita sem NR | **R090** (+ R020) | **Nova R090** |
+| V15 | Despesa sem ND | **R091** (+ R020) | **Nova R091** |
+| V16 | Despesa sem FS | **R092** (+ R020) | **Nova R092** |
+| V17 | Despesa sem FR | **R093** (+ R020) | **Nova R093** |
+| V18 | SF anterior = SI | R054 | Coberta |
+| V19 | Depreciação sem movimentação | **R085** | **Nova** |
