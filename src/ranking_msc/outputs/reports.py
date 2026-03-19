@@ -187,7 +187,10 @@ def _auto_fit_columns(ws: Worksheet) -> None:
             (len(str(cell.value)) for cell in col if cell.value is not None),
             default=_MIN_COLUMN_WIDTH,
         )
-        ws.column_dimensions[col[0].column_letter].width = min(
+        first_cell = col[0]
+        if not hasattr(first_cell, "column_letter"):
+            continue
+        ws.column_dimensions[first_cell.column_letter].width = min(
             max_len + 4, _MAX_COLUMN_WIDTH
         )
 
