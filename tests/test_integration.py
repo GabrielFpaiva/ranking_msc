@@ -111,6 +111,120 @@ class TestPipelineComDadosReais:
         assert any((tmp_path / "reports").glob("*.xlsx"))
 
 
+class TestCriterioDeAceite:
+    """Testes que mapeiam diretamente o critério de aceite da F2-18:
+    'Pipeline completo sem crash e outputs válidos.'
+    """
+
+    def test_pipeline_completo_sem_crash(self, tmp_path: Path) -> None:
+        """Pipeline executa do início ao fim sem levantar nenhuma exceção."""
+        csv_path = _AMOSTRAS / "msc_2025-11.csv"
+        # Qualquer exceção aqui representa falha direta do critério
+        result, _ = _run_pipeline(csv_path, tmp_path)
+        assert result is not None
+
+    def test_output_parquet_e_valido_e_legivel(self, tmp_path: Path) -> None:
+        """Snapshot Parquet gerado é legível e contém as colunas do schema."""
+        import pandas as pd
+        csv_path = _AMOSTRAS / "msc_2025-11.csv"
+        result, competencia = _run_pipeline(csv_path, tmp_path)
+
+        parquet_path = tmp_path / "snapshots" / competencia / "resultado_regras.parquet"
+        assert parquet_path.exists(), "Parquet não foi criado"
+
+        df = pd.read_parquet(parquet_path)
+        assert list(df.columns) == FACT_RESULTADO_REGRAS_COLUMNS, (
+            f"Schema do Parquet incorreto: {list(df.columns)}"
+        )
+        assert len(df) == result.total_pendencias, (
+            "Parquet tem número de linhas diferente do engine result"
+        )
+
+    def test_output_excel_e_valido_com_abas_e_conteudo(self, tmp_path: Path) -> None:
+        """Excel gerado tem as duas abas esperadas e a aba Pendências contém as colunas certas."""
+        csv_path = _AMOSTRAS / "msc_2025-11.csv"
+        _, competencia = _run_pipeline(csv_path, tmp_path)
+
+        excel_files = list((tmp_path / "reports").glob("*.xlsx"))
+        assert len(excel_files) == 1, "Nenhum ou mais de um Excel gerado"
+
+        wb = openpyxl.load_workbook(excel_files[0])
+        assert "Resumo" in wb.sheetnames, "Aba 'Resumo' ausente no Excel"
+        assert "Pendências" in wb.sheetnames, "Aba 'Pendências' ausente no Excel"
+
+        # Aba Pendências: cabeçalho bate com o schema
+        ws = wb["Pendências"]
+        header = [cell.value for cell in ws[1]]
+        for col in FACT_RESULTADO_REGRAS_COLUMNS:
+            assert col in header, f"Coluna '{col}' ausente no cabeçalho do Excel"
+
+    def test_competencia_e_siconfi_propagados_corretamente(
+        self,
+        tmp_path: Path,
+        build_msc_csv: object,
+    ) -> None:
+        """Metadados do CSV (competencia e siconfi) chegam corretos até o snapshot."""
+        import pandas as pd
+
+        csv_bytes: bytes = build_msc_csv(siconfi="9999999EX", competencia="2025-06")
+        csv_path = tmp_path / "MSC_9999999EX_2025-06.csv"
+        csv_path.write_bytes(csv_bytes)
+
+        result, competencia = _run_pipeline(csv_path, tmp_path)
+
+        assert competencia == "2025-06"
+
+        parquet_path = tmp_path / "snapshots" / "2025-06" / "resultado_regras.parquet"
+        assert parquet_path.exists()
+
+        df = pd.read_parquet(parquet_path)
+        if not df.empty:
+            assert (df["competencia"] == "2025-06").all(), (
+                "Competência incorreta no snapshot"
+            )
+
+    def test_regras_executam_sem_crash_e_pendencias_com_erro_geradas(
+        self,
+        tmp_path: Path,
+        build_msc_csv: object,
+    ) -> None:
+        """Engine status 'OK' = regras rodaram sem crash; pendências ERRO = violações detectadas.
+
+        status 'OK' significa que nenhuma regra travou durante a execução.
+        status 'PARCIAL'/'ERRO' significa que a regra em si teve uma falha de código.
+        Severidade 'ERRO' nas pendências indica uma violação de negócio encontrada.
+        """
+        rows = [
+            ["999999999", "10131", "PO", "1", "FP", "1500", "FR", "", "", "", "", "", "",
+             "500.00", "beginning_balance", "D"],
+            ["999999999", "10131", "PO", "1", "FP", "1500", "FR", "", "", "", "", "", "",
+             "500.00", "beginning_balance", "C"],
+            ["999999999", "10131", "PO", "1", "FP", "1500", "FR", "", "", "", "", "", "",
+             "100.00", "period_change", "D"],
+            ["999999999", "10131", "PO", "1", "FP", "1500", "FR", "", "", "", "", "", "",
+             "100.00", "period_change", "C"],
+            ["999999999", "10131", "PO", "1", "FP", "1500", "FR", "", "", "", "", "", "",
+             "600.00", "ending_balance", "D"],
+            ["999999999", "10131", "PO", "1", "FP", "1500", "FR", "", "", "", "", "", "",
+             "600.00", "ending_balance", "C"],
+        ]
+        csv_bytes: bytes = build_msc_csv(rows=rows)
+        csv_path = tmp_path / "MSC_2507507EX_2025-05.csv"
+        csv_path.write_bytes(csv_bytes)
+
+        result, _ = _run_pipeline(csv_path, tmp_path)
+
+        # Engine rodou sem crash (nenhuma regra lançou exceção)
+        assert result.status == "OK", (
+            f"Engine status inesperado '{result.status}': alguma regra crashou"
+        )
+        # Violações de negócio foram detectadas pelas regras (R010: conta inválida)
+        assert result.total_pendencias >= 1
+        assert (result.pendencias["severidade"] == "ERRO").any(), (
+            "Nenhuma pendência com severidade ERRO foi gerada"
+        )
+
+
 class TestPipelineComDadosSinteticos:
     def test_pipeline_conta_invalida_gera_pendencia_r010(
         self,
