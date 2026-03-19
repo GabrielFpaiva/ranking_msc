@@ -44,6 +44,8 @@ class R021(Rule):
             DataFrame de pendências — uma linha por combinação
             conta/PO inválida encontrada.
         """
+        _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
+
         tabela_po_df = load_tabela_po(context.settings.paths.ref_dir)
         codigos_validos: set[str] = set(tabela_po_df["codigo"].astype(str))
 
@@ -88,9 +90,10 @@ class R021(Rule):
 
         if issues:
             logger.warning(
-                "R021: %d pendência(s) de PO inválido. competencia=%s",
+                "R021: %d pendência(s) de PO inválido. competência=%s",
                 len(issues),
                 context.competencia,
+                extra=_extra,
             )
 
         return self.build_issues(issues)

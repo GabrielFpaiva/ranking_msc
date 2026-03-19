@@ -50,6 +50,8 @@ class R003(Rule):
             DataFrame de pendências — uma linha por linha do CSV original
             com Tipo_valor fora do domínio.
         """
+        _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
+
         violacoes = [
             issue for issue in context.pre_pivot_issues
             if issue.get("regra") == "R003"
@@ -59,9 +61,10 @@ class R003(Rule):
             return self.build_issues([])
 
         logger.warning(
-            "R003: %d linha(s) com Tipo_valor inválido. competencia=%s",
+            "R003: %d linha(s) com Tipo_valor inválido. competência=%s",
             len(violacoes),
             context.competencia,
+            extra=_extra,
         )
 
         issues: list[dict[str, object]] = [

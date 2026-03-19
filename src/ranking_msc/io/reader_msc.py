@@ -135,8 +135,9 @@ def read_msc_csv(
 
     competencia, siconfi = _extract_metadata(lines[0])
     logger.info(
-        "Lendo CSV MSC: siconfi=%s, competencia=%s, fonte=%s",
+        "Lendo CSV MSC: siconfi=%s, competência=%s, fonte=%s",
         siconfi, competencia, source,
+        extra={"siconfi": siconfi, "competencia": competencia, "modulo": "reader_msc"},
     )
 
     csv_text = "\n".join(lines[1:])
@@ -147,6 +148,7 @@ def read_msc_csv(
     logger.info(
         "CSV MSC lido com sucesso: %d linhas pivotadas. Fonte: %s",
         len(df), source,
+        extra={"siconfi": siconfi, "competencia": competencia, "modulo": "reader_msc"},
     )
 
     return RawMSC(
@@ -330,6 +332,7 @@ def _pivot_values(
         logger.warning(
             "Combinações Tipo_valor × Natureza_valor desconhecidas: %s",
             sorted(str(c) for c in unknown),
+            extra={"competencia": competencia, "siconfi": siconfi, "modulo": "reader_msc"},
         )
 
     # Mapear para nomes de coluna

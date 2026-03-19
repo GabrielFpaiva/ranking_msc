@@ -129,6 +129,15 @@ def run_engine(df: pd.DataFrame, context: EngineContext) -> EngineResult:
             rule = rule_class()
             issues_df = _validate_rule_output(rule.execute(df, context), rule_id=rule_id)
             pendencias_parts.append(issues_df)
+            logger.info(
+                "Regra %s executada: %d pendência(s)",
+                rule_id, len(issues_df),
+                extra={
+                    "execucao_id": context.execucao_id,
+                    "competencia": context.competencia,
+                    "regra_id": rule_id,
+                },
+            )
         except Exception as exc:  # noqa: BLE001
             error = _build_rule_error(rule_id=rule_id, exc=exc)
             _handle_rule_error(

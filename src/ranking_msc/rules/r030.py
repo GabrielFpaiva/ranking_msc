@@ -49,6 +49,8 @@ class R030(Rule):
             DataFrame de pendências — uma linha por conta com
             mov_D ≠ mov_C acima da tolerância.
         """
+        _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
+
         df_patrimonial = df[
             df["conta_contabil"].astype(str).str[:1].isin(_CLASSES_PATRIMONIAIS)
         ][["conta_contabil", "movimento_debito", "movimento_credito"]].copy()
@@ -79,9 +81,10 @@ class R030(Rule):
             return self.build_issues([])
 
         logger.warning(
-            "R030: %d conta(s) com D≠C. competencia=%s",
+            "R030: %d conta(s) com D≠C. competência=%s",
             len(violacoes),
             context.competencia,
+            extra=_extra,
         )
 
         issues: list[dict[str, object]] = [

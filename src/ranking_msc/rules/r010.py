@@ -44,6 +44,8 @@ class R010(Rule):
         Returns:
             DataFrame de pendências — uma linha por conta inválida encontrada.
         """
+        _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
+
         pcasp_df = load_pcasp(context.settings.paths.ref_dir)
         contas_validas: set[str] = set(pcasp_df["conta_contabil"].astype(str))
 
@@ -57,9 +59,10 @@ class R010(Rule):
             return self.build_issues([])
 
         logger.warning(
-            "R010: %d conta(s) não encontrada(s) no PCASP. competencia=%s",
+            "R010: %d conta(s) não encontrada(s) no PCASP. competência=%s",
             len(contas_invalidas),
             context.competencia,
+            extra=_extra,
         )
 
         issues: list[dict[str, object]] = [

@@ -47,6 +47,8 @@ class R004(Rule):
             DataFrame de pendências — uma linha por linha do CSV original
             com Natureza_valor diferente de D ou C.
         """
+        _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
+
         violacoes = [
             issue for issue in context.pre_pivot_issues
             if issue.get("regra") == "R004"
@@ -56,9 +58,10 @@ class R004(Rule):
             return self.build_issues([])
 
         logger.warning(
-            "R004: %d linha(s) com Natureza_valor inválida. competencia=%s",
+            "R004: %d linha(s) com Natureza_valor inválida. competência=%s",
             len(violacoes),
             context.competencia,
+            extra=_extra,
         )
 
         issues: list[dict[str, object]] = [
