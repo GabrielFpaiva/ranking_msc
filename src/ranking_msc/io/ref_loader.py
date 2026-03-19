@@ -137,7 +137,10 @@ def load_pcasp(ref_dir: str | Path = "ref") -> pd.DataFrame:
     )
 
     _CACHE_PCASP[path] = df
-    logger.info("Tabela PCASP carregada: %s (%d contas).", path, len(df))
+    logger.info(
+        "Tabela PCASP carregada: %s (%d contas).", path, len(df),
+        extra={"modulo": "ref_loader", "tabela": "pcasp"},
+    )
     return df.copy()
 
 
@@ -184,7 +187,10 @@ def load_dominios_fr(ref_dir: str | Path = "ref") -> pd.DataFrame:
     )
 
     _CACHE_DOMINIOS_FR[path] = df
-    logger.info("Domínio FR carregado: %s (%d códigos).", path, len(df))
+    logger.info(
+        "Domínio FR carregado: %s (%d códigos).", path, len(df),
+        extra={"modulo": "ref_loader", "tabela": "dominios_fr"},
+    )
     return df.copy()
 
 
@@ -214,7 +220,10 @@ def load_tabela_po(ref_dir: str | Path = "ref") -> pd.DataFrame:
     )
 
     _CACHE_PO[path] = df
-    logger.info("Tabela PO carregada: %s (%d códigos).", path, len(df))
+    logger.info(
+        "Tabela PO carregada: %s (%d códigos).", path, len(df),
+        extra={"modulo": "ref_loader", "tabela": "po"},
+    )
     return df.copy()
 
 
@@ -244,7 +253,10 @@ def load_tabela_co(ref_dir: str | Path = "ref") -> pd.DataFrame:
     )
 
     _CACHE_CO[path] = df
-    logger.info("Tabela CO carregada: %s (%d códigos).", path, len(df))
+    logger.info(
+        "Tabela CO carregada: %s (%d códigos).", path, len(df),
+        extra={"modulo": "ref_loader", "tabela": "co"},
+    )
     return df.copy()
 
 
@@ -278,7 +290,10 @@ def load_tabela_fr(ref_dir: str | Path = "ref") -> pd.DataFrame:
     )
 
     _CACHE_FR[path] = df
-    logger.info("Tabela FR carregada: %s (%d códigos-raiz).", path, len(df))
+    logger.info(
+        "Tabela FR carregada: %s (%d códigos-raiz).", path, len(df),
+        extra={"modulo": "ref_loader", "tabela": "fr"},
+    )
     return df.copy()
 
 
@@ -309,7 +324,10 @@ def load_tabela_nr(ref_dir: str | Path = "ref") -> pd.DataFrame:
     )
 
     _CACHE_NR[path] = df
-    logger.info("Tabela NR carregada: %s (%d códigos).", path, len(df))
+    logger.info(
+        "Tabela NR carregada: %s (%d códigos).", path, len(df),
+        extra={"modulo": "ref_loader", "tabela": "nr"},
+    )
     return df.copy()
 
 
@@ -341,7 +359,10 @@ def load_tabela_nd(ref_dir: str | Path = "ref") -> pd.DataFrame:
     )
 
     _CACHE_ND[path] = df
-    logger.info("Tabela ND carregada: %s (%d códigos).", path, len(df))
+    logger.info(
+        "Tabela ND carregada: %s (%d códigos).", path, len(df),
+        extra={"modulo": "ref_loader", "tabela": "nd"},
+    )
     return df.copy()
 
 
@@ -372,7 +393,10 @@ def load_tabela_fs(ref_dir: str | Path = "ref") -> pd.DataFrame:
     )
 
     _CACHE_FS[path] = df
-    logger.info("Tabela FS carregada: %s (%d combinações).", path, len(df))
+    logger.info(
+        "Tabela FS carregada: %s (%d combinações).", path, len(df),
+        extra={"modulo": "ref_loader", "tabela": "fs"},
+    )
     return df.copy()
 
 

@@ -34,20 +34,35 @@ from typing import Any
 # JSON Formatter para arquivos
 # ---------------------------------------------------------------------------
 
+# Atributos internos de LogRecord que NÃO devem ir para o JSONL.
+# Gerado via ``set(vars(logging.LogRecord(...)))``.
+_INTERNAL_LOG_ATTRS: frozenset[str] = frozenset({
+    "args", "created", "exc_info", "exc_text", "filename", "funcName",
+    "levelname", "levelno", "lineno", "message", "module", "msecs", "msg",
+    "name", "pathname", "process", "processName", "relativeCreated",
+    "stack_info", "taskName", "thread", "threadName",
+})
+
+
 class JSONLineFormatter(logging.Formatter):
-    """Formatter que emite cada registro como uma linha JSON."""
+    """Formatter que emite cada registro como uma linha JSON.
+
+    Captura dinamicamente qualquer campo ``extra={}`` passado nas chamadas
+    de log, sem necessidade de manter lista fixa de campos conhecidos.
+    """
 
     def format(self, record: logging.LogRecord) -> str:
+        """Formata um LogRecord como linha JSON."""
         log_entry: dict[str, Any] = {
             "ts": datetime.fromtimestamp(record.created).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "msg": record.getMessage(),
         }
-        # Campos extras injetados via logging.info("msg", extra={...})
-        for key in ("execucao_id", "competencia", "siconfi", "regra_id", "usuario"):
-            if hasattr(record, key):
-                log_entry[key] = getattr(record, key)
+        # Captura dinâmica: qualquer campo extra que não seja interno do logging
+        for key, value in record.__dict__.items():
+            if key not in _INTERNAL_LOG_ATTRS:
+                log_entry[key] = value
 
         if record.exc_info and record.exc_info[1]:
             log_entry["exception"] = str(record.exc_info[1])

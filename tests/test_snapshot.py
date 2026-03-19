@@ -141,7 +141,7 @@ def test_write_snapshot_atomic_remove_tmp_quando_gravacao_falha(
 
 def test_read_snapshot_ausente_levanta_snapshoterror(local_snapshot_dir: Path) -> None:
     """Levanta SnapshotError quando arquivo parquet nao existe."""
-    with pytest.raises(SnapshotError, match="Snapshot nao encontrado"):
+    with pytest.raises(SnapshotError, match="Snapshot não encontrado"):
         read_snapshot(
             competencia="2024-01",
             base_dir=local_snapshot_dir,

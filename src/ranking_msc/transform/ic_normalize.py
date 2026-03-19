@@ -102,6 +102,7 @@ def normalize_ic(
             "Combinações IC/TIPO não mapeadas encontradas (%d): %s",
             len(unknown),
             [_format_combination(combo) for combo in unknown],
+            extra={"modulo": "ic_normalize"},
         )
 
     return normalized_df

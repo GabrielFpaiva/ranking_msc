@@ -11,6 +11,7 @@ Formato gerado:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -19,6 +20,8 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from ranking_msc.exceptions import ReportError
 from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS
+
+logger = logging.getLogger("ranking_msc")
 
 _SEVERITY_ORDER = ["ERRO", "ALERTA", "INFO"]
 _SEVERITY_COLORS: dict[str, str] = {
@@ -82,6 +85,11 @@ def export_issues_excel(
             f"Falha ao exportar relatório Excel para competência {competencia}: {exc}"
         ) from exc
 
+    logger.info(
+        "Relatório Excel exportado: competência=%s path=%s (%d pendências)",
+        competencia, output_path.resolve(), len(df_pendencias),
+        extra={"competencia": competencia, "modulo": "reports"},
+    )
     return output_path.resolve()
 
 
