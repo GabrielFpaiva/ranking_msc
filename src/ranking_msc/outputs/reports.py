@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from ranking_msc.exceptions import ReportError
@@ -182,12 +183,16 @@ def _freeze_and_filter(ws: Worksheet) -> None:
 
 def _auto_fit_columns(ws: Worksheet) -> None:
     """Ajusta largura de cada coluna ao conteúdo mais longo."""
-    for col in ws.columns:
+    for col_idx in range(1, ws.max_column + 1):
         max_len = max(
-            (len(str(cell.value)) for cell in col if cell.value is not None),
+            (
+                len(str(ws.cell(row=row_idx, column=col_idx).value))
+                for row_idx in range(1, ws.max_row + 1)
+                if ws.cell(row=row_idx, column=col_idx).value is not None
+            ),
             default=_MIN_COLUMN_WIDTH,
         )
-        ws.column_dimensions[col[0].column_letter].width = min(
+        ws.column_dimensions[get_column_letter(col_idx)].width = min(
             max_len + 4, _MAX_COLUMN_WIDTH
         )
 
