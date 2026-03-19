@@ -20,6 +20,7 @@ from ranking_msc.transform.ic_normalize import normalize_ic
 _TYPE_TO_COL: dict[str, str] = {
     "PO": "po",
     "FP": "fp",
+    "DC": "dc",
     "FS": "fs",
     "FR": "fr",
     "CO": "co",
@@ -194,3 +195,57 @@ def test_normalize_ic_caminho_default_independente_do_cwd(
 
     result = normalize_ic(df)
     assert result.iloc[0]["po"] == "10131"
+
+
+def test_normalize_ic_tipo_dc_mapeia_para_coluna_dc() -> None:
+    """TIPO=DC mapeado para coluna 'dc' com valor correto."""
+    df = pd.DataFrame(
+        [
+            {
+                "ic1": "10131",
+                "tipo1": "PO",
+                "ic2": "01",
+                "tipo2": "FP",
+                "ic3": "1",
+                "tipo3": "DC",
+                "ic4": "",
+                "tipo4": "",
+                "ic5": "",
+                "tipo5": "",
+                "ic6": "",
+                "tipo6": "",
+            },
+        ],
+    )
+
+    result = normalize_ic(df)
+
+    assert result.iloc[0]["dc"] == "1"
+    assert result.iloc[0]["po"] == "10131"
+    assert result.iloc[0]["fp"] == "01"
+
+
+def test_normalize_ic_dc_ausente_resulta_em_string_vazia() -> None:
+    """Coluna 'dc' é string vazia quando nenhum IC tem TIPO=DC."""
+    df = pd.DataFrame(
+        [
+            {
+                "ic1": "10131",
+                "tipo1": "PO",
+                "ic2": "001",
+                "tipo2": "FP",
+                "ic3": "1500",
+                "tipo3": "FR",
+                "ic4": "",
+                "tipo4": "",
+                "ic5": "",
+                "tipo5": "",
+                "ic6": "",
+                "tipo6": "",
+            },
+        ],
+    )
+
+    result = normalize_ic(df)
+
+    assert result.iloc[0]["dc"] == ""

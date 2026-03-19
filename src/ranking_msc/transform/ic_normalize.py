@@ -8,15 +8,18 @@ O CSV MSC original contém colunas IC e TIPO que codificam informações
 sobre como interpretar cada linha (Patrimonial, Orçamentário, Controle, etc.).
 A normalização separa essas informações em colunas individuais:
 
-    IC/TIPO originais  →  PO, FR, CO, NR, ND, FS
+    IC/TIPO originais  →  PO, FP, DC, FR, CO, NR, ND, FS, AI
 
 Onde:
     PO = Poder/Órgão
+    FP = Atributo Superávit Financeiro (F=1, P=2)
+    DC = Dívida Consolidada
     FR = Fonte de Recurso
-    CO = Complemento do Órgão
+    CO = Código de Acompanhamento da Execução Orçamentária
     NR = Natureza da Receita
     ND = Natureza da Despesa
-    FS = Função/Subfunção
+    FS = Classificação Funcional / Função e Subfunção
+    AI = Ano de Inscrição de Restos a Pagar
 
 Este módulo é chamado logo após ``read_msc_csv()`` e antes do motor
 de regras, garantindo que o DataFrame esteja no formato padronizado.
@@ -43,6 +46,7 @@ _MAPPING_REQUIRED_COLS: list[str] = [
 _TIPO_TO_COL: dict[str, str] = {
     "PO": "po",
     "FP": "fp",
+    "DC": "dc",
     "FS": "fs",
     "FR": "fr",
     "CO": "co",
