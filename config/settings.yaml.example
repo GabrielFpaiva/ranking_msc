@@ -23,11 +23,7 @@ rules:
     - "R010"
     - "R021"
     - "R030"
-    - "R082"
-    - "R083"
-    - "R084"
-    - "R085"
-    # ... adicionar até R111
+    # R082-R111: a implementar nas próximas sprints
   fail_fast: false                    # true = para ao primeiro ERRO
 
 security:
