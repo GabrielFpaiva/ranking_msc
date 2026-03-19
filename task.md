@@ -32,14 +32,14 @@ Responda nesta estrutura:
 9. Plano final para aprovação
 
 Task:
-[Criar script CLI de execução (run_pipeline.py)	]
+[Testes unitários — Regras piloto]
 
 Descrição task:
-[Script que orquestra o pipeline completo via linha de comando: recebe caminho do CSV como argumento, carrega settings, lê CSV, normaliza IC, roda engine, grava snapshot, gera Excel, registra log. Serve como validação e também como alternativa ao web_app. Usar argparse com --csv, --config (opcional), --output-dir (opcional).	]
+[Testes positivos/negativos para cada regra piloto.]
 
 Entregável:
-[scripts/run_pipeline.py executável	]
+[tests/test_rules.py]
 Referências: 
 []
 Critério de aceite:
-[python scripts/run_pipeline.py --csv ref/amostras/MSC_xxx.csv gera snapshot + Excel + log sem erro	]
+[Cada regra com ≥2 testes.]
