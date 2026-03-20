@@ -8,7 +8,7 @@ Aplicação web interna para validação da Matriz de Saldos Contábeis (MSC) co
 
 ### O que faz
 
-O Ranking MSC recebe o CSV mensal da MSC, aplica regras de validação (R082 a R111) e produz:
+O Ranking MSC recebe o CSV mensal da MSC, aplica regras de validação e produz:
 
 - **Pendências detalhadas** por regra, conta contábil e severidade.
 - **Score de conformidade** para a competência processada.
@@ -29,7 +29,7 @@ O Ranking MSC recebe o CSV mensal da MSC, aplica regras de validação (R082 a R
                     └──────────┬─────────────┘
                                │
                     ┌──────────▼─────────────┐
-                    │  transform/             │  ← Normalização IC → PO/FR/CO/NR/ND/FS
+                    │  transform/             │  ← Normalização IC → PO, FP, DC, FS, FR, CO, NR, ND, AI
                     │  ic_normalize.py        │
                     └──────────┬─────────────┘
                                │
@@ -60,7 +60,7 @@ O Ranking MSC recebe o CSV mensal da MSC, aplica regras de validação (R082 a R
 
 1. **Upload** — Usuário envia CSV MSC via interface web.
 2. **Leitura** — `reader_msc.py` extrai metadados (competência, SICONFI) e produz DataFrame bruto.
-3. **Normalização** — `ic_normalize.py` expande colunas IC/TIPO em PO, FR, CO, NR, ND, FS.
+3. **Normalização** — `ic_normalize.py` expande colunas IC/TIPO nos 9 atributos: PO, FP, DC, FS, FR, CO, NR, ND, AI.
 4. **Execução** — `executor.py` carrega regras habilitadas do YAML, executa cada uma e consolida pendências.
 5. **Saída** — Snapshots Parquet são gravados atomicamente; relatórios Excel ficam disponíveis para download; logs vão para arquivo JSON Lines.
 
@@ -150,23 +150,55 @@ ranking_msc/
 │       ├── engine/
 │       │   └── executor.py      # Motor principal (EngineContext, EngineResult)
 │       ├── rules/
-│       │   └── base.py          # Classe base Rule + RULE_REGISTRY
+│       │   ├── base.py          # Classe base Rule + RULE_REGISTRY
+│       │   ├── r003.py          # Tipo_valor válido
+│       │   ├── r004.py          # Natureza_valor válida
+│       │   ├── r010.py          # Conta existe no PCASP
+│       │   ├── r021.py          # PO válido
+│       │   └── r030.py          # Fechamento patrimonial D=C
 │       ├── io/
-│       │   └── reader_msc.py    # Leitura do CSV MSC
+│       │   ├── reader_msc.py    # Leitura do CSV MSC
+│       │   └── ref_loader.py    # Carregamento de tabelas de referência (PCASP, domínios)
 │       ├── transform/
-│       │   └── ic_normalize.py  # Normalização IC → PO/FR/CO/NR/ND/FS
+│       │   └── ic_normalize.py  # Normalização IC → PO, FP, DC, FS, FR, CO, NR, ND, AI
 │       └── outputs/
 │           ├── snapshot.py      # Escrita Parquet atômica
-│           ├── reports.py       # Exportação Excel
+│           ├── reports.py       # Exportação Excel (abas: Resumo + Pendências)
 │           └── logs.py          # Logging JSON Lines
 ├── tests/
-│   └── test_smoke.py            # Smoke tests (import, config, stubs)
+│   ├── conftest.py              # Fixtures compartilhadas
+│   ├── test_smoke.py            # Smoke tests
+│   ├── test_reader.py           # io/reader_msc.py
+│   ├── test_normalize.py        # transform/ic_normalize.py
+│   ├── test_ref_loader.py       # io/ref_loader.py
+│   ├── test_engine.py           # engine/executor.py
+│   ├── test_rules.py            # regras genéricas
+│   ├── test_r003_r004.py        # R003, R004
+│   ├── test_r010.py             # R010
+│   ├── test_r021.py             # R021
+│   ├── test_r030.py             # R030
+│   ├── test_mapeamento_ic_tipo.py
+│   ├── test_snapshot.py         # outputs/snapshot.py
+│   ├── test_reports.py          # outputs/reports.py
+│   ├── test_logs.py             # outputs/logs.py
+│   ├── test_integration.py      # Pipeline ponta a ponta
+│   └── test_run_pipeline.py     # scripts/run_pipeline.py
+├── doc/
+│   └── fase3_plan.md            # Handoff e roadmap da Fase 3
 ├── data/
 │   ├── snapshots/               # Parquet por competência (gitignored)
 │   ├── reports/                 # Excel gerados (gitignored)
 │   └── logs/                    # Logs JSON Lines (gitignored)
-├── ref/                         # Tabelas de referência (PCASP, domínios)
-│   └── (colocar arquivos AAAA aqui)
+├── ref/                         # Tabelas de referência (PCASP, domínios, amostras)
+│   ├── layout_msc.md            # Especificação do CSV MSC
+│   ├── mapeamento_ic_tipo.csv   # Combinações IC/TIPO válidas
+│   ├── regras_piloto.md         # Documentação das 5 regras piloto
+│   ├── regras_catalogo.md       # Catálogo completo de regras
+│   ├── resultados_piloto.md     # Resultados das execuções com dados reais
+│   ├── pcasp.csv                # PCASP Estendido 2026
+│   └── tabela_po/fr/co/fs/nd/nr.csv  # Tabelas de domínio por atributo
+├── scripts/
+│   └── run_pipeline.py          # CLI de execução do pipeline
 ├── pyproject.toml
 ├── README.md
 └── .gitignore
@@ -246,24 +278,25 @@ Pronto. O executor já carregará a regra automaticamente.
 
 ---
 
-## Checklist — Base pronta para iniciar implementação
+## Fase 2 — Concluída ✅
 
-- [x] Estrutura de repositório criada
-- [x] `pyproject.toml` com dependências
+Todas as entregas da Fase 2 estão prontas. O pipeline roda de ponta a ponta com dados reais.
+
+- [x] Estrutura de repositório e `pyproject.toml`
 - [x] Settings YAML com loader e validação
-- [x] Exceções customizadas
-- [x] Schemas de colunas definidos
+- [x] Exceções customizadas e schemas de colunas
 - [x] Classe base `Rule` com registro automático
 - [x] Engine com `EngineContext` e `EngineResult`
-- [x] Stubs de I/O (reader, snapshot, reports)
-- [x] Logging estruturado configurado
-- [x] App Panel com abas obrigatórias
-- [x] Smoke tests passando
-- [ ] **Próximo:** Implementar `read_msc_csv()` com CSV real
-- [ ] **Próximo:** Implementar `normalize_ic()` com tabela de IC→colunas
-- [ ] **Próximo:** Implementar primeira regra (R082)
-- [ ] **Próximo:** Implementar `run_engine()` (loop de regras)
-- [ ] **Próximo:** Implementar `write_snapshot_atomic()` e `export_issues_excel()`
+- [x] `read_msc_csv()` — leitura e parse do CSV MSC real
+- [x] `normalize_ic()` — 9 tipos IC (PO, FP, DC, FS, FR, CO, NR, ND, AI) conforme STN 642/2026
+- [x] `ref_loader.py` — PCASP + tabelas de domínio com cache
+- [x] Regras piloto: R003, R004, R010, R021, R030
+- [x] Outputs: snapshot Parquet atômico, Excel (Resumo + Pendências), log JSON Lines
+- [x] Scripts CLI (`run_pipeline.py`)
+- [x] 190 testes passando (pytest), ruff e mypy limpos
+- [x] Execução validada com CSVs reais (2025-11 e 2025-12 — SICONFI 2507507EX)
+
+**Próximo:** ver [`doc/fase3_plan.md`](doc/fase3_plan.md) para o roadmap da Fase 3.
 
 ### Comandos rápidos
 
