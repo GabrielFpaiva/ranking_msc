@@ -16,8 +16,8 @@ O pipeline principal é:
 CSV MSC → read_msc_csv() → normalize_ic() → run_engine(regras) → snapshot + Excel + log
 ```
 
-Estamos na **Fase 2**: pipeline funcional rodando local com 3–5 regras piloto.
-Dashboard (Panel) e deploy no servidor ficam para a Fase 3.
+**Fase 2 concluída** (F2-11 a F2-23). Iniciando **Fase 3**: implementação do catálogo completo de regras (R001–R070).
+Dashboard (Panel) e deploy no servidor são a Fase 5.
 
 ---
 
@@ -464,7 +464,7 @@ mypy src/                 # tipos ok?
 - **Não commitar `config/settings.yaml`** — só o `.example` vai pro repo
 - **Não commitar dados de `data/`** — está no `.gitignore`
 - **Não criar dependências desnecessárias** — discutir antes de adicionar pacote
-- **Não alterar `app/web_app.py` na Fase 2** — dashboard é Fase 3
+- **Não alterar `app/web_app.py` na Fase 3** — dashboard é Fase 5
 
 ---
 

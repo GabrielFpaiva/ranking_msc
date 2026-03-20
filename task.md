@@ -32,14 +32,16 @@ Responda nesta estrutura:
 9. Plano final para aprovação
 
 Task:
-[Testes unitários — Regras piloto]
+[Documentar Fase 2 + handoff Fase 3]
 
 Descrição task:
-[Testes positivos/negativos para cada regra piloto.]
+[README atualizado + plano Fase 3.]
 
 Entregável:
-[tests/test_rules.py]
-Referências: 
-[]
+[README + doc/fase3_plan.md]
+
+Referências:
+[F2-11 a F2-23, backlog_regras_msc_completo.xlsx]
+
 Critério de aceite:
-[Cada regra com ≥2 testes.]
+[Documentação suficiente para handoff — outro dev entende o que foi feito e o que falta sem abrir o backlog Excel.]
