@@ -17,6 +17,7 @@ import pytest
 
 from ranking_msc.engine.executor import EngineContext
 from ranking_msc.rules.r001 import R001
+from ranking_msc.rules.r002 import R002
 from ranking_msc.rules.r003 import R003
 from ranking_msc.rules.r004 import R004
 from ranking_msc.rules.r010 import R010
@@ -435,4 +436,49 @@ class TestR001:
             ],
         )
         result = R001().execute(_empty_df(), ctx)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R002 — CONTA preenchida em todas as linhas
+# ---------------------------------------------------------------------------
+
+
+class TestR002:
+    def test_todas_contas_preenchidas_nao_gera_pendencia(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Todas linhas com conta_contabil preenchida → nenhuma pendência."""
+        df = pd.DataFrame({"conta_contabil": ["111110200", "211000000"]})
+        result = R002().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_conta_vazia_string_gera_pendencia_erro(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Linha com conta_contabil='' → pendência ERRO."""
+        df = pd.DataFrame({"conta_contabil": ["111110200", ""]})
+        result = R002().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R002"
+        assert result.iloc[0]["severidade"] == "ERRO"
+
+    def test_multiplas_contas_vazias_geram_uma_pendencia_por_linha(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Duas linhas com CONTA vazia → duas pendências."""
+        df = pd.DataFrame({"conta_contabil": ["", "", "111110200"]})
+        result = R002().execute(df, engine_context)
+        assert len(result) == 2
+
+    def test_df_sem_coluna_conta_contabil_retorna_vazio_sem_excecao(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """DataFrame sem coluna conta_contabil → retorna vazio sem exceção."""
+        df = pd.DataFrame({"outra_coluna": ["valor"]})
+        result = R002().execute(df, engine_context)
         assert len(result) == 0
