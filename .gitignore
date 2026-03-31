@@ -20,11 +20,15 @@ env/
 
 
 # Dados (não versionar arquivos de dados)
-data/snapshots/
-data/reports/
-data/logs/
+data/
 *.parquet
 *.jsonl
+
+# Relatórios e scripts de geração
+doc/
+*.xlsx
+*.docx
+scripts/gen_*.py
 
 # Config real (só o .example vai pro repo)
 config/settings.yaml
