@@ -16,6 +16,7 @@ import pandas as pd
 import pytest
 
 from ranking_msc.engine.executor import EngineContext
+from ranking_msc.rules.r001 import R001
 from ranking_msc.rules.r003 import R003
 from ranking_msc.rules.r004 import R004
 from ranking_msc.rules.r010 import R010
@@ -354,4 +355,84 @@ class TestR030:
         """Diferença ≤ 0.01 (tolerância) → não gera pendência."""
         df = self._df_patrimonial("211000000", 1000.00, 999.995)
         result = R030().execute(df, engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R001 — Colunas obrigatórias presentes
+# ---------------------------------------------------------------------------
+
+
+class TestR001:
+    def test_sem_issues_r001_nao_gera_pendencia(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Contexto sem issues R001 → nenhuma pendência."""
+        result = R001().execute(_empty_df(), engine_context)
+        assert len(result) == 0
+
+    def test_coluna_ausente_gera_pendencia_erro(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Issue R001 no pre_pivot_issues → pendência ERRO por coluna ausente."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R001",
+                    "conta_contabil": "",
+                    "campo": "IC5",
+                    "valor_encontrado": "coluna ausente no CSV",
+                }
+            ],
+        )
+        result = R001().execute(_empty_df(), ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R001"
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert "IC5" in result.iloc[0]["descricao"]
+
+    def test_multiplas_colunas_ausentes_geram_multiplas_pendencias(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Múltiplas colunas ausentes → uma pendência por coluna."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {"regra": "R001", "conta_contabil": "", "campo": "IC5", "valor_encontrado": "coluna ausente no CSV"},
+                {"regra": "R001", "conta_contabil": "", "campo": "TIPO5", "valor_encontrado": "coluna ausente no CSV"},
+            ],
+        )
+        result = R001().execute(_empty_df(), ctx)
+        assert len(result) == 2
+
+    def test_issues_de_outras_regras_nao_afetam_r001(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Issues de R005 no pre_pivot_issues não geram pendências R001."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R005",
+                    "conta_contabil": "111110200",
+                    "campo": "Valor",
+                    "valor_encontrado": "abc",
+                }
+            ],
+        )
+        result = R001().execute(_empty_df(), ctx)
         assert len(result) == 0
