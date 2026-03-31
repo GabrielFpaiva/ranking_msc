@@ -329,6 +329,20 @@ def _pivot_values(
         As violações registram linhas com Tipo_valor ou Natureza_valor
         fora do domínio válido (usadas pelas regras R003 e R004).
     """
+    # R005: capturar valores não-numéricos antes do coerce
+    _valor_raw = df["Valor"].astype(str).str.strip().str.replace(",", ".", regex=False)
+    _invalidos = pd.to_numeric(_valor_raw, errors="coerce").isna() & _valor_raw.ne("")
+    r005_issues: list[dict[str, object]] = [
+        {
+            "regra": "R005",
+            "conta_contabil": str(df.loc[idx, "CONTA"]) if "CONTA" in df.columns else "",
+            "campo": "Valor",
+            "valor_encontrado": str(df.loc[idx, "Valor"]),
+            "competencia": competencia,
+        }
+        for idx in df.index[_invalidos]
+    ]
+
     # Converter Valor para float
     df["Valor"] = pd.to_numeric(df["Valor"].str.replace(",", "."), errors="coerce").fillna(0.0)
 
@@ -409,4 +423,4 @@ def _pivot_values(
     final_cols = [c for c in RAW_MSC_COLUMNS if c in pivoted.columns]
     pivoted = pivoted[final_cols]
 
-    return pivoted, pre_pivot_issues
+    return pivoted, pre_pivot_issues + r005_issues

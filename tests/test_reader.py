@@ -357,3 +357,56 @@ class TestReaderR001:
         csv_bytes = build_msc_csv(header=header, rows=rows)
         with pytest.raises(InputFormatError, match="críticas"):
             read_msc_csv(io.BytesIO(csv_bytes))
+
+
+# ---------------------------------------------------------------------------
+# Reader — R005 (Valor não-numérico)
+# ---------------------------------------------------------------------------
+
+
+class TestReaderR005:
+    """Testes do comportamento R005 no reader (Valor não-numérico)."""
+
+    def test_csv_com_valores_numericos_retorna_zero_issues_r005(
+        self,
+        build_msc_csv: Callable[..., bytes],
+    ) -> None:
+        """CSV com todos os Valores numéricos → pre_pivot_issues sem R005."""
+        raw = read_msc_csv(io.BytesIO(build_msc_csv()))
+        r005 = [i for i in raw.pre_pivot_issues if i["regra"] == "R005"]
+        assert r005 == []
+
+    def test_csv_com_valor_texto_coleta_issue_r005(
+        self,
+        build_msc_csv: Callable[..., bytes],
+    ) -> None:
+        """CSV com Valor='abc' → issue R005 com valor_encontrado='abc'."""
+        rows = [
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "", "abc", "beginning_balance", "D"],
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "", "500.00", "beginning_balance", "C"],
+        ]
+        csv_bytes = build_msc_csv(rows=rows)
+        raw = read_msc_csv(io.BytesIO(csv_bytes))
+        r005 = [i for i in raw.pre_pivot_issues if i["regra"] == "R005"]
+        assert len(r005) == 1
+        assert r005[0]["valor_encontrado"] == "abc"
+        assert r005[0]["conta_contabil"] == "111110200"
+
+    def test_csv_com_valor_virgula_como_decimal_coleta_issue_r005(
+        self,
+        build_msc_csv: Callable[..., bytes],
+    ) -> None:
+        """CSV com Valor='1.234,56' (vírgula como decimal) → issue R005."""
+        rows = [
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "", "1.234,56", "beginning_balance", "D"],
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "", "500.00", "beginning_balance", "C"],
+        ]
+        csv_bytes = build_msc_csv(rows=rows)
+        raw = read_msc_csv(io.BytesIO(csv_bytes))
+        r005 = [i for i in raw.pre_pivot_issues if i["regra"] == "R005"]
+        assert len(r005) == 1
+        assert "1.234,56" in r005[0]["valor_encontrado"]
