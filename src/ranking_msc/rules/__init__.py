@@ -12,6 +12,7 @@ Exemplo:
     from ranking_msc.rules.r082 import R082  # noqa: F401
 """
 
+from ranking_msc.rules.r001 import R001  # noqa: F401
 from ranking_msc.rules.r003 import R003  # noqa: F401
 from ranking_msc.rules.r004 import R004  # noqa: F401
 from ranking_msc.rules.r010 import R010  # noqa: F401
