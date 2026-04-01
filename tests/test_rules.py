@@ -22,6 +22,7 @@ from ranking_msc.rules.r003 import R003
 from ranking_msc.rules.r004 import R004
 from ranking_msc.rules.r005 import R005
 from ranking_msc.rules.r010 import R010
+from ranking_msc.rules.r011 import R011
 from ranking_msc.rules.r021 import R021
 from ranking_msc.rules.r030 import R030
 
@@ -587,8 +588,6 @@ class TestR005:
 # R011 — Conta é de último nível (analítica)
 # ---------------------------------------------------------------------------
 
-from ranking_msc.rules.r011 import R011
-
 
 class TestR011:
     def test_conta_ultimo_nivel_nao_gera_pendencia(
@@ -658,5 +657,19 @@ class TestR011:
             "ranking_msc.rules.r011.load_pcasp", lambda *a, **kw: _pcasp_stub()
         )
         df = pd.DataFrame({"conta_contabil": ["999999999"]})
+        result = R011().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_pcasp_sem_coluna_nivel_retorna_vazio_sem_excecao(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """PCASP sem coluna 'nivel' → retorna vazio sem levantar exceção."""
+        pcasp_sem_nivel = pd.DataFrame({"conta_contabil": ["111110200"]})
+        monkeypatch.setattr(
+            "ranking_msc.rules.r011.load_pcasp", lambda *a, **kw: pcasp_sem_nivel
+        )
+        df = pd.DataFrame({"conta_contabil": ["111110200"]})
         result = R011().execute(df, engine_context)
         assert len(result) == 0

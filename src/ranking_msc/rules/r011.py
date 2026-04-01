@@ -64,6 +64,8 @@ class R011(Rule):
             .assign(conta_contabil=lambda x: x["conta_contabil"].astype(str))
         )
 
+        # inner join: contas ausentes no PCASP são responsabilidade de R010 e
+        # não devem gerar pendências duplicadas aqui.
         merged = contas_unicas.merge(
             pcasp_df[["conta_contabil", "nivel"]].assign(
                 conta_contabil=lambda x: x["conta_contabil"].astype(str)
