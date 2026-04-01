@@ -68,7 +68,8 @@ class R011(Rule):
         # não devem gerar pendências duplicadas aqui.
         merged = contas_unicas.merge(
             pcasp_df[["conta_contabil", "nivel"]].assign(
-                conta_contabil=lambda x: x["conta_contabil"].astype(str)
+                conta_contabil=lambda x: x["conta_contabil"].astype(str),
+                nivel=lambda x: x["nivel"].astype(str).str.strip(),
             ),
             on="conta_contabil",
             how="inner",
