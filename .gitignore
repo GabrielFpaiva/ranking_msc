@@ -33,6 +33,9 @@ scripts/gen_*.py
 # Config real (só o .example vai pro repo)
 config/settings.yaml
 
+# Git worktrees
+.worktrees/
+
 # OS
 .DS_Store
 Thumbs.db
