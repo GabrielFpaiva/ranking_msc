@@ -23,6 +23,7 @@ from ranking_msc.rules.r004 import R004
 from ranking_msc.rules.r005 import R005
 from ranking_msc.rules.r010 import R010
 from ranking_msc.rules.r011 import R011
+from ranking_msc.rules.r012 import R012
 from ranking_msc.rules.r021 import R021
 from ranking_msc.rules.r030 import R030
 
@@ -672,4 +673,95 @@ class TestR011:
         )
         df = pd.DataFrame({"conta_contabil": ["111110200"]})
         result = R011().execute(df, engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R012 — Conta está Ativa no PCASP
+# ---------------------------------------------------------------------------
+
+
+class TestR012:
+    def test_conta_ativa_nao_gera_pendencia(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Conta com status == 'Ativa' no PCASP → nenhuma pendência."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r012.load_pcasp", lambda *a, **kw: _pcasp_stub()
+        )
+        df = pd.DataFrame({"conta_contabil": ["111110200", "211000000"]})
+        result = R012().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_conta_inativa_gera_pendencia_alerta(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Conta com status != 'Ativa' no PCASP → pendência ALERTA."""
+        pcasp_com_inativa = pd.DataFrame(
+            {
+                "conta_contabil": ["111110200", "211000000"],
+                "nivel": ["Último", "Último"],
+                "status": ["Ativa", "Inativa"],
+            }
+        )
+        monkeypatch.setattr(
+            "ranking_msc.rules.r012.load_pcasp", lambda *a, **kw: pcasp_com_inativa
+        )
+        df = pd.DataFrame({"conta_contabil": ["211000000"]})
+        result = R012().execute(df, engine_context)
+
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R012"
+        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert "211000000" in result.iloc[0]["descricao"]
+
+    def test_conta_inativa_duplicada_gera_uma_pendencia(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Conta inativa duplicada no DataFrame → uma única pendência (deduplicação)."""
+        pcasp_com_inativa = pd.DataFrame(
+            {
+                "conta_contabil": ["211000000"],
+                "nivel": ["Último"],
+                "status": ["Inativa"],
+            }
+        )
+        monkeypatch.setattr(
+            "ranking_msc.rules.r012.load_pcasp", lambda *a, **kw: pcasp_com_inativa
+        )
+        df = pd.DataFrame({"conta_contabil": ["211000000", "211000000"]})
+        result = R012().execute(df, engine_context)
+        assert len(result) == 1
+
+    def test_conta_ausente_no_pcasp_nao_gera_pendencia_r012(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Conta ausente no PCASP (domínio de R010) → R012 não gera pendência."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r012.load_pcasp", lambda *a, **kw: _pcasp_stub()
+        )
+        df = pd.DataFrame({"conta_contabil": ["999999999"]})
+        result = R012().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_pcasp_sem_coluna_status_retorna_vazio_sem_excecao(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """PCASP sem coluna 'status' → retorna vazio sem levantar exceção."""
+        pcasp_sem_status = pd.DataFrame({"conta_contabil": ["111110200"]})
+        monkeypatch.setattr(
+            "ranking_msc.rules.r012.load_pcasp", lambda *a, **kw: pcasp_sem_status
+        )
+        df = pd.DataFrame({"conta_contabil": ["111110200"]})
+        result = R012().execute(df, engine_context)
         assert len(result) == 0
