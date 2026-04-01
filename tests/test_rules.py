@@ -19,6 +19,7 @@ from ranking_msc.engine.executor import EngineContext
 from ranking_msc.rules.r001 import R001
 from ranking_msc.rules.r002 import R002
 from ranking_msc.rules.r003 import R003
+from ranking_msc.rules.r005 import R005
 from ranking_msc.rules.r004 import R004
 from ranking_msc.rules.r010 import R010
 from ranking_msc.rules.r021 import R021
@@ -481,4 +482,90 @@ class TestR002:
         """DataFrame sem coluna conta_contabil → retorna vazio sem exceção."""
         df = pd.DataFrame({"outra_coluna": ["valor"]})
         result = R002().execute(df, engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R005 — Valor numérico válido
+# ---------------------------------------------------------------------------
+
+
+class TestR005:
+    def test_sem_issues_r005_nao_gera_pendencia(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Contexto sem issues R005 → nenhuma pendência."""
+        result = R005().execute(_empty_df(), engine_context)
+        assert len(result) == 0
+
+    def test_valor_nao_numerico_gera_pendencia_erro(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Issue R005 no pre_pivot_issues → pendência ERRO."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R005",
+                    "conta_contabil": "111110200",
+                    "campo": "Valor",
+                    "valor_encontrado": "1.234,56",
+                    "competencia": "2024-01",
+                }
+            ],
+        )
+        result = R005().execute(_empty_df(), ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R005"
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert "1.234,56" in result.iloc[0]["valor_encontrado"]
+
+    def test_descricao_menciona_ponto_como_separador(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Pendência R005 → descrição menciona separador decimal como ponto."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R005",
+                    "conta_contabil": "111110200",
+                    "campo": "Valor",
+                    "valor_encontrado": "INVALIDO",
+                    "competencia": "2024-01",
+                }
+            ],
+        )
+        result = R005().execute(_empty_df(), ctx)
+        assert len(result) == 1
+        assert "ponto" in result.iloc[0]["descricao"].lower()
+
+    def test_issues_de_r003_nao_afetam_r005(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Issues de R003 no pre_pivot_issues não geram pendências R005."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R003",
+                    "conta_contabil": "111110200",
+                    "valor_encontrado": "tipo_invalido",
+                }
+            ],
+        )
+        result = R005().execute(_empty_df(), ctx)
         assert len(result) == 0
