@@ -45,6 +45,7 @@ Run through this checklist on every file changed:
 - [ ] `execute()` returns via `self.build_issues()` only
 - [ ] Import present in `rules/__init__.py`
 - [ ] Rule ID in `config/settings.yaml.example`
+- [ ] Colunas de texto do PCASP/referência normalizadas com `.str.strip()` antes de comparação (ex: `nivel`, `status`, `nat_saldo`)
 
 ### Tests
 - [ ] At least one positive test (valid input → no issues or correct output)
@@ -68,6 +69,7 @@ Run through this checklist on every file changed:
 | `from __future__` missing | Add to first line |
 | No type hint on return | Add `-> pd.DataFrame:` |
 | `Optional[str]` | Use `str | None` (Python 3.11+) |
+| `merged[col] != "Ativa"` (sem strip) | `assign(col=lambda x: x[col].str.strip())` antes do merge |
 
 ## Review Output Format
 

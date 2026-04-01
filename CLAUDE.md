@@ -282,6 +282,7 @@ class TestR<NNN>:
 - [ ] Import em `rules/__init__.py`
 - [ ] ID adicionado em `settings.yaml`
 - [ ] Pelo menos 2 testes (positivo + negativo)
+- [ ] Colunas de texto de tabelas de referência normalizadas com `.str.strip()` antes de comparação (ex: `nivel`, `status`, `nat_saldo`)
 
 ### 4.2 Como adicionar uma nova coluna ao schema
 
@@ -465,6 +466,7 @@ mypy src/                 # tipos ok?
 - **Não commitar dados de `data/`** — está no `.gitignore`
 - **Não criar dependências desnecessárias** — discutir antes de adicionar pacote
 - **Não alterar `app/web_app.py` na Fase 3** — dashboard é Fase 5
+- **Não comparar colunas de texto de tabelas de referência sem `.str.strip()`** — `load_pcasp()` e outros loaders não normalizam colunas como `nivel`, `status`, `nat_saldo`; sempre use `.assign(col=lambda x: x[col].str.strip())` no `assign` do merge antes de filtrar
 
 ---
 
