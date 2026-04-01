@@ -24,6 +24,7 @@ rules:
     - "R004"
     - "R005"
     - "R010"
+    - "R011"
     - "R021"
     - "R030"
     # R082-R111: a implementar nas próximas sprints
