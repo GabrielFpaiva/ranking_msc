@@ -16,8 +16,11 @@ import pandas as pd
 import pytest
 
 from ranking_msc.engine.executor import EngineContext
+from ranking_msc.rules.r001 import R001
+from ranking_msc.rules.r002 import R002
 from ranking_msc.rules.r003 import R003
 from ranking_msc.rules.r004 import R004
+from ranking_msc.rules.r005 import R005
 from ranking_msc.rules.r010 import R010
 from ranking_msc.rules.r021 import R021
 from ranking_msc.rules.r030 import R030
@@ -354,4 +357,225 @@ class TestR030:
         """Diferença ≤ 0.01 (tolerância) → não gera pendência."""
         df = self._df_patrimonial("211000000", 1000.00, 999.995)
         result = R030().execute(df, engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R001 — Colunas obrigatórias presentes
+# ---------------------------------------------------------------------------
+
+
+class TestR001:
+    def test_sem_issues_r001_nao_gera_pendencia(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Contexto sem issues R001 → nenhuma pendência."""
+        result = R001().execute(_empty_df(), engine_context)
+        assert len(result) == 0
+
+    def test_coluna_ausente_gera_pendencia_erro(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Issue R001 no pre_pivot_issues → pendência ERRO por coluna ausente."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R001",
+                    "conta_contabil": "",
+                    "campo": "IC5",
+                    "valor_encontrado": "coluna ausente no CSV",
+                }
+            ],
+        )
+        result = R001().execute(_empty_df(), ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R001"
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert "IC5" in result.iloc[0]["descricao"]
+
+    def test_multiplas_colunas_ausentes_geram_multiplas_pendencias(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Múltiplas colunas ausentes → uma pendência por coluna."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R001",
+                    "conta_contabil": "",
+                    "campo": "IC5",
+                    "valor_encontrado": "coluna ausente no CSV",
+                },
+                {
+                    "regra": "R001",
+                    "conta_contabil": "",
+                    "campo": "TIPO5",
+                    "valor_encontrado": "coluna ausente no CSV",
+                },
+            ],
+        )
+        result = R001().execute(_empty_df(), ctx)
+        assert len(result) == 2
+
+    def test_issues_de_outras_regras_nao_afetam_r001(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Issues de R005 no pre_pivot_issues não geram pendências R001."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R005",
+                    "conta_contabil": "111110200",
+                    "campo": "Valor",
+                    "valor_encontrado": "abc",
+                }
+            ],
+        )
+        result = R001().execute(_empty_df(), ctx)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R002 — CONTA preenchida em todas as linhas
+# ---------------------------------------------------------------------------
+
+
+class TestR002:
+    def test_todas_contas_preenchidas_nao_gera_pendencia(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Todas linhas com conta_contabil preenchida → nenhuma pendência."""
+        df = pd.DataFrame({"conta_contabil": ["111110200", "211000000"]})
+        result = R002().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_conta_vazia_string_gera_pendencia_erro(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Linha com conta_contabil='' → pendência ERRO."""
+        df = pd.DataFrame({"conta_contabil": ["111110200", ""]})
+        result = R002().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R002"
+        assert result.iloc[0]["severidade"] == "ERRO"
+
+    def test_multiplas_contas_vazias_geram_uma_pendencia_por_linha(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Duas linhas com CONTA vazia → duas pendências."""
+        df = pd.DataFrame({"conta_contabil": ["", "", "111110200"]})
+        result = R002().execute(df, engine_context)
+        assert len(result) == 2
+
+    def test_df_sem_coluna_conta_contabil_retorna_vazio_sem_excecao(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """DataFrame sem coluna conta_contabil → retorna vazio sem exceção."""
+        df = pd.DataFrame({"outra_coluna": ["valor"]})
+        result = R002().execute(df, engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R005 — Valor numérico válido
+# ---------------------------------------------------------------------------
+
+
+class TestR005:
+    def test_sem_issues_r005_nao_gera_pendencia(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Contexto sem issues R005 → nenhuma pendência."""
+        result = R005().execute(_empty_df(), engine_context)
+        assert len(result) == 0
+
+    def test_valor_nao_numerico_gera_pendencia_erro(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Issue R005 no pre_pivot_issues → pendência ERRO."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R005",
+                    "conta_contabil": "111110200",
+                    "campo": "Valor",
+                    "valor_encontrado": "1.234,56",
+                    "competencia": "2024-01",
+                }
+            ],
+        )
+        result = R005().execute(_empty_df(), ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R005"
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert "1.234,56" in result.iloc[0]["valor_encontrado"]
+
+    def test_descricao_menciona_ponto_como_separador(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Pendência R005 → descrição menciona separador decimal como ponto."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R005",
+                    "conta_contabil": "111110200",
+                    "campo": "Valor",
+                    "valor_encontrado": "INVALIDO",
+                    "competencia": "2024-01",
+                }
+            ],
+        )
+        result = R005().execute(_empty_df(), ctx)
+        assert len(result) == 1
+        assert "ponto" in result.iloc[0]["descricao"].lower()
+
+    def test_issues_de_r003_nao_afetam_r005(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        """Issues de R003 no pre_pivot_issues não geram pendências R005."""
+        ctx = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R003",
+                    "conta_contabil": "111110200",
+                    "valor_encontrado": "tipo_invalido",
+                }
+            ],
+        )
+        result = R005().execute(_empty_df(), ctx)
         assert len(result) == 0

@@ -45,6 +45,11 @@ _ALL_CSV_COLUMNS: list[str] = [
     "Valor", "Tipo_valor", "Natureza_valor",
 ]
 
+# Colunas sem as quais o pivot é impossível — levantam exceção imediata
+_CRITICAL_CSV_COLUMNS: frozenset[str] = frozenset(
+    {"CONTA", "Valor", "Tipo_valor", "Natureza_valor"}
+)
+
 # Mapeamento Tipo_valor × Natureza_valor → nome da coluna pivotada
 _PIVOT_MAP: dict[tuple[str, str], str] = {
     ("beginning_balance", "D"): "saldo_inicial_debito",
@@ -142,8 +147,9 @@ def read_msc_csv(
 
     csv_text = "\n".join(lines[1:])
     df = _parse_csv(csv_text, separator, source)
-    _validate_columns(df, source)
-    df, pre_pivot_issues = _pivot_values(df, competencia, siconfi)
+    r001_issues = _validate_columns(df, source)
+    df, pivot_issues = _pivot_values(df, competencia, siconfi)
+    pre_pivot_issues = r001_issues + pivot_issues
 
     logger.info(
         "CSV MSC lido com sucesso: %d linhas pivotadas. Fonte: %s",
@@ -255,15 +261,43 @@ def _parse_csv(csv_text: str, separator: str, source: str) -> pd.DataFrame:
     return df
 
 
-def _validate_columns(df: pd.DataFrame, source: str) -> None:
-    """Valida que as colunas obrigatórias estão presentes no DataFrame."""
-    missing = set(_REQUIRED_CSV_COLUMNS) - set(df.columns)
-    if missing:
+def _validate_columns(df: pd.DataFrame, source: str) -> list[dict[str, object]]:
+    """Valida colunas do CSV e coleta issues R001 para colunas ausentes.
+
+    Levanta InputFormatError apenas se colunas críticas (CONTA, Valor,
+    Tipo_valor, Natureza_valor) estiverem ausentes — sem elas o pivot é
+    impossível. Demais ausências viram issues R001 para o motor de regras.
+
+    Args:
+        df: DataFrame lido do CSV (antes do pivot).
+        source: nome/caminho do arquivo de origem.
+
+    Returns:
+        Lista de issues R001 (pode ser vazia).
+
+    Raises:
+        InputFormatError: se alguma coluna crítica estiver ausente.
+    """
+    missing = [col for col in _ALL_CSV_COLUMNS if col not in df.columns]
+    issues: list[dict[str, object]] = [
+        {
+            "regra": "R001",
+            "conta_contabil": "",
+            "campo": col,
+            "valor_encontrado": "coluna ausente no CSV",
+        }
+        for col in missing
+    ]
+
+    critical_missing = {col for col in missing if col in _CRITICAL_CSV_COLUMNS}
+    if critical_missing:
         raise InputFormatError(
-            f"Colunas obrigatórias ausentes no CSV MSC: {sorted(missing)}. "
+            f"Colunas críticas ausentes no CSV MSC: {sorted(critical_missing)}. "
             f"Colunas encontradas: {list(df.columns)}. "
             f"Fonte: {source}"
         )
+
+    return issues
 
 
 _TIPO_VALOR_DOMAIN: frozenset[str] = frozenset(
@@ -295,6 +329,20 @@ def _pivot_values(
         As violações registram linhas com Tipo_valor ou Natureza_valor
         fora do domínio válido (usadas pelas regras R003 e R004).
     """
+    # R005: capturar valores não-numéricos antes do coerce
+    _valor_raw = df["Valor"].astype(str).str.strip().str.replace(",", ".", regex=False)
+    _invalidos = pd.to_numeric(_valor_raw, errors="coerce").isna() & _valor_raw.ne("")
+    r005_issues: list[dict[str, object]] = [
+        {
+            "regra": "R005",
+            "conta_contabil": str(df.loc[idx, "CONTA"]) if "CONTA" in df.columns else "",
+            "campo": "Valor",
+            "valor_encontrado": str(df.loc[idx, "Valor"]),
+            "competencia": competencia,
+        }
+        for idx in df.index[_invalidos]
+    ]
+
     # Converter Valor para float
     df["Valor"] = pd.to_numeric(df["Valor"].str.replace(",", "."), errors="coerce").fillna(0.0)
 
@@ -375,4 +423,4 @@ def _pivot_values(
     final_cols = [c for c in RAW_MSC_COLUMNS if c in pivoted.columns]
     pivoted = pivoted[final_cols]
 
-    return pivoted, pre_pivot_issues
+    return pivoted, pre_pivot_issues + r005_issues

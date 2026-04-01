@@ -226,7 +226,7 @@ class TestReadMscCsvNegativo:
         )
         path = tmp_path / "sem_conta.csv"
         path.write_bytes(content)
-        with pytest.raises(InputFormatError, match="Colunas obrigatórias ausentes"):
+        with pytest.raises(InputFormatError, match="críticas"):
             read_msc_csv(path)
 
     def test_csv_sem_dados_levanta_inputformaterror(self, tmp_path: Path) -> None:
@@ -299,3 +299,114 @@ class TestReadMscCsvReal:
         ]
         for col in value_cols:
             assert (result.df[col] >= 0).all(), f"Coluna '{col}' contém valores negativos"
+
+
+# ---------------------------------------------------------------------------
+# Reader — R001 (validação de colunas)
+# ---------------------------------------------------------------------------
+
+
+class TestReaderR001:
+    """Testes do comportamento R001 no reader (colunas ausentes)."""
+
+    def test_csv_com_todas_colunas_retorna_zero_issues_r001(
+        self,
+        build_msc_csv: Callable[..., bytes],
+    ) -> None:
+        """CSV com todas as 16 colunas → pre_pivot_issues sem R001."""
+        raw = read_msc_csv(io.BytesIO(build_msc_csv()))
+        r001 = [i for i in raw.pre_pivot_issues if i["regra"] == "R001"]
+        assert r001 == []
+
+    def test_csv_sem_coluna_ic5_coleta_issue_r001(
+        self,
+        build_msc_csv: Callable[..., bytes],
+    ) -> None:
+        """CSV sem IC5 → uma issue R001 com campo='IC5', sem levantar exceção."""
+        header = (
+            "CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4"
+            ";TIPO5;IC6;TIPO6;Valor;Tipo_valor;Natureza_valor"
+        )
+        # 15 campos correspondendo ao header de 15 colunas
+        rows = [
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "1000.00", "beginning_balance", "D"],
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "500.00", "beginning_balance", "C"],
+        ]
+        csv_bytes = build_msc_csv(header=header, rows=rows)
+        raw = read_msc_csv(io.BytesIO(csv_bytes))
+        r001 = [i for i in raw.pre_pivot_issues if i["regra"] == "R001"]
+        assert len(r001) == 1
+        assert r001[0]["campo"] == "IC5"
+
+    def test_csv_sem_coluna_critica_levanta_inputformaterror(
+        self,
+        build_msc_csv: Callable[..., bytes],
+    ) -> None:
+        """CSV sem coluna crítica 'Valor' → InputFormatError."""
+        header = (
+            "CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4"
+            ";IC5;TIPO5;IC6;TIPO6;Tipo_valor;Natureza_valor"
+        )
+        # 15 campos correspondendo ao header de 15 colunas (sem Valor)
+        rows = [
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "beginning_balance", "D", ""],
+        ]
+        csv_bytes = build_msc_csv(header=header, rows=rows)
+        with pytest.raises(InputFormatError, match="críticas"):
+            read_msc_csv(io.BytesIO(csv_bytes))
+
+
+# ---------------------------------------------------------------------------
+# Reader — R005 (Valor não-numérico)
+# ---------------------------------------------------------------------------
+
+
+class TestReaderR005:
+    """Testes do comportamento R005 no reader (Valor não-numérico)."""
+
+    def test_csv_com_valores_numericos_retorna_zero_issues_r005(
+        self,
+        build_msc_csv: Callable[..., bytes],
+    ) -> None:
+        """CSV com todos os Valores numéricos → pre_pivot_issues sem R005."""
+        raw = read_msc_csv(io.BytesIO(build_msc_csv()))
+        r005 = [i for i in raw.pre_pivot_issues if i["regra"] == "R005"]
+        assert r005 == []
+
+    def test_csv_com_valor_texto_coleta_issue_r005(
+        self,
+        build_msc_csv: Callable[..., bytes],
+    ) -> None:
+        """CSV com Valor='abc' → issue R005 com valor_encontrado='abc'."""
+        rows = [
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "", "abc", "beginning_balance", "D"],
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "", "500.00", "beginning_balance", "C"],
+        ]
+        csv_bytes = build_msc_csv(rows=rows)
+        raw = read_msc_csv(io.BytesIO(csv_bytes))
+        r005 = [i for i in raw.pre_pivot_issues if i["regra"] == "R005"]
+        assert len(r005) == 1
+        assert r005[0]["valor_encontrado"] == "abc"
+        assert r005[0]["conta_contabil"] == "111110200"
+
+    def test_csv_com_valor_virgula_como_decimal_coleta_issue_r005(
+        self,
+        build_msc_csv: Callable[..., bytes],
+    ) -> None:
+        """CSV com Valor='1.234,56' (vírgula como decimal) → issue R005."""
+        rows = [
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "", "1.234,56", "beginning_balance", "D"],
+            ["111110200", "10131", "PO", "1", "FP", "1500", "FR",
+             "", "", "", "", "", "", "500.00", "beginning_balance", "C"],
+        ]
+        csv_bytes = build_msc_csv(rows=rows)
+        raw = read_msc_csv(io.BytesIO(csv_bytes))
+        r005 = [i for i in raw.pre_pivot_issues if i["regra"] == "R005"]
+        assert len(r005) == 1
+        assert "1.234,56" in r005[0]["valor_encontrado"]
