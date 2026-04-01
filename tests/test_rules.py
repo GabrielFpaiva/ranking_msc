@@ -37,7 +37,7 @@ def _empty_df() -> pd.DataFrame:
 
 
 def _pcasp_stub() -> pd.DataFrame:
-    """PCASP reduzido: contas das quatro classes patrimoniais + resultado."""
+    """PCASP reduzido: contas analíticas ativas das quatro classes patrimoniais."""
     return pd.DataFrame(
         {
             "conta_contabil": [
@@ -45,7 +45,9 @@ def _pcasp_stub() -> pd.DataFrame:
                 "211000000",
                 "311000000",
                 "411000000",
-            ]
+            ],
+            "nivel": ["Último", "Último", "Último", "Último"],
+            "status": ["Ativa", "Ativa", "Ativa", "Ativa"],
         }
     )
 
