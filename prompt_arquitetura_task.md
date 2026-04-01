@@ -40,10 +40,33 @@ Responda nesta estrutura:
 9. Plano final para aprovação
 
 Task:
-[COLE A TASK AQUI]
+F3-02 — Implementar R011 e R012 (PCASP: nível e status da conta)
+
+Contexto:
+- R011 (ERRO): toda conta_contabil na MSC deve ser de último nível (analítica).
+  Contas sintéticas (nivel == "Superior" no PCASP) não devem ser informadas.
+- R012 (ALERTA): contas com status != "Ativa" no PCASP não devem constar no MSC.
+  Indica possível uso de plano de contas desatualizado.
+- Ambas dependem de R010 (conta existe no PCASP) já implementada.
+- Tabela de referência: ref/pcasp.csv (sep=";") — colunas: conta_contabil, id_ic,
+  nat_saldo, status, nivel, ind_sf
+- load_pcasp() já existe em io/ref_loader.py e faz cache. Deve ser reutilizada.
+
+Entregáveis:
+- src/ranking_msc/rules/r011.py
+- src/ranking_msc/rules/r012.py
+- Registro em src/ranking_msc/rules/__init__.py
+- Habilitação em config/settings.yaml.example
+- Testes em tests/test_rules.py (ou arquivo próprio)
 
 Critério de aceite:
-[COLE O CRITÉRIO DE ACEITE AQUI]
+- Conta com nivel == "Superior" no PCASP → R011 gera pendência com severidade ERRO.
+- Conta com nivel == "Último" no PCASP → R011 não gera pendência.
+- Conta com status != "Ativa" no PCASP → R012 gera pendência com severidade ALERTA.
+- Conta com status == "Ativa" no PCASP → R012 não gera pendência.
+- pytest passa sem erros.
+- ruff check src/ tests/ sem erros.
+- mypy src/ sem erros.
 ```
 
 ---
