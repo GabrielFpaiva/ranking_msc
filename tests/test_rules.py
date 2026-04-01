@@ -19,8 +19,8 @@ from ranking_msc.engine.executor import EngineContext
 from ranking_msc.rules.r001 import R001
 from ranking_msc.rules.r002 import R002
 from ranking_msc.rules.r003 import R003
-from ranking_msc.rules.r005 import R005
 from ranking_msc.rules.r004 import R004
+from ranking_msc.rules.r005 import R005
 from ranking_msc.rules.r010 import R010
 from ranking_msc.rules.r021 import R021
 from ranking_msc.rules.r030 import R030
@@ -410,8 +410,18 @@ class TestR001:
             settings=engine_context.settings,
             usuario=engine_context.usuario,
             pre_pivot_issues=[
-                {"regra": "R001", "conta_contabil": "", "campo": "IC5", "valor_encontrado": "coluna ausente no CSV"},
-                {"regra": "R001", "conta_contabil": "", "campo": "TIPO5", "valor_encontrado": "coluna ausente no CSV"},
+                {
+                    "regra": "R001",
+                    "conta_contabil": "",
+                    "campo": "IC5",
+                    "valor_encontrado": "coluna ausente no CSV",
+                },
+                {
+                    "regra": "R001",
+                    "conta_contabil": "",
+                    "campo": "TIPO5",
+                    "valor_encontrado": "coluna ausente no CSV",
+                },
             ],
         )
         result = R001().execute(_empty_df(), ctx)
