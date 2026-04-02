@@ -15,13 +15,13 @@ def _df_ai(conta: str, ai: object) -> pd.DataFrame:
 
 
 class TestR029:
-    def test_ai_ausente_nao_gera_pendencia(self, engine_context: object) -> None:
+    def test_ai_valor_ausente_nao_gera_pendencia(self, engine_context: object) -> None:
         """Linha sem AI (coluna vazia) não gera pendência."""
         df = _df_ai("111110200", "")
         result = R029().execute(df, engine_context)
         assert len(result) == 0
 
-    def test_ai_ausente_nan_nao_gera_pendencia(self, engine_context: object) -> None:
+    def test_ai_valor_nan_nao_gera_pendencia(self, engine_context: object) -> None:
         """Linha com AI None/NaN não gera pendência."""
         df = _df_ai("111110200", None)
         result = R029().execute(df, engine_context)
@@ -43,8 +43,8 @@ class TestR029:
         result = R029().execute(df, engine_context)
 
         assert len(result) == 1
-        assert result.iloc[0]["regra_id"] == "R029"
         assert result.iloc[0]["severidade"] == "ERRO"
+        assert result.iloc[0]["regra_id"] == "R029"
         assert "202" in result.iloc[0]["descricao"]
         assert "111110200" in result.iloc[0]["descricao"]
         assert result.iloc[0]["competencia"] == "2024-01"
@@ -67,8 +67,8 @@ class TestR029:
         result = R029().execute(df, engine_context)
 
         assert len(result) == 1
-        assert result.iloc[0]["regra_id"] == "R029"
         assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["regra_id"] == "R029"
         assert "1999" in result.iloc[0]["descricao"]
 
     def test_ai_ano_acima_do_corrente_gera_alerta(
@@ -81,10 +81,10 @@ class TestR029:
 
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
-        assert ano_futuro in result.iloc[0]["descricao"]
         assert result.iloc[0]["regra_id"] == "R029"
+        assert ano_futuro in result.iloc[0]["descricao"]
 
-    def test_multiplas_linhas_cada_uma_com_ai_invalido(
+    def test_multiplas_linhas_ai_invalido_geram_pendencias_distintas(
         self, engine_context: object
     ) -> None:
         """Múltiplas linhas com AI inválido geram uma pendência por combinação conta/AI."""
