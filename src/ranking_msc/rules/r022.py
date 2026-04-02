@@ -14,29 +14,17 @@ Referência:
 from __future__ import annotations
 
 import logging
-import math
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from ranking_msc.io.ref_loader import FP_DOMAIN
-from ranking_msc.rules.base import Rule, register_rule
+from ranking_msc.rules.base import Rule, ic_esta_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
 
 logger = logging.getLogger("ranking_msc")
-
-_IC_VAZIA: frozenset[str] = frozenset({"", "0", "nan"})
-
-
-def _fp_esta_informado(val: object) -> bool:
-    """Retorna True se o valor da coluna FP está preenchido (não é vazio)."""
-    if val is None:
-        return False
-    if isinstance(val, float) and math.isnan(val):
-        return False
-    return str(val).strip() not in _IC_VAZIA
 
 
 @register_rule
@@ -64,7 +52,7 @@ class R022(Rule):
             return self.build_issues([])
 
         df_com_fp = df[["conta_contabil", "fp"]].copy()
-        df_com_fp = df_com_fp[df_com_fp["fp"].apply(_fp_esta_informado)]
+        df_com_fp = df_com_fp[df_com_fp["fp"].apply(ic_esta_informada)]
         df_com_fp["fp"] = df_com_fp["fp"].astype(str).str.strip()
 
         if df_com_fp.empty:

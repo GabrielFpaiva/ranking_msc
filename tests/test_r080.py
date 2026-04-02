@@ -54,7 +54,7 @@ class TestR080:
         df = _make_df("1.1111.02")
         rule = R080()
         result = rule.execute(df, engine_context)
-        assert len(result) >= 1
+        assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ERRO"
         assert result.iloc[0]["regra_id"] == "R080"
 

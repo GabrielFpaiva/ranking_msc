@@ -53,7 +53,7 @@ class R080(Rule):
 
         # Filtrar linhas onde conta_contabil não é NaN/None
         contas = df["conta_contabil"].dropna().astype(str).str.strip()
-        contas_invalidas = contas[~(contas.str.len() == 9) | ~contas.str.isdigit()]
+        contas_invalidas = contas[~(contas.str.len() == 9) | ~(contas.str.isdigit())]
 
         # Uma pendência por conta distinta com formato inválido
         contas_invalidas_unicas = contas_invalidas.unique()

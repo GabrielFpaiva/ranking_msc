@@ -34,6 +34,7 @@ O retorno é SEMPRE um DataFrame com as colunas definidas em
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -131,6 +132,32 @@ class Rule(ABC):
 #     from ranking_msc.rules.base import register_rule
 #     @register_rule
 #     class R082(Rule): ...
+
+# ---------------------------------------------------------------------------
+# Helper compartilhado para validação de IC vazia
+# ---------------------------------------------------------------------------
+
+_IC_VAZIA: frozenset[str] = frozenset({"", "0", "nan"})
+
+
+def ic_esta_informada(val: object) -> bool:
+    """Retorna True se o valor de uma IC está preenchido (não é vazio).
+
+    Trata None, float NaN, string vazia, "0" e "nan" como valores vazios.
+    Compartilhado por todas as regras que validam colunas IC.
+
+    Args:
+        val: valor bruto da célula de uma coluna IC.
+
+    Returns:
+        True se a IC está informada, False caso contrário.
+    """
+    if val is None:
+        return False
+    if isinstance(val, float) and math.isnan(val):
+        return False
+    return str(val).strip() not in _IC_VAZIA
+
 
 RULE_REGISTRY: dict[str, type[Rule]] = {}
 

@@ -19,19 +19,20 @@ Referência:
 from __future__ import annotations
 
 import logging
-import math
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ranking_msc.rules.base import Rule, register_rule
+from ranking_msc.rules.base import Rule, ic_esta_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
 
 logger = logging.getLogger("ranking_msc")
 
-# Mapa de colunas IC para número de dígitos esperados
+# Mapa de colunas IC para número de dígitos esperados.
+# Nota: R023 valida o domínio de DC (valor "1"); R081 valida o formato (1 dígito numérico).
+# As duas regras são complementares — não há sobreposição de responsabilidade.
 IC_DIGITOS: dict[str, int] = {
     "po": 5,
     "fp": 1,
@@ -43,24 +44,6 @@ IC_DIGITOS: dict[str, int] = {
     "fs": 5,
     "ai": 4,
 }
-
-_IC_VAZIA: frozenset[str] = frozenset({"", "0", "nan"})
-
-
-def _ic_esta_informada(val: object) -> bool:
-    """Retorna True se o valor da coluna IC está preenchido (não é vazio).
-
-    Args:
-        val: valor bruto da célula da coluna IC.
-
-    Returns:
-        True se a IC está informada, False caso contrário.
-    """
-    if val is None:
-        return False
-    if isinstance(val, float) and math.isnan(val):
-        return False
-    return str(val).strip() not in _IC_VAZIA
 
 
 @register_rule
@@ -89,30 +72,36 @@ class R081(Rule):
             if col not in df.columns:
                 continue
 
-            # Filtrar linhas onde IC está informada
-            df_com_ic = df[["conta_contabil", col]].copy()
-            df_com_ic = df_com_ic[df_com_ic[col].apply(_ic_esta_informada)]
+            # Filtrar primeiro, depois copiar apenas o slice reduzido
+            mask_informada = df[col].apply(ic_esta_informada)
+            df_com_ic = df.loc[mask_informada, ["conta_contabil", col]].copy()
 
             if df_com_ic.empty:
                 continue
 
-            for _, row in df_com_ic.iterrows():
-                val = str(row[col]).strip()
-                conta = str(row["conta_contabil"])
+            # Vetorizar a validação de formato; iterrows() apenas sobre violações
+            df_com_ic[col] = df_com_ic[col].astype(str).str.strip()
+            mask_invalido = ~(
+                (df_com_ic[col].str.len() == digitos_esperados)
+                & df_com_ic[col].str.isdigit()
+            )
+            violacoes = df_com_ic[mask_invalido]
 
-                if len(val) != digitos_esperados or not val.isdigit():
-                    issues.append({
-                        "severidade": "ERRO",
-                        "conta_contabil": conta,
-                        "descricao": (
-                            f"IC '{col.upper()}' com valor '{val}' inválido para conta '{conta}': "
-                            f"esperado {digitos_esperados} dígito(s) numérico(s), "
-                            f"encontrado {len(val)}."
-                        ),
-                        "valor_esperado": f"{digitos_esperados} dígito(s) numérico(s)",
-                        "valor_encontrado": val,
-                        "competencia": context.competencia,
-                    })
+            for _, row in violacoes.iterrows():
+                val = str(row[col])
+                conta = str(row["conta_contabil"])
+                issues.append({
+                    "severidade": "ERRO",
+                    "conta_contabil": conta,
+                    "descricao": (
+                        f"IC '{col.upper()}' com valor '{val}' inválido para conta '{conta}': "
+                        f"esperado {digitos_esperados} dígito(s) numérico(s), "
+                        f"encontrado {len(val)}."
+                    ),
+                    "valor_esperado": f"{digitos_esperados} dígito(s) numérico(s)",
+                    "valor_encontrado": val,
+                    "competencia": context.competencia,
+                })
 
         if issues:
             logger.warning(
