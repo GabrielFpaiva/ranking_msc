@@ -56,10 +56,10 @@ class R029(Rule):
 
         df_com_ai = (
             df[df["ai"].apply(ic_esta_informada)][["conta_contabil", "ai"]]
-            .drop_duplicates()
             .copy()
+            .assign(ai=lambda x: x["ai"].astype(str).str.strip())
+            .drop_duplicates()
         )
-        df_com_ai["ai"] = df_com_ai["ai"].astype(str).str.strip()
 
         if df_com_ai.empty:
             return self.build_issues([])
@@ -67,7 +67,7 @@ class R029(Rule):
         issues: list[dict[str, object]] = []
 
         for _, row in df_com_ai.iterrows():
-            ai_val = str(row["ai"])
+            ai_val = row["ai"]
             conta = str(row["conta_contabil"])
 
             # Validação 1 — formato: exatamente 4 dígitos numéricos
