@@ -46,6 +46,7 @@ class TestR029:
         assert result.iloc[0]["regra_id"] == "R029"
         assert result.iloc[0]["severidade"] == "ERRO"
         assert "202" in result.iloc[0]["descricao"]
+        assert "111110200" in result.iloc[0]["descricao"]
         assert result.iloc[0]["competencia"] == "2024-01"
 
     def test_ai_formato_nao_numerico_gera_erro(self, engine_context: object) -> None:
@@ -56,6 +57,8 @@ class TestR029:
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ERRO"
         assert result.iloc[0]["regra_id"] == "R029"
+        assert "ABCD" in result.iloc[0]["descricao"]
+        assert result.iloc[0]["competencia"] == "2024-01"
 
     def test_ai_ano_abaixo_de_2000_gera_alerta(self, engine_context: object) -> None:
         """AI com ano < 2000 (ex: '1999') gera pendência ALERTA."""
@@ -78,6 +81,7 @@ class TestR029:
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
         assert ano_futuro in result.iloc[0]["descricao"]
+        assert result.iloc[0]["regra_id"] == "R029"
 
     def test_multiplas_linhas_cada_uma_com_ai_invalido(
         self, engine_context: object
