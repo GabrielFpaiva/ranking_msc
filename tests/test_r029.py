@@ -58,6 +58,7 @@ class TestR029:
         assert result.iloc[0]["severidade"] == "ERRO"
         assert result.iloc[0]["regra_id"] == "R029"
         assert "ABCD" in result.iloc[0]["descricao"]
+        assert "111110200" in result.iloc[0]["descricao"]
         assert result.iloc[0]["competencia"] == "2024-01"
 
     def test_ai_ano_abaixo_de_2000_gera_alerta(self, engine_context: object) -> None:
