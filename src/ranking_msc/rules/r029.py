@@ -7,7 +7,7 @@ Lógica:
     Quando uma conta possui IC do tipo AI (Ano de Inscrição em Restos a Pagar),
     o valor deve:
     1. Ter exatamente 4 dígitos numéricos → ERRO se violado.
-    2. Ser um ano plausível: >= 2000 e <= ano corrente → ALERTA se violado.
+    2. Ser um ano plausível: >= 2000 e <= ano da competência → ALERTA se violado.
 
     Linhas sem AI (ic_esta_informada retorna False) são ignoradas.
 
@@ -17,7 +17,6 @@ Referência:
 
 from __future__ import annotations
 
-import datetime
 import logging
 from typing import TYPE_CHECKING
 
@@ -48,11 +47,11 @@ class R029(Rule):
 
         Returns:
             DataFrame de pendências — ERRO para formato inválido,
-            ALERTA para ano fora do intervalo [2000, ano_corrente].
+            ALERTA para ano fora do intervalo [2000, ano_competencia].
         """
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
-        ano_corrente = datetime.date.today().year
+        ano_competencia = int(context.competencia.split("-")[0])
 
         df_com_ai = (
             df[df["ai"].apply(ic_esta_informada)][["conta_contabil", "ai"]]
@@ -86,18 +85,18 @@ class R029(Rule):
                 })
                 continue  # formato errado → não verifica plausibilidade
 
-            # Validação 2 — plausibilidade: 2000 <= ano <= ano_corrente
+            # Validação 2 — plausibilidade: 2000 <= ano <= ano_competencia
             ano = int(ai_val)
-            if ano < 2000 or ano > ano_corrente:
+            if ano < 2000 or ano > ano_competencia:
                 issues.append({
                     "severidade": "ALERTA",
                     "conta_contabil": conta,
                     "descricao": (
                         f"AI '{ai_val}' implausível: "
-                        f"esperado ano entre 2000 e {ano_corrente}, "
+                        f"esperado ano entre 2000 e {ano_competencia}, "
                         f"encontrado {ano}."
                     ),
-                    "valor_esperado": f"2000 ≤ ano ≤ {ano_corrente}",
+                    "valor_esperado": f"2000 ≤ ano ≤ {ano_competencia}",
                     "valor_encontrado": ai_val,
                     "competencia": context.competencia,
                 })

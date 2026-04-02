@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import datetime
-
 import pandas as pd
 
 from ranking_msc.rules.r029 import R029
@@ -71,18 +69,17 @@ class TestR029:
         assert result.iloc[0]["regra_id"] == "R029"
         assert "1999" in result.iloc[0]["descricao"]
 
-    def test_ai_ano_acima_do_corrente_gera_alerta(
+    def test_ai_ano_acima_do_ano_competencia_gera_alerta(
         self, engine_context: object
     ) -> None:
-        """AI com ano > ano corrente gera pendência ALERTA."""
-        ano_futuro = str(datetime.date.today().year + 1)
-        df = _df_ai("111110200", ano_futuro)
+        """AI com ano > ano da competência (2024) gera pendência ALERTA."""
+        df = _df_ai("111110200", "2025")  # competencia="2024-01" → limite = 2024
         result = R029().execute(df, engine_context)
 
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
         assert result.iloc[0]["regra_id"] == "R029"
-        assert ano_futuro in result.iloc[0]["descricao"]
+        assert "2025" in result.iloc[0]["descricao"]
 
     def test_multiplas_linhas_ai_invalido_geram_pendencias_distintas(
         self, engine_context: object
