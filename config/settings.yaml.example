@@ -31,6 +31,8 @@ rules:
     - "R022"
     - "R023"
     - "R030"
+    - "R080"
+    - "R081"
     # R082-R111: a implementar nas próximas sprints
   fail_fast: false                    # true = para ao primeiro ERRO
 
