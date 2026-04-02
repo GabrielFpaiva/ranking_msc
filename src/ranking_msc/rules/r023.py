@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from ranking_msc.io.ref_loader import DC_DOMAIN
 from ranking_msc.rules.base import Rule, register_rule
 
 if TYPE_CHECKING:
@@ -27,7 +28,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger("ranking_msc")
 
 _IC_VAZIA: frozenset[str] = frozenset({"", "0", "nan"})
-_DC_DOMAIN: frozenset[str] = frozenset({"1"})
 
 
 def _dc_esta_informado(val: object) -> bool:
@@ -76,7 +76,7 @@ class R023(Rule):
             dc_valor = str(row["dc"])
             conta = str(row["conta_contabil"])
 
-            if dc_valor not in _DC_DOMAIN:
+            if dc_valor not in DC_DOMAIN:
                 issues.append({
                     "severidade": "ERRO",
                     "conta_contabil": conta,
