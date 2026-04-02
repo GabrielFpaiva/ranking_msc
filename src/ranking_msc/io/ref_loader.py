@@ -17,6 +17,14 @@ Constantes:
 - ``IC_MAP``: mapeamento ID_IC → lista de tipos de IC obrigatórios.
 - ``IC_DIGITOS``: mapeamento tipo de IC → quantidade de dígitos esperada.
 - ``FP_DOMAIN``: domínio de valores válidos para FP (Financeiro/Permanente).
+- ``DC_DOMAIN``: domínio de valores válidos para DC (Dívida Consolidada).
+
+AVISO DE DESIGN:
+    ``_IC_VAZIA`` (frozenset{"", "0", "nan"}) e a função ``_ic_esta_informada()``
+    estão duplicadas em r020.py, r022.py e r023.py. Antes de implementar R024–R028
+    (que usam a mesma lógica), centralizar aqui como ``IC_VAZIA`` e
+    ``ic_esta_informada()`` para eliminar a duplicação. Ver Opção 2 discutida
+    na sessão de 2026-04-01.
 
 Regras de implementação:
 - Sempre ler com ``dtype=str`` para preservar zeros à esquerda.
@@ -66,6 +74,7 @@ IC_DIGITOS: dict[str, int] = {
 }
 
 FP_DOMAIN: frozenset[str] = frozenset({"1", "2"})
+DC_DOMAIN: frozenset[str] = frozenset({"1"})
 
 # ---------------------------------------------------------------------------
 # Nomes de arquivo e colunas obrigatórias
