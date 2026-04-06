@@ -38,6 +38,7 @@ rules:
     - "R028"
     - "R030"
     - "R032"
+    - "R070"
     - "R080"
     - "R081"
     # R082-R111: a implementar nas próximas sprints
