@@ -49,6 +49,23 @@ class TestR024:
         assert result.iloc[0]["regra_id"] == "R024"
         assert "4 dígitos" in result.iloc[0]["descricao"]
 
+    def test_fr_alfanumerico_gera_erro(self, engine_context):
+        """FR com caractere não-dígito (ex: '1A00') → pendência ERRO de formato, não ALERTA."""
+        with patch(_PATCH, return_value=_TABELA_FR_MOCK):
+            result = R024().execute(_df("1A00"), engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert result.iloc[0]["regra_id"] == "R024"
+        assert "dígitos" in result.iloc[0]["descricao"]
+
+    def test_fr_alfanumerico_prefixo_invalido_gera_erro(self, engine_context):
+        """FR alfanumérico com prefixo inválido → ERRO de formato (não chega ao prefixo)."""
+        with patch(_PATCH, return_value=_TABELA_FR_MOCK):
+            result = R024().execute(_df("A500"), engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert "dígitos" in result.iloc[0]["descricao"]
+
     def test_fr_prefixo_invalido_gera_erro(self, engine_context):
         """FR com 1º dígito fora de {1, 2, 9} → pendência ERRO."""
         with patch(_PATCH, return_value=_TABELA_FR_MOCK):

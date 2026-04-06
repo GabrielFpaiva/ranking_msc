@@ -6,11 +6,12 @@ Severidade padrão: ERRO / ALERTA
 Lógica:
     Quando a coluna `fr` está informada, o valor é normalizado para 4 dígitos
     via zfill(4) e validado em três níveis independentes:
-      1. Comprimento: deve ter exatamente 4 dígitos (verificado no valor bruto, antes do zfill).
-      2. Prefixo: o 1º dígito deve ser "1" (atual), "2" (anterior) ou "9" (condicionado).
-      3. Código-raiz: os últimos 3 dígitos devem existir na tabela FR 2026.
-    Os checks de comprimento e prefixo geram ERRO; o check de código-raiz gera ALERTA.
-    Após ERRO de comprimento ou prefixo, o check de código-raiz não é executado.
+      1. Comprimento: deve ter exatamente 4 caracteres (verificado no valor bruto, antes do zfill).
+      2. Formato: deve conter apenas dígitos (0–9) — valores alfanuméricos como "1A00" são ERRO.
+      3. Prefixo: o 1º dígito deve ser "1" (atual), "2" (anterior) ou "9" (condicionado).
+      4. Código-raiz: os últimos 3 dígitos devem existir na tabela FR 2026.
+    Os checks de comprimento, formato e prefixo geram ERRO; o check de código-raiz gera ALERTA.
+    Após ERRO de comprimento, formato ou prefixo, o check de código-raiz não é executado.
 
 Referência:
     Leiaute MSC 2026 — campo FR; Portaria STN 642/2026
@@ -47,6 +48,7 @@ class R024(Rule):
 
         Para cada valor de FR informado:
           - Se tiver comprimento diferente de 4 antes da normalização → ERRO e próxima conta.
+          - Se contiver caractere não-dígito (ex: "1A00") → ERRO e próxima conta.
           - Se o 1º dígito não for "1", "2" ou "9" → ERRO e próxima conta.
           - Se os 3 dígitos restantes não existirem na tabela FR → ALERTA.
 
@@ -89,6 +91,20 @@ class R024(Rule):
                         "deve ter exatamente 4 dígitos."
                     ),
                     "valor_esperado": "4 dígitos",
+                    "valor_encontrado": fr_raw,
+                    "competencia": context.competencia,
+                })
+                continue
+
+            if not fr_raw.isdigit():
+                issues.append({
+                    "severidade": "ERRO",
+                    "conta_contabil": conta,
+                    "descricao": (
+                        f"FR '{fr_raw}' inválido para conta '{conta}': "
+                        "deve conter apenas dígitos (0–9)."
+                    ),
+                    "valor_esperado": "apenas dígitos (0-9)",
                     "valor_encontrado": fr_raw,
                     "competencia": context.competencia,
                 })
