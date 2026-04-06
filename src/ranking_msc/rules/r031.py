@@ -46,34 +46,46 @@ class R031(Rule):
     dimensao = "Fechamento"
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
-        """Detecta linhas onde o saldo final diverge do saldo inicial + movimentos.
+        """Detecta combos CONTA+ICs onde o saldo final diverge de SI + movimentos.
+
+        Agrega os valores por combo normalizado antes de validar: o pipeline pode
+        representar um mesmo combo CONTA+ICs em múltiplas linhas quando layouts
+        de IC diferentes (ex: PO;FR vs PO;;FR) normalizam para o mesmo conjunto.
+        Sem agregação, valores divididos causariam falsos ERROs.
 
         Args:
-            df: DataFrame normalizado com colunas ``conta_contabil``,
-                ``saldo_inicial_debito``, ``saldo_inicial_credito``,
-                ``movimento_debito``, ``movimento_credito``,
-                ``saldo_final_debito``, ``saldo_final_credito``.
+            df: DataFrame normalizado com colunas ``conta_contabil``, colunas IC
+                (``po``, ``fp``, ``dc``, ``fs``, ``fr``, ``co``, ``nr``, ``nd``,
+                ``ai``) e colunas de valor (saldo_inicial/movimento/saldo_final D e C).
             context: metadados da execução.
 
         Returns:
-            DataFrame de pendências — uma linha por CONTA+ICs com
+            DataFrame de pendências — uma linha por combo CONTA+ICs agregado com
             abs(SF_líq − SI_líq − Mov_líq) > 0.01.
         """
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
+        ic_cols = ["po", "fp", "dc", "fs", "fr", "co", "nr", "nd", "ai"]
         cols_valor = [
             "saldo_inicial_debito", "saldo_inicial_credito",
             "movimento_debito", "movimento_credito",
             "saldo_final_debito", "saldo_final_credito",
         ]
 
-        work = df[["conta_contabil"] + cols_valor].copy()
+        # Inclui apenas as colunas IC presentes no DataFrame (testes usam DFs mínimos)
+        ic_keys = [c for c in ic_cols if c in df.columns]
+        group_keys = ["conta_contabil"] + ic_keys
+
+        work = df[group_keys + cols_valor].copy()
 
         if work.empty:
             return self.build_issues([])
 
         for col in cols_valor:
             work[col] = pd.to_numeric(work[col], errors="coerce").fillna(0.0)
+
+        # Agrega por combo normalizado CONTA+ICs antes de validar
+        work = work.groupby(group_keys, as_index=False, dropna=False)[cols_valor].sum()
 
         work["_si_liq"] = work["saldo_inicial_debito"] - work["saldo_inicial_credito"]
         work["_sf_liq"] = work["saldo_final_debito"]   - work["saldo_final_credito"]

@@ -142,6 +142,30 @@ class TestR031:
 
         assert len(result) == 0
 
+    def test_mesmo_combo_conta_ic_em_multiplas_linhas_agrega_antes_de_validar(
+        self, engine_context: object
+    ) -> None:
+        """Mesmo combo CONTA+IC dividido em 2 linhas não gera falso ERRO.
+
+        O pipeline pode representar um combo (ex: PO;FR vs PO;;FR) como linhas
+        separadas após normalize_ic. A regra deve agregar antes de validar.
+        SI_total=1000, mov_total=+150, SF_total=1150 → sem pendência.
+        """
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200", "111110200"],
+            "po": ["10131", "10131"],
+            "fr": ["1500", "1500"],
+            "saldo_inicial_debito":  [600.0,  400.0],   # total SI_D = 1000
+            "saldo_inicial_credito": [0.0,    0.0],
+            "movimento_debito":      [120.0,  80.0],    # total mov_D = 200
+            "movimento_credito":     [30.0,   20.0],    # total mov_C = 50  → mov_net = 150
+            "saldo_final_debito":    [690.0,  460.0],   # total SF_D = 1150
+            "saldo_final_credito":   [0.0,    0.0],
+        })
+        result = R031().execute(df, engine_context)
+
+        assert len(result) == 0
+
     def test_resultado_contem_valores_esperado_e_encontrado(
         self, engine_context: object
     ) -> None:
