@@ -37,6 +37,15 @@ class TestR026:
         assert result.iloc[0]["regra_id"] == "R026"
         assert "8 dígitos" in result.iloc[0]["descricao"]
 
+    def test_nr_alfanumerico_gera_erro(self, engine_context):
+        """NR com caractere não-dígito (ex: '12AB5678') → ERRO de formato, não ALERTA."""
+        with patch(_PATCH, return_value=_TABELA_NR_MOCK):
+            result = R026().execute(_df("12AB5678"), engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert result.iloc[0]["regra_id"] == "R026"
+        assert "dígitos" in result.iloc[0]["descricao"]
+
     def test_nr_inexistente_gera_alerta(self, engine_context):
         """NR com 8 dígitos mas ausente da tabela → pendência ALERTA."""
         with patch(_PATCH, return_value=_TABELA_NR_MOCK):
