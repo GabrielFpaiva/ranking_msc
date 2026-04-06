@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from ranking_msc.exceptions import ConfigError
 from ranking_msc.io.ref_loader import load_pcasp
 from ranking_msc.rules.base import Rule, register_rule
 
@@ -58,9 +59,15 @@ class R032(Rule):
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
         # 1. Carregar PCASP e normalizar nat_saldo
-        pcasp = load_pcasp(context.settings.paths.ref_dir)[
-            ["conta_contabil", "nat_saldo"]
-        ].copy()
+        pcasp_raw = load_pcasp(context.settings.paths.ref_dir)
+        if "nat_saldo" not in pcasp_raw.columns:
+            raise ConfigError(
+                "R032 requer a coluna 'nat_saldo' em pcasp.csv, mas ela não foi encontrada. "
+                f"Colunas presentes: {sorted(pcasp_raw.columns.tolist())}. "
+                "Verifique se o arquivo de referência PCASP está atualizado (PcaspEstendido2026)."
+            )
+
+        pcasp = pcasp_raw[["conta_contabil", "nat_saldo"]].copy()
         pcasp["nat_saldo"] = pcasp["nat_saldo"].str.strip()
 
         # 2. Left join para obter nat_saldo por linha da MSC

@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
+from ranking_msc.exceptions import ConfigError
 from ranking_msc.rules.r032 import R032
 
 # ---------------------------------------------------------------------------
@@ -156,3 +157,14 @@ class TestR032SemViolacao:
         df = _df("111110200", saldo_debito="150.0", saldo_credito="0")
         result = R032().execute(df, engine_context)
         assert len(result) == 0
+
+    def test_pcasp_sem_coluna_nat_saldo_levanta_config_error(
+        self, engine_context: object
+    ) -> None:
+        """PCASP sem nat_saldo deve levantar ConfigError — não retornar 0 issues (falso negativo)."""
+        pcasp_sem_nat_saldo = pd.DataFrame({"conta_contabil": ["111110200", "211000000"]})
+        df = _df("111110200", saldo_debito=0, saldo_credito=100.0)
+
+        with patch("ranking_msc.rules.r032.load_pcasp", return_value=pcasp_sem_nat_saldo):
+            with pytest.raises(ConfigError, match="nat_saldo"):
+                R032().execute(df, engine_context)
