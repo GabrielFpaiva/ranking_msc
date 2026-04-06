@@ -42,9 +42,12 @@ from ranking_msc.transform.ic_normalize import normalize_ic
 # Constantes
 # ---------------------------------------------------------------------------
 
-_AMOSTRAS = Path("ref/amostras")
+_AMOSTRAS = Path(Settings().paths.ref_dir) / "amostras"
 
-_REGRAS_ESPERADAS: frozenset[str] = frozenset({
+# Snapshot das regras implementadas na Fase 3 (F3-01 a F3-12).
+# Usado apenas para verificar que nenhuma regra ESPERADA está faltando.
+# Não é um gate de "nenhuma regra além dessas" — novas regras são bem-vindas.
+_REGRAS_F3: frozenset[str] = frozenset({
     "R001", "R002", "R003", "R004", "R005",
     "R010", "R011", "R012",
     "R020", "R021", "R022", "R023",
@@ -110,17 +113,10 @@ class TestRegistryCompleto:
 
     def test_todas_regras_esperadas_estao_registradas(self) -> None:
         """Nenhuma regra implementada está faltando no RULE_REGISTRY."""
-        faltando = _REGRAS_ESPERADAS - set(RULE_REGISTRY.keys())
+        faltando = _REGRAS_F3 - set(RULE_REGISTRY.keys())
         assert not faltando, (
             f"Regras ausentes no RULE_REGISTRY (faltou importar em __init__.py?): "
             f"{sorted(faltando)}"
-        )
-
-    def test_registry_nao_tem_regras_inesperadas(self) -> None:
-        """RULE_REGISTRY não contém regras além das 24 esperadas."""
-        extras = set(RULE_REGISTRY.keys()) - _REGRAS_ESPERADAS
-        assert not extras, (
-            f"Regras inesperadas no RULE_REGISTRY: {sorted(extras)}"
         )
 
     def test_todas_regras_sao_instanciaveis(self) -> None:
@@ -143,9 +139,11 @@ class TestTodasRegrasCSVReal:
     @pytest.mark.parametrize("csv_name", [
         "msc_2025-11.csv",
         "msc_2025-12.csv",
+        "msc_2026-01.csv",
+        "encerramento2025.csv",
     ])
     def test_pipeline_sem_crash(self, csv_name: str, tmp_path: Path) -> None:
-        """Todas as regras executam sem crash nos CSVs reais de 2025."""
+        """Todas as regras executam sem crash em cada CSV de amostra disponível."""
         csv_path = _AMOSTRAS / csv_name
         if not csv_path.exists():
             pytest.skip(f"Amostra ausente: {csv_path}")
@@ -159,33 +157,12 @@ class TestTodasRegrasCSVReal:
         assert (tmp_path / "snapshots" / competencia / "resultado_regras.parquet").exists()
         assert any((tmp_path / "reports").glob("*.xlsx"))
 
-    def test_pipeline_csv_2026_01_sem_crash(self, tmp_path: Path) -> None:
-        """Pipeline funciona com CSV da competência 2026-01."""
-        csv_path = _AMOSTRAS / "msc_2026-01.csv"
-        if not csv_path.exists():
-            pytest.skip("msc_2026-01.csv ausente em ref/amostras/")
-
-        result, _ = _run_pipeline(csv_path, tmp_path)
-
-        assert result.status == "OK", (
-            "status != 'OK' em msc_2026-01.csv — alguma regra crashou"
-        )
-
-    def test_pipeline_encerramento_sem_crash(self, tmp_path: Path) -> None:
-        """Pipeline funciona com CSV de encerramento de exercício."""
-        csv_path = _AMOSTRAS / "encerramento2025.csv"
-        if not csv_path.exists():
-            pytest.skip("encerramento2025.csv ausente em ref/amostras/")
-
-        result, _ = _run_pipeline(csv_path, tmp_path)
-
-        assert result.status == "OK", (
-            "status != 'OK' em encerramento2025.csv — alguma regra crashou"
-        )
-
     def test_schema_pendencias_correto_dados_reais(self, tmp_path: Path) -> None:
         """DataFrame de pendências respeita exatamente FACT_RESULTADO_REGRAS_COLUMNS."""
         csv_path = _AMOSTRAS / "msc_2025-11.csv"
+        if not csv_path.exists():
+            pytest.skip(f"Amostra ausente: {csv_path}")
+
         result, _ = _run_pipeline(csv_path, tmp_path)
 
         assert list(result.pendencias.columns) == FACT_RESULTADO_REGRAS_COLUMNS, (
@@ -193,32 +170,38 @@ class TestTodasRegrasCSVReal:
         )
 
     def test_pendencias_tem_apenas_severidades_validas(self, tmp_path: Path) -> None:
-        """Todas as pendências têm severidade ERRO ou ALERTA — nenhum valor espúrio."""
+        """Todas as pendências têm severidade ERRO, ALERTA ou INFO — nenhum valor espúrio."""
         csv_path = _AMOSTRAS / "msc_2025-11.csv"
+        if not csv_path.exists():
+            pytest.skip(f"Amostra ausente: {csv_path}")
+
         result, _ = _run_pipeline(csv_path, tmp_path)
 
         if result.pendencias.empty:
             pytest.skip("Nenhuma pendência gerada — não é possível validar severidades")
 
         invalidas = result.pendencias[
-            ~result.pendencias["severidade"].isin({"ERRO", "ALERTA"})
+            ~result.pendencias["severidade"].isin({"ERRO", "ALERTA", "INFO"})
         ]
         assert invalidas.empty, (
             f"Pendências com severidade inválida:\n{invalidas[['regra_id', 'severidade']].head()}"
         )
 
     def test_todas_pendencias_tem_regra_id_valido(self, tmp_path: Path) -> None:
-        """Toda pendência gerada tem regra_id pertencente a _REGRAS_ESPERADAS."""
+        """Toda pendência gerada tem regra_id presente no RULE_REGISTRY."""
         csv_path = _AMOSTRAS / "msc_2025-11.csv"
+        if not csv_path.exists():
+            pytest.skip(f"Amostra ausente: {csv_path}")
+
         result, _ = _run_pipeline(csv_path, tmp_path)
 
         if result.pendencias.empty:
             pytest.skip("Nenhuma pendência gerada")
 
         ids_gerados = set(result.pendencias["regra_id"].unique())
-        desconhecidos = ids_gerados - _REGRAS_ESPERADAS
+        desconhecidos = ids_gerados - set(RULE_REGISTRY.keys())
         assert not desconhecidos, (
-            f"Pendências com regra_id desconhecido: {desconhecidos}"
+            f"Pendências com regra_id não registrado: {desconhecidos}"
         )
 
 
