@@ -1,6 +1,6 @@
 # Fase 3 — Plano de Implementação
 
-**Status:** A iniciar
+**Status:** Em andamento — F3-01 a F3-11 concluídas (2026-04-06)
 **Depende de:** Fase 2 (concluída)
 **Referência do backlog:** F3-01 a F3-16
 
@@ -51,18 +51,18 @@ A infraestrutura está pronta — cada nova regra segue o padrão já estabeleci
 
 | ID | Task | Entregável | Depende de | Status |
 |---|---|---|---|---|
-| F3-01 | Implementar R001–R005 (Estrutura do arquivo) | `rules/estrutura/` (5 regras) | — | A Fazer |
-| F3-02 | Implementar R011–R012 (PCASP nível e status) | `rules/r011.py` + `r012.py` | F2-11 | A Fazer |
-| F3-03 | Implementar R020 (Conjunto IC correto) | `rules/r020.py` | F2-11, F2-22 | A Fazer |
-| F3-04 | Implementar R080–R081 (Formato CONTA e IC) | `rules/formato/` | — | A Fazer |
-| F3-05 | Implementar R022–R023 (FP e DC) | `rules/r022.py` + `r023.py` | F2-22 | A Fazer |
-| F3-06 | Implementar R024–R025 (FR e CO) | `rules/r024.py` + `r025.py` | F2-11 | A Fazer |
-| F3-07 | Implementar R026–R028 (NR, ND, FS) | `rules/r026.py` + `r027.py` + `r028.py` | F2-11 | A Fazer |
-| F3-08 | Implementar R029 (AI — Ano Inscrição RP) | `rules/r029.py` | — | A Fazer |
-| F3-09 | Implementar R031 (SF = SI + Movimentos) | `rules/r031.py` | — | A Fazer |
-| F3-10 | Implementar R032 (Natureza saldo compatível) | `rules/r032.py` | F2-11 | A Fazer |
-| F3-11 | Implementar R070 (Duplicidade) | `rules/r070.py` | — | A Fazer |
-| F3-12 | Testes integração + rodar todas regras em CSV real | `tests/test_integration_f3.py` | F3-01 a F3-11 | A Fazer |
+| F3-01 | Implementar R001–R005 (Estrutura do arquivo) | `rules/estrutura/` (5 regras) | — | ✅ Concluída |
+| F3-02 | Implementar R011–R012 (PCASP nível e status) | `rules/r011.py` + `r012.py` | F2-11 | ✅ Concluída |
+| F3-03 | Implementar R020 (Conjunto IC correto) | `rules/r020.py` | F2-11, F2-22 | ✅ Concluída (2026-03-31) |
+| F3-04 | Implementar R080–R081 (Formato CONTA e IC) | `rules/r080.py` + `r081.py` | — | ✅ Concluída (2026-03-31) |
+| F3-05 | Implementar R022–R023 (FP e DC) | `rules/r022.py` + `r023.py` | F2-22 | ✅ Concluída (2026-03-31) |
+| F3-06 | Implementar R024–R025 (FR e CO) | `rules/r024.py` + `r025.py` | F2-11 | ✅ Concluída (2026-04-02) PR #35 |
+| F3-07 | Implementar R026–R028 (NR, ND, FS) | `rules/r026.py` + `r027.py` + `r028.py` | F2-11 | ✅ Concluída (2026-04-02) PR #36 |
+| F3-08 | Implementar R029 (AI — Ano Inscrição RP) | `rules/r029.py` | — | ✅ Concluída |
+| F3-09 | Implementar R031 (SF = SI + Movimentos) | `rules/r031.py` | — | ✅ Concluída PR #43 |
+| F3-10 | Implementar R032 (Natureza saldo compatível) | `rules/r032.py` | F2-11 | ✅ Concluída (2026-04-06) 343 testes |
+| F3-11 | Implementar R070 (Duplicidade) | `rules/r070.py` | — | ✅ Concluída (2026-04-06) PR #44, 358 testes |
+| F3-12 | Testes integração + rodar todas regras em CSV real | `tests/test_integration_f3.py` | F3-01 a F3-11 | ✅ Concluída (2026-04-06) PR #45, 382 testes |
 | F3-13 | Implementar R040–R043 (Completude) | `rules/completude/` | — | A Fazer |
 | F3-14 | Implementar R050–R052 (Interconta) | `rules/interconta/` | — | A Fazer |
 | F3-15 | Implementar R060 (FP vs IND_SF) | `rules/r060.py` | F2-11 | A Fazer |
