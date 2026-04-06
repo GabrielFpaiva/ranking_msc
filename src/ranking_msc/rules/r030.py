@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ranking_msc.rules.base import Rule, register_rule
+from ranking_msc.rules.base import TOLERANCIA_CENTAVO, Rule, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger("ranking_msc")
 
 _CLASSES_PATRIMONIAIS: frozenset[str] = frozenset({"1", "2", "3", "4"})
-_TOLERANCIA: float = 0.01
 
 
 @register_rule
@@ -75,7 +74,7 @@ class R030(Rule):
         )
 
         totais["diferenca"] = (totais["mov_d"] - totais["mov_c"]).abs()
-        violacoes = totais[totais["diferenca"] > _TOLERANCIA]
+        violacoes = totais[totais["diferenca"] > TOLERANCIA_CENTAVO]
 
         if violacoes.empty:
             return self.build_issues([])

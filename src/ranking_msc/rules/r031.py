@@ -29,14 +29,12 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ranking_msc.rules.base import Rule, register_rule
+from ranking_msc.rules.base import TOLERANCIA_CENTAVO, Rule, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
 
 logger = logging.getLogger("ranking_msc")
-
-_TOLERANCIA: float = 0.01
 
 
 @register_rule
@@ -71,18 +69,18 @@ class R031(Rule):
 
         work = df[["conta_contabil"] + cols_valor].copy()
 
-        for col in cols_valor:
-            work[col] = pd.to_numeric(work[col], errors="coerce").fillna(0.0)
-
         if work.empty:
             return self.build_issues([])
+
+        for col in cols_valor:
+            work[col] = pd.to_numeric(work[col], errors="coerce").fillna(0.0)
 
         work["_si_liq"] = work["saldo_inicial_debito"] - work["saldo_inicial_credito"]
         work["_sf_liq"] = work["saldo_final_debito"]   - work["saldo_final_credito"]
         work["_mov_liq"] = work["movimento_debito"] - work["movimento_credito"]
         work["_residuo"] = (work["_sf_liq"] - work["_si_liq"] - work["_mov_liq"]).abs()
 
-        violacoes = work[work["_residuo"] > _TOLERANCIA]
+        violacoes = work[work["_residuo"] > TOLERANCIA_CENTAVO]
 
         if violacoes.empty:
             return self.build_issues([])
