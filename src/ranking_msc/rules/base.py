@@ -143,7 +143,8 @@ _IC_VAZIA: frozenset[str] = frozenset({"", "0", "nan"})
 def ic_esta_informada(val: object) -> bool:
     """Retorna True se o valor de uma IC está preenchido (não é vazio).
 
-    Trata None, float NaN, string vazia, "0" e "nan" como valores vazios.
+    Trata None, float NaN, string vazia, "0" e "nan"/"NAN" como valores vazios.
+    A comparação é case-insensitive para tolerar o uppercasing de normalize_ic.
     Compartilhado por todas as regras que validam colunas IC.
 
     Args:
@@ -156,7 +157,7 @@ def ic_esta_informada(val: object) -> bool:
         return False
     if isinstance(val, float) and math.isnan(val):
         return False
-    return str(val).strip() not in _IC_VAZIA
+    return str(val).strip().lower() not in _IC_VAZIA
 
 
 RULE_REGISTRY: dict[str, type[Rule]] = {}
