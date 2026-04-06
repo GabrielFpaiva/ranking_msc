@@ -134,6 +134,13 @@ class Rule(ABC):
 #     class R082(Rule): ...
 
 # ---------------------------------------------------------------------------
+# Constantes compartilhadas entre regras
+# ---------------------------------------------------------------------------
+
+TOLERANCIA_CENTAVO: float = 0.01
+"""Tolerância monetária padrão (R$ 0,01) usada em comparações de saldo."""
+
+# ---------------------------------------------------------------------------
 # Helper compartilhado para validação de IC vazia
 # ---------------------------------------------------------------------------
 
