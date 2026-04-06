@@ -43,6 +43,13 @@ class TestR022:
 
         assert len(result) == 0
 
+    def test_fp_nan_uppercase_sem_pendencia(self, engine_context: object) -> None:
+        """FP='NAN' (uppercase produzido por normalize_ic) → tratado como vazio, sem pendência."""
+        df = _df_com_fp("111110200", "NAN")
+        result = R022().execute(df, engine_context)
+
+        assert len(result) == 0
+
     def test_fp_zero_sem_pendencia(self, engine_context: object) -> None:
         """FP="0" é tratado como não informado (convencão IC vazia) → nenhuma pendência."""
         df = _df_com_fp("111110200", "0")

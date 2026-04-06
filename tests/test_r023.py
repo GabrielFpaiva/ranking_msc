@@ -43,6 +43,13 @@ class TestR023:
 
         assert len(result) == 0
 
+    def test_dc_nan_uppercase_sem_pendencia(self, engine_context: object) -> None:
+        """DC='NAN' (uppercase produzido por normalize_ic) → tratado como vazio, sem pendência."""
+        df = _df_com_dc("111110200", "NAN")
+        result = R023().execute(df, engine_context)
+
+        assert len(result) == 0
+
     def test_dc_none_sem_pendencia(self, engine_context: object) -> None:
         """DC=None é tratado como não informado → nenhuma pendência."""
         df = _df_com_dc("111110200", None)
