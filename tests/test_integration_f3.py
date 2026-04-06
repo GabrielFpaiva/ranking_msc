@@ -29,6 +29,7 @@ from pathlib import Path
 
 import pytest
 
+import ranking_msc.rules  # noqa: F401 — popula RULE_REGISTRY via __init__.py
 from ranking_msc.config.settings import RulesSettings, Settings
 from ranking_msc.engine.executor import EngineContext, EngineResult, run_engine
 from ranking_msc.io.reader_msc import read_msc_csv
