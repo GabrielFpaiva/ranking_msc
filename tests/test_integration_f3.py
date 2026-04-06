@@ -64,10 +64,15 @@ _REGRAS_F3: frozenset[str] = frozenset({
 
 
 def _settings_todas_regras() -> Settings:
-    """Settings com todas as regras registradas habilitadas."""
+    """Settings com as regras da Fase 3 habilitadas.
+
+    Usa o snapshot explícito _REGRAS_F3 em vez de RULE_REGISTRY.keys() para
+    evitar que regras experimentais ou pós-F3 sejam incluídas automaticamente
+    e quebrem esta suite.
+    """
     return dataclasses.replace(
         Settings(),
-        rules=RulesSettings(enabled=sorted(RULE_REGISTRY.keys())),
+        rules=RulesSettings(enabled=sorted(_REGRAS_F3)),
     )
 
 
@@ -147,7 +152,7 @@ class TestTodasRegrasCSVReal:
         """Todas as regras executam sem crash em cada CSV de amostra disponível."""
         csv_path = _AMOSTRAS / csv_name
         if not csv_path.exists():
-            pytest.skip(f"Amostra ausente: {csv_path}")
+            pytest.fail(f"Amostra obrigatória ausente: {csv_path}")
 
         result, competencia = _run_pipeline(csv_path, tmp_path)
 
@@ -162,7 +167,7 @@ class TestTodasRegrasCSVReal:
         """DataFrame de pendências respeita exatamente FACT_RESULTADO_REGRAS_COLUMNS."""
         csv_path = _AMOSTRAS / "msc_2025-11.csv"
         if not csv_path.exists():
-            pytest.skip(f"Amostra ausente: {csv_path}")
+            pytest.fail(f"Amostra obrigatória ausente: {csv_path}")
 
         result, _ = _run_pipeline(csv_path, tmp_path)
 
@@ -174,7 +179,7 @@ class TestTodasRegrasCSVReal:
         """Todas as pendências têm severidade ERRO, ALERTA ou INFO — nenhum valor espúrio."""
         csv_path = _AMOSTRAS / "msc_2025-11.csv"
         if not csv_path.exists():
-            pytest.skip(f"Amostra ausente: {csv_path}")
+            pytest.fail(f"Amostra obrigatória ausente: {csv_path}")
 
         result, _ = _run_pipeline(csv_path, tmp_path)
 
@@ -192,7 +197,7 @@ class TestTodasRegrasCSVReal:
         """Toda pendência gerada tem regra_id presente no RULE_REGISTRY."""
         csv_path = _AMOSTRAS / "msc_2025-11.csv"
         if not csv_path.exists():
-            pytest.skip(f"Amostra ausente: {csv_path}")
+            pytest.fail(f"Amostra obrigatória ausente: {csv_path}")
 
         result, _ = _run_pipeline(csv_path, tmp_path)
 
