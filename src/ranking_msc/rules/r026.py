@@ -4,11 +4,12 @@ Categoria: IC
 Severidade padrão: ERRO (formato) | ALERTA (código ausente na tabela)
 
 Lógica:
-    Quando a coluna `nr` está informada, o valor é validado em dois níveis:
-      1. Comprimento: deve ter exatamente 8 dígitos (verificado no valor bruto).
-      2. Existência: deve existir na tabela NR 2026.
-    Check de comprimento gera ERRO; ausência na tabela gera ALERTA.
-    Após ERRO de comprimento, o check de existência não é executado.
+    Quando a coluna `nr` está informada, o valor é validado em três níveis:
+      1. Comprimento: deve ter exatamente 8 caracteres (verificado no valor bruto).
+      2. Formato: deve conter apenas dígitos (0–9) — valores como "12AB5678" são ERRO.
+      3. Existência: deve existir na tabela NR 2026.
+    Checks de comprimento e formato geram ERRO; ausência na tabela gera ALERTA.
+    Após ERRO de comprimento ou formato, o check de existência não é executado.
 
 Referência:
     Leiaute MSC 2026 — campo NR; ref/regras_catalogo.md seção R026
@@ -43,6 +44,7 @@ class R026(Rule):
 
         Para cada valor de NR informado:
           - Se tiver comprimento diferente de 8 antes da normalização → ERRO e próxima conta.
+          - Se contiver caractere não-dígito (ex: "12AB5678") → ERRO e próxima conta.
           - Se o código não existir na tabela NR → ALERTA.
 
         Args:
@@ -84,6 +86,20 @@ class R026(Rule):
                         "deve ter exatamente 8 dígitos."
                     ),
                     "valor_esperado": "8 dígitos",
+                    "valor_encontrado": nr_raw,
+                    "competencia": context.competencia,
+                })
+                continue
+
+            if not nr_raw.isdigit():
+                issues.append({
+                    "severidade": "ERRO",
+                    "conta_contabil": conta,
+                    "descricao": (
+                        f"NR '{nr_raw}' inválida para conta '{conta}': "
+                        "deve conter apenas dígitos (0–9)."
+                    ),
+                    "valor_esperado": "apenas dígitos (0-9)",
                     "valor_encontrado": nr_raw,
                     "competencia": context.competencia,
                 })
