@@ -79,14 +79,22 @@ def _make_context(tmp_path: Path, competencia: str = "2024-02") -> EngineContext
     )
 
 
+_SICONFI_TESTE = "250400"
+
+
 def _salvar_snapshot_anterior(
     df: pd.DataFrame,
     tmp_path: Path,
     competencia: str = "2024-02",
 ) -> None:
-    """Salva df como snapshot msc_normalizado do mês anterior a competencia."""
+    """Salva df como snapshot msc_normalizado do mês anterior a competencia.
+
+    Usa o mesmo siconfi de _make_context para que R054 encontre o arquivo.
+    """
     prev = _prev_competencia(competencia)
-    write_snapshot_atomic(df, prev, base_dir=str(tmp_path), label="msc_normalizado")
+    write_snapshot_atomic(
+        df, prev, base_dir=str(tmp_path / _SICONFI_TESTE), label="msc_normalizado"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -247,9 +255,9 @@ class TestR054:
         """Competência Janeiro lê snapshot de Dezembro do ano anterior."""
         context = _make_context(tmp_path, competencia="2024-01")
         df_prev = _df_mes_anterior("111110200", sf_d=800.0, sf_c=0.0)
-        # Salva como snapshot de 2023-12
+        # Salva como snapshot de 2023-12, namespaceado pelo siconfi do context
         write_snapshot_atomic(
-            df_prev, "2023-12", base_dir=str(tmp_path), label="msc_normalizado"
+            df_prev, "2023-12", base_dir=str(tmp_path / _SICONFI_TESTE), label="msc_normalizado"
         )
 
         df_n = _df_mes_n("111110200", si_d=800.0, si_c=0.0)
@@ -299,7 +307,9 @@ class TestR054:
             "saldo_final_debito": [1000.0],
             "saldo_final_credito": [0.0],
         })
-        write_snapshot_atomic(df_prev, "2024-01", base_dir=str(tmp_path), label="msc_normalizado")
+        write_snapshot_atomic(
+            df_prev, "2024-01", base_dir=str(tmp_path / _SICONFI_TESTE), label="msc_normalizado"
+        )
 
         df_n = pd.DataFrame({
             "conta_contabil": ["111110200"],
@@ -328,9 +338,11 @@ class TestR054:
         settings_dir.mkdir()
         real_dir.mkdir()
 
-        # Snapshot só existe em real_dir; settings_dir está vazio
+        # Snapshot só existe em real_dir/<siconfi>; settings_dir está vazio
         df_prev = _df_mes_anterior("111110200", sf_d=1000.0, sf_c=0.0)
-        write_snapshot_atomic(df_prev, "2024-01", base_dir=str(real_dir), label="msc_normalizado")
+        write_snapshot_atomic(
+            df_prev, "2024-01", base_dir=str(real_dir / _SICONFI_TESTE), label="msc_normalizado"
+        )
 
         # Context com snapshots_dir apontando para real_dir,
         # mas settings.paths.snapshots_dir apontando para settings_dir (vazio)

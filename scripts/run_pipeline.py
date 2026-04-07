@@ -192,11 +192,12 @@ def _execute_pipeline(
     normalized_df = normalize_ic(raw_msc.df)
 
     # Grava snapshot do DataFrame normalizado ANTES de executar as regras.
+    # Namespaceado por siconfi para evitar colisão entre entes no mesmo diretório.
     # R054 e regras temporais futuras leem este snapshot para comparar com o mês anterior.
     write_snapshot_atomic(
         normalized_df,
         raw_msc.competencia,
-        base_dir=output_paths.snapshots_dir,
+        base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
         label="msc_normalizado",
     )
 
@@ -225,7 +226,7 @@ def _execute_pipeline(
     snapshot_path = write_snapshot_atomic(
         engine_result.pendencias,
         raw_msc.competencia,
-        base_dir=output_paths.snapshots_dir,
+        base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
         label="resultado_regras",
     )
     report_path = export_issues_excel(

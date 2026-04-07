@@ -18,6 +18,7 @@ Referência:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -95,16 +96,17 @@ class R054(Rule):
             DataFrame de pendências — uma linha por combo CONTA+ICs onde
             abs(SI_líq_N − SF_líq_{N-1}) > TOLERANCIA_CENTAVO.
         """
-        from pathlib import Path  # noqa: PLC0415
-
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
         prev_comp = _prev_competencia(context.competencia)
-        snapshots_dir: str | Path = (
+        snapshots_base: Path = (
             context.snapshots_dir
             if context.snapshots_dir is not None
-            else context.settings.paths.snapshots_dir
+            else Path(context.settings.paths.snapshots_dir)
         )
+        # Isola por ente: evita que snapshots de SICONFIs diferentes no mesmo
+        # diretório se sobrescrevam ou sejam comparados incorretamente.
+        snapshots_dir = snapshots_base / context.siconfi
 
         # Tenta ler o snapshot do mês anterior.
         # SnapshotNotFoundError → mês anterior não processado ainda, regra saltada.
