@@ -17,11 +17,6 @@ from ranking_msc.rules.r050 import R050
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _ctx(engine_context: EngineContext) -> EngineContext:
-    """Retorna o engine_context para uso nas regras."""
-    return engine_context
-
-
 def _df_r050(
     conta1: str = "111110200",
     sf_d_1: float = 1000.0,
