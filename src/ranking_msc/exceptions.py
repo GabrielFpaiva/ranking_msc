@@ -9,6 +9,7 @@ Hierarquia:
     ├── ConfigError          — problema em settings.yaml ou variáveis
     ├── InputFormatError     — CSV fora do layout esperado
     ├── SnapshotError        — falha ao gravar/ler snapshot (parquet)
+    │   └── SnapshotNotFoundError — snapshot de competência não encontrado
     ├── ReportError          — falha ao gerar relatório Excel
     ├── RuleExecutionError   — erro durante execução de uma regra
     └── ConcurrencyError     — conflito de concorrência entre usuários
@@ -32,6 +33,10 @@ class InputFormatError(RankingMSCError):
 
 class SnapshotError(RankingMSCError):
     """Falha ao gravar ou ler snapshot Parquet de uma competência."""
+
+
+class SnapshotNotFoundError(SnapshotError):
+    """Snapshot de competência não encontrado em disco."""
 
 
 class ReportError(RankingMSCError):

@@ -204,6 +204,7 @@ def _execute_pipeline(
         competencia=raw_msc.competencia,
         siconfi=raw_msc.siconfi,
         settings=settings,
+        snapshots_dir=output_paths.snapshots_dir,
         usuario="cli",
         pre_pivot_issues=raw_msc.pre_pivot_issues,
     )

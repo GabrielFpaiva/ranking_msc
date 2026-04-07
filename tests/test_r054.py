@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
 from ranking_msc.config.settings import PathsSettings, Settings
 from ranking_msc.engine.executor import EngineContext
+from ranking_msc.exceptions import SnapshotError
 from ranking_msc.outputs.snapshot import write_snapshot_atomic
 from ranking_msc.rules.r054 import R054, _prev_competencia
 
@@ -310,3 +313,66 @@ class TestR054:
         result = R054().execute(df_n, context)
 
         assert len(result) == 0
+
+    def test_snapshots_dir_do_context_tem_precedencia_sobre_settings(
+        self, tmp_path: Path
+    ) -> None:
+        """context.snapshots_dir é usado em vez de settings.paths.snapshots_dir.
+
+        Cenário: settings aponta para diretório vazio; snapshots reais estão
+        em outro diretório passado via context.snapshots_dir (ex: --output-dir).
+        R054 deve encontrar o snapshot no diretório correto e gerar ALERTA.
+        """
+        settings_dir = tmp_path / "settings_dir"
+        real_dir = tmp_path / "real_dir"
+        settings_dir.mkdir()
+        real_dir.mkdir()
+
+        # Snapshot só existe em real_dir; settings_dir está vazio
+        df_prev = _df_mes_anterior("111110200", sf_d=1000.0, sf_c=0.0)
+        write_snapshot_atomic(df_prev, "2024-01", base_dir=str(real_dir), label="msc_normalizado")
+
+        # Context com snapshots_dir apontando para real_dir,
+        # mas settings.paths.snapshots_dir apontando para settings_dir (vazio)
+        paths = PathsSettings(
+            data_dir=str(tmp_path),
+            snapshots_dir=str(settings_dir),
+            reports_dir=str(tmp_path / "reports"),
+            logs_dir=str(tmp_path / "logs"),
+            ref_dir=str(tmp_path / "ref"),
+        )
+        settings = Settings(paths=paths)
+        context = EngineContext(
+            competencia="2024-02",
+            siconfi="250400",
+            settings=settings,
+            snapshots_dir=real_dir,
+            usuario="teste",
+        )
+
+        df_n = _df_mes_n("111110200", si_d=9999.0, si_c=0.0)
+        result = R054().execute(df_n, context)
+
+        # Deve encontrar o snapshot e detectar a divergência
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
+
+    def test_erro_io_ao_ler_snapshot_propaga_snapshot_error(
+        self, tmp_path: Path
+    ) -> None:
+        """SnapshotError de I/O propaga — não é tratado como ausência de snapshot.
+
+        Garante que falhas operacionais (permissão, Parquet corrompido) não
+        sejam silenciadas como se o snapshot simplesmente não existisse.
+        """
+        context = _make_context(tmp_path, competencia="2024-02")
+        df_n = _df_mes_n("111110200", si_d=1000.0, si_c=0.0)
+
+        # Simula falha de I/O: read_snapshot levanta SnapshotError (não NotFound)
+        io_error = SnapshotError("Falha de permissão ao ler arquivo Parquet")
+        with patch(
+            "ranking_msc.rules.r054.read_snapshot",
+            side_effect=io_error,
+        ):
+            with pytest.raises(SnapshotError):
+                R054().execute(df_n, context)

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ranking_msc.exceptions import SnapshotError
+from ranking_msc.exceptions import SnapshotError, SnapshotNotFoundError
 
 logger = logging.getLogger("ranking_msc")
 
@@ -78,11 +78,12 @@ def read_snapshot(
         DataFrame carregado do Parquet.
 
     Raises:
-        SnapshotError: se o arquivo não existir ou houver falha de leitura.
+        SnapshotNotFoundError: se o arquivo não existir em disco.
+        SnapshotError: se houver falha de leitura (I/O, permissão, Parquet corrompido).
     """
     path = Path(base_dir) / competencia / f"{label}.parquet"
     if not path.exists():
-        raise SnapshotError(f"Snapshot não encontrado: {path}")
+        raise SnapshotNotFoundError(f"Snapshot não encontrado: {path}")
 
     try:
         df = pd.read_parquet(path)

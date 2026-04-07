@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ranking_msc.exceptions import SnapshotError
+from ranking_msc.exceptions import SnapshotError, SnapshotNotFoundError
 from ranking_msc.outputs.snapshot import read_snapshot
 from ranking_msc.rules.base import TOLERANCIA_CENTAVO, Rule, register_rule
 
@@ -82,8 +82,10 @@ class R054(Rule):
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
         """Compara SI líquido do mês N com SF líquido do mês N-1.
 
-        Requer snapshot msc_normalizado da competência anterior salvo em
-        settings.paths.snapshots_dir. Se ausente, retorna sem pendências.
+        Usa context.snapshots_dir quando definido (ex: CLI com --output-dir),
+        caindo para settings.paths.snapshots_dir como padrão. Se o snapshot
+        do mês anterior não existir, a regra é saltada silenciosamente. Erros
+        de I/O ou permissão propagam para o engine como erro operacional.
 
         Args:
             df: DataFrame normalizado do mês N.
@@ -93,25 +95,41 @@ class R054(Rule):
             DataFrame de pendências — uma linha por combo CONTA+ICs onde
             abs(SI_líq_N − SF_líq_{N-1}) > TOLERANCIA_CENTAVO.
         """
+        from pathlib import Path  # noqa: PLC0415
+
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
         prev_comp = _prev_competencia(context.competencia)
-        snapshots_dir = context.settings.paths.snapshots_dir
+        snapshots_dir: str | Path = (
+            context.snapshots_dir
+            if context.snapshots_dir is not None
+            else context.settings.paths.snapshots_dir
+        )
 
-        # Tenta ler o snapshot do mês anterior
+        # Tenta ler o snapshot do mês anterior.
+        # SnapshotNotFoundError → mês anterior não processado ainda, regra saltada.
+        # SnapshotError (I/O, permissão) → erro operacional, deve propagar.
         try:
             prev_df = read_snapshot(
                 prev_comp,
                 base_dir=snapshots_dir,
                 label="msc_normalizado",
             )
-        except SnapshotError:
+        except SnapshotNotFoundError:
             logger.info(
                 "R054: snapshot do mês anterior (%s) ausente — regra saltada.",
                 prev_comp,
                 extra=_extra,
             )
             return self.build_issues([])
+        except SnapshotError:
+            logger.error(
+                "R054: falha ao ler snapshot do mês anterior (%s) — erro operacional.",
+                prev_comp,
+                extra=_extra,
+                exc_info=True,
+            )
+            raise
 
         if df.empty or prev_df.empty:
             return self.build_issues([])
