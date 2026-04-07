@@ -22,7 +22,7 @@ from ranking_msc.rules.r043 import R043
 # ---------------------------------------------------------------------------
 
 def _make_df(**kwargs: object) -> pd.DataFrame:
-    """Cria DataFrame mínimo com colunas de valor e conta_contabil."""
+    """Cria DataFrame mínimo com colunas de valor, presença e conta_contabil."""
     defaults: dict[str, object] = {
         "conta_contabil": "1.1.1.1.1.01.00",
         "saldo_inicial_debito": 0.0,
@@ -31,6 +31,8 @@ def _make_df(**kwargs: object) -> pd.DataFrame:
         "movimento_credito": 0.0,
         "saldo_final_debito": 0.0,
         "saldo_final_credito": 0.0,
+        "_has_saldo_inicial": False,
+        "_has_saldo_final": False,
     }
     defaults.update(kwargs)
     return pd.DataFrame([defaults])
@@ -46,28 +48,35 @@ class TestR040:
     def test_conta_patrimonial_com_saldo_inicial_sem_pendencia(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta patrimonial com SI_D > 0 → sem pendência."""
-        df = _make_df(conta_contabil="1.1.1.1.1.01.00", saldo_inicial_debito=1000.0)
+        """Conta patrimonial com entrada beginning_balance presente → sem pendência."""
+        df = _make_df(
+            conta_contabil="1.1.1.1.1.01.00",
+            saldo_inicial_debito=1000.0,
+            _has_saldo_inicial=True,
+        )
         result = R040().execute(df, engine_context)
         assert len(result) == 0
 
     def test_conta_patrimonial_si_credito_sem_pendencia(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta patrimonial com SI_C > 0 → sem pendência."""
-        df = _make_df(conta_contabil="2.1.1.1.1.01.00", saldo_inicial_credito=500.0)
+        """Conta patrimonial com entrada beginning_balance credito presente → sem pendência."""
+        df = _make_df(
+            conta_contabil="2.1.1.1.1.01.00",
+            saldo_inicial_credito=500.0,
+            _has_saldo_inicial=True,
+        )
         result = R040().execute(df, engine_context)
         assert len(result) == 0
 
     def test_conta_patrimonial_si_zerado_gera_alerta(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta patrimonial com SI_D=0 e SI_C=0 → ALERTA."""
+        """Conta patrimonial sem entrada beginning_balance no CSV → ALERTA."""
         df = _make_df(
             conta_contabil="1.1.1.1.1.01.00",
-            saldo_inicial_debito=0.0,
-            saldo_inicial_credito=0.0,
-            saldo_final_debito=500.0,  # tem SF mas não SI
+            saldo_final_debito=500.0,
+            _has_saldo_inicial=False,  # nenhuma entrada beginning_balance
         )
         result = R040().execute(df, engine_context)
         assert len(result) == 1
@@ -88,7 +97,7 @@ class TestR040:
     def test_multiplas_linhas_mesma_conta_agrega_antes_de_validar(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta com SI distribuído em múltiplas linhas (ICs) → agregar antes de validar."""
+        """Conta com SI em uma IC, outra IC sem SI → any(_has_saldo_inicial)=True → sem ALERTA."""
         df = pd.DataFrame([
             {
                 "conta_contabil": "1.1.1.1.1.01.00",
@@ -98,6 +107,8 @@ class TestR040:
                 "movimento_credito": 0.0,
                 "saldo_final_debito": 500.0,
                 "saldo_final_credito": 0.0,
+                "_has_saldo_inicial": True,
+                "_has_saldo_final": True,
             },
             {
                 "conta_contabil": "1.1.1.1.1.01.00",
@@ -107,16 +118,29 @@ class TestR040:
                 "movimento_credito": 100.0,
                 "saldo_final_debito": 0.0,
                 "saldo_final_credito": 0.0,
+                "_has_saldo_inicial": False,
+                "_has_saldo_final": False,
             },
         ])
-        # Soma SI_D = 500 > 0 → sem ALERTA
         result = R040().execute(df, engine_context)
         assert len(result) == 0
 
     def test_df_vazio_retorna_sem_pendencia(self, engine_context: EngineContext) -> None:
         """DataFrame vazio → sem pendência."""
         df = pd.DataFrame(
-            columns=["conta_contabil", "saldo_inicial_debito", "saldo_inicial_credito"]
+            columns=["conta_contabil", "_has_saldo_inicial", "_has_saldo_final"]
+        )
+        result = R040().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_conta_patrimonial_si_zero_mas_presente_nao_gera_alerta(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Conta patrimonial com beginning_balance=0 mas entrada presente → sem ALERTA."""
+        df = _make_df(
+            conta_contabil="1.1.1.1.1.01.00",
+            saldo_inicial_debito=0.0,   # valor zero (legítimo)
+            _has_saldo_inicial=True,    # mas a entrada existe no CSV
         )
         result = R040().execute(df, engine_context)
         assert len(result) == 0
@@ -143,28 +167,36 @@ class TestR041:
     def test_conta_patrimonial_com_saldo_final_sem_pendencia(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta patrimonial com SF_D > 0 → sem pendência."""
-        df = _make_df(conta_contabil="1.1.1.1.1.01.00", saldo_final_debito=2000.0)
+        """Conta patrimonial com entrada ending_balance presente → sem pendência."""
+        df = _make_df(
+            conta_contabil="1.1.1.1.1.01.00",
+            saldo_final_debito=2000.0,
+            _has_saldo_final=True,
+        )
         result = R041().execute(df, engine_context)
         assert len(result) == 0
 
     def test_conta_patrimonial_sf_credito_sem_pendencia(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta patrimonial com SF_C > 0 → sem pendência."""
-        df = _make_df(conta_contabil="2.1.1.1.1.01.00", saldo_final_credito=750.0)
+        """Conta patrimonial com entrada ending_balance crédito presente → sem pendência."""
+        df = _make_df(
+            conta_contabil="2.1.1.1.1.01.00",
+            saldo_final_credito=750.0,
+            _has_saldo_final=True,
+        )
         result = R041().execute(df, engine_context)
         assert len(result) == 0
 
     def test_conta_patrimonial_sf_zerado_gera_alerta(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta patrimonial com SF_D=0 e SF_C=0 → ALERTA."""
+        """Conta patrimonial sem entrada ending_balance no CSV → ALERTA."""
         df = _make_df(
             conta_contabil="1.1.1.1.1.01.00",
-            saldo_inicial_debito=1000.0,  # tem SI mas não SF
-            saldo_final_debito=0.0,
-            saldo_final_credito=0.0,
+            saldo_inicial_debito=1000.0,
+            _has_saldo_inicial=True,
+            _has_saldo_final=False,  # nenhuma entrada ending_balance
         )
         result = R041().execute(df, engine_context)
         assert len(result) == 1
@@ -185,7 +217,7 @@ class TestR041:
     def test_multiplas_linhas_mesma_conta_agrega_antes_de_validar(
         self, engine_context: EngineContext
     ) -> None:
-        """SF distribuído em múltiplas ICs → agregar antes de validar."""
+        """SF em uma IC, outra IC sem SF → any(_has_saldo_final)=True → sem ALERTA."""
         df = pd.DataFrame([
             {
                 "conta_contabil": "2.1.1.1.1.01.00",
@@ -195,6 +227,8 @@ class TestR041:
                 "movimento_credito": 0.0,
                 "saldo_final_debito": 0.0,
                 "saldo_final_credito": 300.0,
+                "_has_saldo_inicial": True,
+                "_has_saldo_final": True,
             },
             {
                 "conta_contabil": "2.1.1.1.1.01.00",
@@ -204,24 +238,37 @@ class TestR041:
                 "movimento_credito": 0.0,
                 "saldo_final_debito": 0.0,
                 "saldo_final_credito": 0.0,
+                "_has_saldo_inicial": False,
+                "_has_saldo_final": False,
             },
         ])
-        # SF_C total = 300 → sem ALERTA
         result = R041().execute(df, engine_context)
         assert len(result) == 0
 
     def test_df_vazio_retorna_sem_pendencia(self, engine_context: EngineContext) -> None:
         """DataFrame vazio → sem pendência."""
         df = pd.DataFrame(
-            columns=["conta_contabil", "saldo_final_debito", "saldo_final_credito"]
+            columns=["conta_contabil", "_has_saldo_inicial", "_has_saldo_final"]
         )
         result = R041().execute(df, engine_context)
         assert len(result) == 0
 
-    def test_multiplas_contas_apenas_zeradas_reportadas(
+    def test_conta_patrimonial_sf_zero_mas_presente_nao_gera_alerta(
         self, engine_context: EngineContext
     ) -> None:
-        """Duas contas patrimoniais: uma com SF, outra sem → apenas a zerada é reportada."""
+        """Conta patrimonial com ending_balance=0 mas entrada presente → sem ALERTA."""
+        df = _make_df(
+            conta_contabil="2.1.1.1.1.01.00",
+            saldo_final_credito=0.0,    # valor zero (legítimo)
+            _has_saldo_final=True,      # mas a entrada existe no CSV
+        )
+        result = R041().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_multiplas_contas_apenas_sem_entrada_sf_reportadas(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Duas contas patrimoniais: uma com ending_balance, outra sem → só a ausente reportada."""
         df = pd.DataFrame([
             {
                 "conta_contabil": "1.1.1.1.1.01.00",
@@ -231,6 +278,8 @@ class TestR041:
                 "movimento_credito": 0.0,
                 "saldo_final_debito": 1000.0,
                 "saldo_final_credito": 0.0,
+                "_has_saldo_inicial": True,
+                "_has_saldo_final": True,
             },
             {
                 "conta_contabil": "1.1.1.1.1.02.00",
@@ -240,6 +289,8 @@ class TestR041:
                 "movimento_credito": 0.0,
                 "saldo_final_debito": 0.0,
                 "saldo_final_credito": 0.0,
+                "_has_saldo_inicial": True,
+                "_has_saldo_final": False,  # sem entrada ending_balance
             },
         ])
         result = R041().execute(df, engine_context)
@@ -257,15 +308,13 @@ class TestR042:
     def test_conta_resultado_apenas_movimentos_sem_pendencia(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta de resultado com SI=0, SF=0 e movimentos → sem pendência."""
+        """Conta de resultado sem entradas beginning/ending_balance → sem pendência."""
         df = _make_df(
             conta_contabil="3.1.1.1.1.01.00",
-            saldo_inicial_debito=0.0,
-            saldo_inicial_credito=0.0,
             movimento_debito=1000.0,
             movimento_credito=800.0,
-            saldo_final_debito=0.0,
-            saldo_final_credito=0.0,
+            _has_saldo_inicial=False,
+            _has_saldo_final=False,
         )
         result = R042().execute(df, engine_context)
         assert len(result) == 0
@@ -273,33 +322,45 @@ class TestR042:
     def test_conta_resultado_com_si_gera_alerta(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta de resultado com SI_D ≠ 0 → ALERTA."""
+        """Conta de resultado com entrada beginning_balance presente → ALERTA."""
         df = _make_df(
             conta_contabil="3.1.1.1.1.01.00",
             saldo_inicial_debito=500.0,
-            saldo_inicial_credito=0.0,
             movimento_debito=1000.0,
             movimento_credito=800.0,
-            saldo_final_debito=0.0,
-            saldo_final_credito=0.0,
+            _has_saldo_inicial=True,
+        )
+        result = R042().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["regra_id"] == "R042"
+        assert result.iloc[0]["valor_encontrado"] == "saldo inicial"
+
+    def test_conta_resultado_com_sf_gera_alerta(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Conta de resultado com entrada ending_balance presente → ALERTA."""
+        df = _make_df(
+            conta_contabil="4.1.1.1.1.01.00",
+            movimento_debito=800.0,
+            movimento_credito=1000.0,
+            saldo_final_credito=200.0,
+            _has_saldo_final=True,
         )
         result = R042().execute(df, engine_context)
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
         assert result.iloc[0]["regra_id"] == "R042"
 
-    def test_conta_resultado_com_sf_gera_alerta(
+    def test_conta_resultado_si_zero_mas_presente_gera_alerta(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta de resultado com SF_C ≠ 0 → ALERTA."""
+        """Conta de resultado com beginning_balance=0 mas entrada presente → ALERTA."""
         df = _make_df(
-            conta_contabil="4.1.1.1.1.01.00",
-            saldo_inicial_debito=0.0,
-            saldo_inicial_credito=0.0,
-            movimento_debito=800.0,
-            movimento_credito=1000.0,
-            saldo_final_debito=0.0,
-            saldo_final_credito=200.0,
+            conta_contabil="3.1.1.1.1.01.00",
+            saldo_inicial_debito=0.0,   # valor zero
+            movimento_debito=500.0,
+            _has_saldo_inicial=True,    # mas a entrada existe no CSV
         )
         result = R042().execute(df, engine_context)
         assert len(result) == 1
@@ -312,6 +373,8 @@ class TestR042:
             conta_contabil="1.1.1.1.1.01.00",
             saldo_inicial_debito=1000.0,
             saldo_final_debito=1000.0,
+            _has_saldo_inicial=True,
+            _has_saldo_final=True,
         )
         result = R042().execute(df, engine_context)
         assert len(result) == 0
@@ -319,15 +382,19 @@ class TestR042:
     def test_conta_resultado_totalmente_zerada_sem_pendencia(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta de resultado com todos os valores zerados → R042 não reporta (nenhum saldo)."""
-        df = _make_df(conta_contabil="3.1.1.1.1.01.00")
+        """Conta de resultado sem nenhuma entrada de saldo → R042 não reporta."""
+        df = _make_df(
+            conta_contabil="3.1.1.1.1.01.00",
+            _has_saldo_inicial=False,
+            _has_saldo_final=False,
+        )
         result = R042().execute(df, engine_context)
         assert len(result) == 0
 
     def test_multiplas_linhas_mesma_conta_agrupa_antes_de_validar(
         self, engine_context: EngineContext
     ) -> None:
-        """SI distribuído em ICs — se a soma por conta tiver SI ≠ 0, gera ALERTA."""
+        """Uma IC com beginning_balance, outra sem → any(_has_saldo_inicial)=True → ALERTA."""
         df = pd.DataFrame([
             {
                 "conta_contabil": "3.1.1.1.1.01.00",
@@ -337,6 +404,8 @@ class TestR042:
                 "movimento_credito": 0.0,
                 "saldo_final_debito": 0.0,
                 "saldo_final_credito": 0.0,
+                "_has_saldo_inicial": True,
+                "_has_saldo_final": False,
             },
             {
                 "conta_contabil": "3.1.1.1.1.01.00",
@@ -346,6 +415,8 @@ class TestR042:
                 "movimento_credito": 500.0,
                 "saldo_final_debito": 0.0,
                 "saldo_final_credito": 0.0,
+                "_has_saldo_inicial": False,
+                "_has_saldo_final": False,
             },
         ])
         result = R042().execute(df, engine_context)
@@ -355,12 +426,24 @@ class TestR042:
         """DataFrame vazio → sem pendência."""
         df = pd.DataFrame(
             columns=[
-                "conta_contabil", "saldo_inicial_debito", "saldo_inicial_credito",
+                "conta_contabil", "_has_saldo_inicial", "_has_saldo_final",
+                "saldo_inicial_debito", "saldo_inicial_credito",
                 "saldo_final_debito", "saldo_final_credito",
             ]
         )
         result = R042().execute(df, engine_context)
         assert len(result) == 0
+
+    def test_df_sem_colunas_saldo_nao_crasha(self, engine_context: EngineContext) -> None:
+        """DataFrame sem colunas de saldo (apenas presença) → R042 não crasha."""
+        df = pd.DataFrame([{
+            "conta_contabil": "3.1.1.1.1.01.00",
+            "_has_saldo_inicial": True,
+            "_has_saldo_final": False,
+        }])
+        result = R042().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
 
 
 # ---------------------------------------------------------------------------
