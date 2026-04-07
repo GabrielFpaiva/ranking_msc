@@ -63,8 +63,8 @@ A infraestrutura está pronta — cada nova regra segue o padrão já estabeleci
 | F3-10 | Implementar R032 (Natureza saldo compatível) | `rules/r032.py` | F2-11 | ✅ Concluída (2026-04-06) 343 testes |
 | F3-11 | Implementar R070 (Duplicidade) | `rules/r070.py` | — | ✅ Concluída (2026-04-06) PR #44, 358 testes |
 | F3-12 | Testes integração + rodar todas regras em CSV real | `tests/test_integration_f3.py` | F3-01 a F3-11 | ✅ Concluída (2026-04-06) PR #45, 382 testes |
-| F3-13 | Implementar R040–R043 (Completude) | `rules/completude/` | — | A Fazer |
-| F3-14 | Implementar R050–R052 (Interconta) | `rules/interconta/` | — | A Fazer |
+| F3-13 | Implementar R040–R043 (Completude) | `rules/completude/` | — | ✅ Concluída (2026-04-06) PR #46 |
+| F3-14 | Implementar R050–R052 (Interconta) | `rules/interconta/` | — | ✅ Concluída (2026-04-07) |
 | F3-15 | Implementar R060 (FP vs IND_SF) | `rules/r060.py` | F2-11 | A Fazer |
 | F3-16 | Refinar relatório com todas regras + categorias | `outputs/reports.py` atualizado | F3-12 | A Fazer |
 
