@@ -34,6 +34,14 @@ _SEVERITY_COLORS: dict[str, str] = {
 _HEADER_FILL = PatternFill(fill_type="solid", fgColor="FFDDEBF7")
 _HEADER_FONT = Font(bold=True)
 
+_SALDO_DEVEDOR_FILL = PatternFill(fill_type="solid", fgColor="FFFFC7CE")
+_SALDO_DEVEDOR_COLUMNS: dict[str, str] = {
+    "conta_contabil": "Conta Contábil",
+    "valor_esperado": "Natureza Esperada",
+    "valor_encontrado": "Saldo Encontrado",
+    "descricao": "Descrição",
+}
+
 _COLUMN_LABELS: dict[str, str] = {
     "regra_id": "Regra",
     "regra_nome": "Nome da Regra",
@@ -101,6 +109,8 @@ def export_issues_excel(
             _auto_fit_columns(ws_resumo)
             _auto_fit_columns(ws_pendencias)
             _rename_headers(ws_pendencias)
+
+            _add_saldo_devedor_sheet(writer, df_pendencias)
     except Exception as exc:  # noqa: BLE001
         raise ReportError(
             f"Falha ao exportar relatório Excel para competência {competencia}: {exc}"
@@ -248,3 +258,55 @@ def _find_column_index(ws: Worksheet, header_name: str) -> int | None:
         if isinstance(value, str) and value.strip().lower() == normalized_header:
             return col_idx
     return None
+
+
+def _add_saldo_devedor_sheet(
+    writer: pd.ExcelWriter,
+    df_pendencias: pd.DataFrame,
+) -> None:
+    """Adiciona aba 'Saldo Devedor' com contas de natureza incompatível (R032).
+
+    Filtra pendências da regra R032 e exibe numa aba dedicada com linhas
+    destacadas em vermelho — entrega tangível acordada para a Fase 3.
+
+    Args:
+        writer: ExcelWriter aberto (contexto ``with pd.ExcelWriter``).
+        df_pendencias: DataFrame consolidado de todas as pendências do engine.
+    """
+    r032 = (
+        df_pendencias[df_pendencias["regra_id"] == "R032"]
+        if not df_pendencias.empty
+        else df_pendencias
+    )
+
+    sheet_name = "Saldo Devedor"
+
+    if r032.empty:
+        msg_df = pd.DataFrame(
+            [{"Conta Contábil": "Sem incompatibilidades de natureza de saldo"}]
+        )
+        msg_df.to_excel(writer, sheet_name=sheet_name, index=False)
+        ws = writer.sheets[sheet_name]
+        _format_header(ws)
+        _auto_fit_columns(ws)
+        return
+
+    cols = list(_SALDO_DEVEDOR_COLUMNS.keys())
+    view = r032[cols].copy()
+    view.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    ws = writer.sheets[sheet_name]
+
+    # Renomear cabeçalhos para rótulos legíveis
+    for cell in ws[1]:
+        if isinstance(cell.value, str):
+            cell.value = _SALDO_DEVEDOR_COLUMNS.get(cell.value, cell.value)
+
+    _format_header(ws)
+    _freeze_and_filter(ws)
+    _auto_fit_columns(ws)
+
+    # Destacar todas as linhas de dados em vermelho
+    for row_idx in range(2, ws.max_row + 1):
+        for col_idx in range(1, ws.max_column + 1):
+            ws.cell(row=row_idx, column=col_idx).fill = _SALDO_DEVEDOR_FILL
