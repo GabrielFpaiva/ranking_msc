@@ -392,7 +392,25 @@ def _pivot_values(
     # Colunas de agrupamento presentes no DataFrame
     group_cols = [c for c in _GROUP_COLS if c in df_valid.columns]
 
-    # Pivot
+    # Indicadores de presença — detectar se a conta possui ao menos uma linha
+    # beginning_balance / ending_balance no CSV original. Necessário para
+    # distinguir "saldo ausente" (fill_value=0.0) de "saldo zero legítimo".
+    _BB_NAMES: frozenset[str] = frozenset({"saldo_inicial_debito", "saldo_inicial_credito"})
+    _EB_NAMES: frozenset[str] = frozenset({"saldo_final_debito", "saldo_final_credito"})
+    presence = (
+        df_valid
+        .assign(
+            _is_bb=lambda x: x["_pivot_name"].isin(_BB_NAMES),
+            _is_eb=lambda x: x["_pivot_name"].isin(_EB_NAMES),
+        )
+        .groupby(group_cols, as_index=False)
+        .agg(
+            _has_saldo_inicial=("_is_bb", "any"),
+            _has_saldo_final=("_is_eb", "any"),
+        )
+    )
+
+    # Pivot (soma de valores por conta × IC)
     pivoted = df_valid.pivot_table(
         index=group_cols,
         columns="_pivot_name",
@@ -400,6 +418,16 @@ def _pivot_values(
         aggfunc="sum",
         fill_value=0.0,
     ).reset_index()
+
+    # Merge dos indicadores de presença — left join garante que toda linha pivotada
+    # recebe os indicadores; fillna(False) cobre o caso de df_valid vazio.
+    pivoted = pivoted.merge(
+        presence[group_cols + ["_has_saldo_inicial", "_has_saldo_final"]],
+        on=group_cols,
+        how="left",
+    )
+    pivoted["_has_saldo_inicial"] = pivoted["_has_saldo_inicial"].fillna(False)
+    pivoted["_has_saldo_final"] = pivoted["_has_saldo_final"].fillna(False)
 
     # Garantir que todas as 6 colunas de valor existem (mesmo que zeradas)
     value_cols = list(_PIVOT_MAP.values())

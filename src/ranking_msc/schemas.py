@@ -49,6 +49,8 @@ RAW_MSC_COLUMNS: Final[list[str]] = [
     "movimento_credito",        # period_change;C
     "saldo_final_debito",       # ending_balance;D
     "saldo_final_credito",      # ending_balance;C
+    "_has_saldo_inicial",       # True se existe ≥1 linha beginning_balance no CSV original
+    "_has_saldo_final",         # True se existe ≥1 linha ending_balance no CSV original
 ]
 
 # ---------------------------------------------------------------------------
@@ -75,6 +77,8 @@ FACT_MSC_COLUMNS: Final[list[str]] = [
     "movimento_credito",        # period_change;C
     "saldo_final_debito",       # ending_balance;D
     "saldo_final_credito",      # ending_balance;C
+    "_has_saldo_inicial",       # True se existe ≥1 linha beginning_balance no CSV original
+    "_has_saldo_final",         # True se existe ≥1 linha ending_balance no CSV original
 ]
 
 # ---------------------------------------------------------------------------
