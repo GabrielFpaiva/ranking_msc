@@ -161,7 +161,7 @@ class TestR032SemViolacao:
     def test_pcasp_sem_coluna_nat_saldo_levanta_config_error(
         self, engine_context: object
     ) -> None:
-        """PCASP sem nat_saldo deve levantar ConfigError — não retornar 0 issues (falso negativo)."""
+        """PCASP sem nat_saldo deve levantar ConfigError — não retornar 0 issues."""
         pcasp_sem_nat_saldo = pd.DataFrame({"conta_contabil": ["111110200", "211000000"]})
         df = _df("111110200", saldo_debito=0, saldo_credito=100.0)
 

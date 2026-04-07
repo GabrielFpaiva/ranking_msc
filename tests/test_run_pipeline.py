@@ -196,7 +196,7 @@ def test_run_cli_fluxo_feliz_orquestra_pipeline(
     assert captured["engine_context_competencia"] == "2025-11"
     assert captured["snapshot_rows"] == 0
     assert captured["snapshot_competencia"] == "2025-11"
-    assert captured["snapshot_base"] == (output_base / "snapshots").resolve()
+    assert captured["snapshot_base"] == (output_base / "snapshots" / "2507507EX").resolve()
     assert captured["snapshot_label"] == "resultado_regras"
     assert captured["report_rows"] == 0
     assert captured["report_competencia"] == "2025-11"
