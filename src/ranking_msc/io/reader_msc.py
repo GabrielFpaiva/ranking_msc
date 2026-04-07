@@ -395,13 +395,13 @@ def _pivot_values(
     # Indicadores de presença — detectar se a conta possui ao menos uma linha
     # beginning_balance / ending_balance no CSV original. Necessário para
     # distinguir "saldo ausente" (fill_value=0.0) de "saldo zero legítimo".
-    _BB_NAMES: frozenset[str] = frozenset({"saldo_inicial_debito", "saldo_inicial_credito"})
-    _EB_NAMES: frozenset[str] = frozenset({"saldo_final_debito", "saldo_final_credito"})
+    _bb_names: frozenset[str] = frozenset({"saldo_inicial_debito", "saldo_inicial_credito"})
+    _eb_names: frozenset[str] = frozenset({"saldo_final_debito", "saldo_final_credito"})
     presence = (
         df_valid
         .assign(
-            _is_bb=lambda x: x["_pivot_name"].isin(_BB_NAMES),
-            _is_eb=lambda x: x["_pivot_name"].isin(_EB_NAMES),
+            _is_bb=lambda x: x["_pivot_name"].isin(_bb_names),
+            _is_eb=lambda x: x["_pivot_name"].isin(_eb_names),
         )
         .groupby(group_cols, as_index=False)
         .agg(
