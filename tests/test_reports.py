@@ -87,11 +87,11 @@ def local_tmp_dir() -> Iterator[Path]:
         shutil.rmtree(created, ignore_errors=True)
 
 
-def test_export_issues_excel_gera_arquivo_com_duas_abas(
+def test_export_issues_excel_gera_arquivo_com_tres_abas(
     local_tmp_dir: Path,
     pendencias_sinteticas: pd.DataFrame,
 ) -> None:
-    """Gera Excel com abas Resumo e Pendências, abrindo sem erro."""
+    """Gera Excel com abas Resumo, Pendências e Saldo Devedor, abrindo sem erro."""
     output = export_issues_excel(
         pendencias_sinteticas,
         competencia="2024-01",
@@ -102,7 +102,7 @@ def test_export_issues_excel_gera_arquivo_com_duas_abas(
     assert output.suffix == ".xlsx"
 
     workbook = load_workbook(output)
-    assert workbook.sheetnames == ["Resumo", "Pendências"]
+    assert workbook.sheetnames == ["Resumo", "Pendências", "Saldo Devedor"]
 
     ws_resumo = workbook["Resumo"]
     ws_pendencias = workbook["Pendências"]
@@ -354,3 +354,92 @@ def _extract_rgb(cell: Cell | MergedCell) -> str:
     if isinstance(rgb, str):
         return rgb.upper()
     return ""
+
+
+# ---------------------------------------------------------------------------
+# Testes — aba Saldo Devedor
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def pendencias_com_r032(pendencias_sinteticas: pd.DataFrame) -> pd.DataFrame:
+    """DataFrame de pendências com dois registros R032 adicionados."""
+    r032_rows = pd.DataFrame([
+        {
+            "regra_id": "R032",
+            "regra_nome": "Natureza do saldo compatível com conta",
+            "dimensao": "PCASP",
+            "severidade": "ALERTA",
+            "conta_contabil": "111110200",
+            "descricao": "Conta '111110200': nat_saldo=Devedora mas possui saldo credor.",
+            "valor_esperado": "Natureza D (saldo devedor)",
+            "valor_encontrado": "C (saldo_final_credito=150.00)",
+            "competencia": "2024-01",
+        },
+        {
+            "regra_id": "R032",
+            "regra_nome": "Natureza do saldo compatível com conta",
+            "dimensao": "PCASP",
+            "severidade": "ALERTA",
+            "conta_contabil": "211000000",
+            "descricao": "Conta '211000000': nat_saldo=Credora mas possui saldo devedor.",
+            "valor_esperado": "Natureza C (saldo credor)",
+            "valor_encontrado": "D (saldo_final_debito=80.00)",
+            "competencia": "2024-01",
+        },
+    ])
+    return pd.concat([pendencias_sinteticas, r032_rows], ignore_index=True)
+
+
+class TestSaldoDevedorSheet:
+    def test_aba_saldo_devedor_com_r032_presente_no_excel(
+        self,
+        local_tmp_dir: Path,
+        pendencias_com_r032: pd.DataFrame,
+    ) -> None:
+        """Aba 'Saldo Devedor' deve estar presente no Excel quando há R032."""
+        output = export_issues_excel(
+            pendencias_com_r032,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+        )
+        wb = load_workbook(output)
+        assert "Saldo Devedor" in wb.sheetnames
+
+    def test_saldo_devedor_com_r032_linhas_em_vermelho(
+        self,
+        local_tmp_dir: Path,
+        pendencias_com_r032: pd.DataFrame,
+    ) -> None:
+        """Linhas de dados da aba 'Saldo Devedor' devem ter fill vermelho claro."""
+        output = export_issues_excel(
+            pendencias_com_r032,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+        )
+        wb = load_workbook(output)
+        ws = wb["Saldo Devedor"]
+        for row_idx in range(2, ws.max_row + 1):
+            for col_idx in range(1, ws.max_column + 1):
+                rgb = _extract_rgb(ws.cell(row=row_idx, column=col_idx))
+                assert rgb == "FFFFC7CE", (
+                    f"Linha {row_idx} col {col_idx}: esperado vermelho FFFFC7CE, "
+                    f"obtido {rgb!r}"
+                )
+
+    def test_saldo_devedor_sem_r032_exibe_mensagem_de_ausencia(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+    ) -> None:
+        """Sem R032 no df_pendencias, aba exibe mensagem de ausência."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+        )
+        wb = load_workbook(output)
+        ws = wb["Saldo Devedor"]
+        assert ws.max_row == 2  # cabeçalho + 1 linha de mensagem
+        msg = ws.cell(row=2, column=1).value
+        assert isinstance(msg, str)
+        assert "sem incompatibilidades" in msg.lower()
