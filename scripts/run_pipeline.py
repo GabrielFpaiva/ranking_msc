@@ -191,6 +191,15 @@ def _execute_pipeline(
     raw_msc = read_msc_csv(csv_path)
     normalized_df = normalize_ic(raw_msc.df)
 
+    # Grava snapshot do DataFrame normalizado ANTES de executar as regras.
+    # R054 e regras temporais futuras leem este snapshot para comparar com o mês anterior.
+    write_snapshot_atomic(
+        normalized_df,
+        raw_msc.competencia,
+        base_dir=output_paths.snapshots_dir,
+        label="msc_normalizado",
+    )
+
     context = EngineContext(
         competencia=raw_msc.competencia,
         siconfi=raw_msc.siconfi,
