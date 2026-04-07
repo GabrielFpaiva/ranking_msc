@@ -12,6 +12,8 @@ import pandas as pd
 
 from ranking_msc.engine.executor import EngineContext
 from ranking_msc.rules.r050 import R050
+from ranking_msc.rules.r051 import R051
+from ranking_msc.rules.r052 import R052
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -79,8 +81,9 @@ class TestR050:
         assert len(result) == 0
 
 
-from ranking_msc.rules.r051 import R051
-
+# ---------------------------------------------------------------------------
+# R051 — VPA - VPD = Resultado
+# ---------------------------------------------------------------------------
 
 def _df_r051(
     vpa_mov_c: float = 500.0,
@@ -182,3 +185,74 @@ class TestR051:
         result = R051().execute(df, engine_context)
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
+
+
+# ---------------------------------------------------------------------------
+# R052 — Controles devedores = Controles credores
+# ---------------------------------------------------------------------------
+
+def _df_r052(
+    conta7: str = "711110100",
+    sf_d_7: float = 1000.0,
+    sf_c_7: float = 0.0,
+    conta8: str = "811110100",
+    sf_d_8: float = 0.0,
+    sf_c_8: float = 1000.0,
+) -> pd.DataFrame:
+    """Cria DataFrame mínimo para testes de R052 (classes 7 e 8)."""
+    return pd.DataFrame([
+        {"conta_contabil": conta7, "saldo_final_debito": sf_d_7, "saldo_final_credito": sf_c_7},
+        {"conta_contabil": conta8, "saldo_final_debito": sf_d_8, "saldo_final_credito": sf_c_8},
+    ])
+
+
+class TestR052:
+    """Testes da regra R052 — controles devedores = controles credores."""
+
+    def test_r052_balanceado_sem_pendencia(self, engine_context: EngineContext) -> None:
+        """Classe 7 == Classe 8 → sem pendência."""
+        df = _df_r052(sf_d_7=1000.0, sf_c_8=1000.0)
+        result = R052().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_r052_desequilibrio_gera_alerta(self, engine_context: EngineContext) -> None:
+        """Classe 7 != Classe 8 → 1 pendência ALERTA."""
+        df = _df_r052(sf_d_7=1000.0, sf_c_8=999.0)
+        result = R052().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["regra_id"] == "R052"
+        assert result.iloc[0]["conta_contabil"] == ""
+
+    def test_r052_sem_contas_controle_sem_pendencia(self, engine_context: EngineContext) -> None:
+        """DF sem contas das classes 7 e 8 → sem pendência."""
+        df = pd.DataFrame([
+            {
+                "conta_contabil": "111110200",
+                "saldo_final_debito": 500.0,
+                "saldo_final_credito": 0.0,
+            },
+        ])
+        result = R052().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_r052_df_vazio_sem_pendencia(self, engine_context: EngineContext) -> None:
+        """DF vazio → sem pendência."""
+        df = pd.DataFrame(columns=["conta_contabil", "saldo_final_debito", "saldo_final_credito"])
+        result = R052().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_r052_multiplas_contas_soma_correta(self, engine_context: EngineContext) -> None:
+        """Múltiplas contas 7 e 8, somas iguais → sem pendência."""
+        df = pd.DataFrame([
+            {"conta_contabil": "711110100", "saldo_final_debito": 600.0,
+             "saldo_final_credito": 0.0},
+            {"conta_contabil": "712110100", "saldo_final_debito": 400.0,
+             "saldo_final_credito": 0.0},
+            {"conta_contabil": "811110100", "saldo_final_debito": 0.0,
+             "saldo_final_credito": 700.0},
+            {"conta_contabil": "812110100", "saldo_final_debito": 0.0,
+             "saldo_final_credito": 300.0},
+        ])
+        result = R052().execute(df, engine_context)
+        assert len(result) == 0
