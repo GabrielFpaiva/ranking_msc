@@ -94,7 +94,6 @@ def test_render_result_retorna_viewable(result_with_issues):
         )
 
 
-@pytest.mark.skip(reason="Tab not implemented yet — Task 2/3/4")
 def test_status_geral_conta_severidades(result_with_issues):
     """StatusGeralTab deve contar ERROs e ALERTAs corretamente."""
     import app.tabs  # noqa: F401
