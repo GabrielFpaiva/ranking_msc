@@ -47,7 +47,6 @@ def result_with_issues() -> EngineResult:
     return EngineResult(context=ctx, pendencias=df, regras_executadas=2)
 
 
-@pytest.mark.skip(reason="Tab not implemented yet — Task 2/3/4")
 def test_tab_registry_importa_todas_abas():
     """Após importar app.tabs, registry deve ter 3 abas."""
     import app.tabs  # noqa: F401 — importação dispara registro
@@ -117,7 +116,6 @@ def test_status_geral_conta_severidades(result_with_issues):
     assert by_name["INFOs"] == 0
 
 
-@pytest.mark.skip(reason="Tab not implemented yet — Task 2/3/4")
 def test_saldo_devedor_filtra_r032(result_with_issues):
     """SaldoDevedorTab deve filtrar só regra R032."""
     import app.tabs  # noqa: F401
@@ -128,7 +126,6 @@ def test_saldo_devedor_filtra_r032(result_with_issues):
     assert viewable is not None
 
 
-@pytest.mark.skip(reason="Tab not implemented yet — Task 2/3/4")
 def test_saldo_devedor_sem_r032(empty_result):
     """SaldoDevedorTab com result vazio deve mostrar mensagem de sucesso."""
     import app.tabs  # noqa: F401
