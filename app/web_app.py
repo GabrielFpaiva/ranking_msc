@@ -44,15 +44,18 @@ from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
 # ---------------------------------------------------------------------------
 pn.extension(sizing_mode="stretch_width")
 
+_settings_exc: Exception | None = None
 try:
     settings = load_settings(_PROJECT_ROOT / "config" / "settings.yaml")
-except Exception as exc:
+except Exception as exc:  # noqa: BLE001
     from ranking_msc.config.settings import Settings
     settings = Settings()
-    print(f"⚠ Config não encontrado, usando defaults: {exc}")  # noqa: T201
+    _settings_exc = exc
 
 logger = setup_logging(log_dir=settings.paths.logs_dir)
 logger.info("Aplicação web iniciada.")
+if _settings_exc is not None:
+    logger.warning("Config não encontrado, usando defaults: %s", _settings_exc)
 
 
 # ---------------------------------------------------------------------------
