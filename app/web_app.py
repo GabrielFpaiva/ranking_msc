@@ -4,6 +4,9 @@ app/web_app.py
 
 Aplicação web Panel — interface principal do Ranking MSC.
 
+Orquestrador fino: carrega Tab Registry, conecta o engine real,
+serve com BootstrapTemplate.
+
 Para rodar localmente:
     panel serve app/web_app.py --show --autoreload
 
@@ -11,52 +14,67 @@ Para rodar no servidor (multiusuário):
     panel serve app/web_app.py --address 0.0.0.0 --port 5006 \\
         --allow-websocket-origin=* --num-procs 2
 
-Abas obrigatórias:
-    1. Status Geral       — visão consolidada (score, totais por severidade)
-    2. Controle por Regras — detalhamento das regras R082–R111
-    3. Pendências         — listagem filtrada de pendências
-    4. Meu Caixa          — fluxo de caixa / conciliação
-    5. Passivos           — análise de passivos
-    6. Superávit          — análise do superávit financeiro
-    7. Auditoria          — log de execuções e rastreabilidade
+Para adicionar nova aba: criar app/tabs/<nome>.py e importar em app/tabs/__init__.py.
+Não é necessário alterar este arquivo.
 """
 
 from __future__ import annotations
 
+import io
 import sys
 from pathlib import Path
 
 import panel as pn
 
 # --- Ajuste de path para importar o pacote src/ ---
-# Em produção, prefira instalar o pacote via pip install -e .
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
+sys.path.insert(0, str(_PROJECT_ROOT))  # para importar app.tabs
 
+import app.tabs  # noqa: F401, E402 — dispara registro de todas as abas
+from app.tabs.base import TAB_REGISTRY  # noqa: E402
 from ranking_msc.config.settings import load_settings  # noqa: E402
-from ranking_msc.outputs.logs import setup_logging      # noqa: E402
+from ranking_msc.engine.executor import EngineContext, run_engine  # noqa: E402
+from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
+from ranking_msc.outputs.logs import setup_logging  # noqa: E402
+from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Inicialização
 # ---------------------------------------------------------------------------
-pn.extension("plotly", "tabulator", sizing_mode="stretch_width")
+pn.extension(sizing_mode="stretch_width")
 
 try:
     settings = load_settings(_PROJECT_ROOT / "config" / "settings.yaml")
 except Exception as exc:
-    # Se o config não existir, usa defaults (bom para primeiro run)
     from ranking_msc.config.settings import Settings
     settings = Settings()
-    print(f"⚠ Config não encontrado, usando defaults: {exc}")
+    print(f"⚠ Config não encontrado, usando defaults: {exc}")  # noqa: T201
 
 logger = setup_logging(log_dir=settings.paths.logs_dir)
 logger.info("Aplicação web iniciada.")
 
 
 # ---------------------------------------------------------------------------
-# Widgets de upload e controle
+# Containers das abas (atualizados após cada processamento)
 # ---------------------------------------------------------------------------
+_sorted_tabs = sorted(TAB_REGISTRY.values(), key=lambda t: t.order)
 
+_tab_containers: dict[str, pn.Column] = {
+    tab.tab_id: pn.Column(tab.render(None), sizing_mode="stretch_width")
+    for tab in _sorted_tabs
+}
+
+tabs = pn.Tabs(
+    *[(tab.tab_name, _tab_containers[tab.tab_id]) for tab in _sorted_tabs],
+    dynamic=True,
+    sizing_mode="stretch_width",
+)
+
+
+# ---------------------------------------------------------------------------
+# Widgets de controle (sidebar)
+# ---------------------------------------------------------------------------
 file_upload = pn.widgets.FileInput(
     accept=".csv",
     multiple=False,
@@ -69,7 +87,6 @@ btn_processar = pn.widgets.Button(
     width=200,
 )
 
-# Indicador de status do processamento
 status_indicator = pn.pane.Alert(
     "Nenhum arquivo processado ainda.",
     alert_type="info",
@@ -79,44 +96,59 @@ status_indicator = pn.pane.Alert(
 def _on_processar(event: object) -> None:
     """Callback do botão Processar.
 
-    Fluxo futuro:
-        1. Validar que um arquivo foi selecionado.
-        2. Chamar read_msc_csv(file_upload.value) para obter RawMSC.
-        3. Chamar normalize_ic(raw.df) para normalizar IC/TIPO.
-        4. Montar EngineContext com competência, siconfi, settings.
-        5. Chamar run_engine(df_normalizado, context) para obter EngineResult.
-        6. Gravar snapshot (write_snapshot_atomic).
-        7. Atualizar widgets das abas com os resultados.
-        8. Gerar relatório Excel (export_issues_excel) se solicitado.
-
-    TODO: tratar exceções e exibir mensagens amigáveis no status_indicator.
+    Fluxo:
+        1. Valida que arquivo foi selecionado.
+        2. Lê CSV via read_msc_csv().
+        3. Normaliza IC via normalize_ic().
+        4. Monta EngineContext com competência, siconfi e settings.
+        5. Executa run_engine() → EngineResult.
+        6. Atualiza containers de cada aba registrada.
     """
     if file_upload.value is None:
         status_indicator.object = "⚠ Selecione um arquivo CSV antes de processar."
         status_indicator.alert_type = "warning"
         return
 
-    status_indicator.object = "⏳ Processando... (stub — motor não implementado ainda)"
+    btn_processar.disabled = True
+    status_indicator.object = "⏳ Processando…"
     status_indicator.alert_type = "info"
 
-    # --- STUB: aqui entra o fluxo real ---
-    # from ranking_msc.io.reader_msc import read_msc_csv
-    # from ranking_msc.transform.ic_normalize import normalize_ic
-    # from ranking_msc.engine.executor import run_engine, EngineContext
-    #
-    # raw = read_msc_csv(io.BytesIO(file_upload.value))
-    # df = normalize_ic(raw.df)
-    # context = EngineContext(competencia=raw.competencia, siconfi=raw.siconfi, settings=settings)
-    # result = run_engine(df, context)
-    # _update_tabs(result)
+    try:
+        raw = read_msc_csv(io.BytesIO(file_upload.value))
+        df = normalize_ic(raw.df)
 
-    status_indicator.object = "✅ Stub concluído. Implemente run_engine() para resultados reais."
-    status_indicator.alert_type = "success"
+        context = EngineContext(
+            competencia=raw.competencia,
+            siconfi=raw.siconfi,
+            settings=settings,
+            pre_pivot_issues=raw.pre_pivot_issues,
+            snapshots_dir=Path(settings.paths.snapshots_dir),
+        )
+
+        result = run_engine(df, context)
+
+        for tab in _sorted_tabs:
+            _tab_containers[tab.tab_id].objects = [tab.render(result)]
+
+        total = result.total_pendencias
+        erros = int((result.pendencias["severidade"] == "ERRO").sum()) if total else 0
+        status_indicator.object = (
+            f"✅ Processado: competência `{raw.competencia}` | "
+            f"{total} pendência(s) | {erros} ERRO(s)"
+        )
+        status_indicator.alert_type = "success" if erros == 0 else "danger"
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Erro no processamento via web: %s", exc, exc_info=True)
+        status_indicator.object = f"❌ Erro: {exc}"
+        status_indicator.alert_type = "danger"
+
+    finally:
+        btn_processar.disabled = False
 
 
 btn_processar.on_click(_on_processar)
 
-# Painel lateral de controle
 sidebar = pn.Column(
     "## 📂 Importar MSC",
     file_upload,
@@ -128,90 +160,14 @@ sidebar = pn.Column(
 
 
 # ---------------------------------------------------------------------------
-# Abas de conteúdo
+# Layout principal — BootstrapTemplate
 # ---------------------------------------------------------------------------
 
-def _make_placeholder(title: str, description: str) -> pn.Column:
-    """Cria conteúdo placeholder para uma aba ainda não implementada."""
-    return pn.Column(
-        f"## {title}",
-        pn.pane.Markdown(f"*{description}*"),
-        pn.pane.Markdown("---\n> Conteúdo será preenchido após implementação do motor."),
-    )
-
-
-tab_status_geral = _make_placeholder(
-    "📊 Status Geral",
-    "Visão consolidada: score final, total de pendências por severidade, "
-    "e gráficos de evolução por competência.",
-    # TODO: adicionar gráficos Plotly (gauge do score, barras por severidade)
-    # TODO: adicionar tabela resumo usando pn.widgets.Tabulator
-)
-
-tab_controle_regras = _make_placeholder(
-    "📋 Controle por Regras (R082–R111)",
-    "Detalhamento regra a regra: status (OK / ERRO / ALERTA), "
-    "quantidade de pendências, e drill-down.",
-    # TODO: tabela com uma linha por regra, colunas: id, nome, status, count
-    # TODO: filtro por dimensão e severidade
-)
-
-tab_pendencias = _make_placeholder(
-    "⚠ Pendências",
-    "Listagem completa de pendências com filtros interativos.",
-    # TODO: pn.widgets.Tabulator com df de pendências
-    # TODO: filtros: severidade, regra, conta contábil
-    # TODO: botão "Exportar Excel"
-)
-
-tab_meu_caixa = _make_placeholder(
-    "💰 Meu Caixa",
-    "Análise de fluxo de caixa e conciliação bancária.",
-    # TODO: tabelas e gráficos específicos de caixa
-)
-
-tab_passivos = _make_placeholder(
-    "📑 Passivos",
-    "Análise de passivos financeiros e patrimoniais.",
-    # TODO: detalhamento de contas de passivo
-)
-
-tab_superavit = _make_placeholder(
-    "📈 Superávit",
-    "Análise do superávit financeiro.",
-    # TODO: cálculo e visualização do superávit
-)
-
-tab_auditoria = _make_placeholder(
-    "🔍 Auditoria",
-    "Log de execuções: quem processou, quando, resultados.",
-    # TODO: tabela com Fact_Execucao
-    # TODO: filtro por usuário, competência, status
-)
-
-tabs = pn.Tabs(
-    ("Status Geral", tab_status_geral),
-    ("Controle por Regras", tab_controle_regras),
-    ("Pendências", tab_pendencias),
-    ("Meu Caixa", tab_meu_caixa),
-    ("Passivos", tab_passivos),
-    ("Superávit", tab_superavit),
-    ("Auditoria", tab_auditoria),
-    dynamic=True,
-)
-
-
-# ---------------------------------------------------------------------------
-# Layout principal
-# ---------------------------------------------------------------------------
-
-template = pn.template.FastListTemplate(
+template = pn.template.BootstrapTemplate(
     title=settings.app.title,
     sidebar=[sidebar],
     main=[tabs],
-    accent_base_color="#1f77b4",
-    header_background="#1f77b4",
+    header_background="#1a5276",
 )
 
-# Panel serve procura por ``template`` ou objetos servíveis no módulo.
 template.servable()
