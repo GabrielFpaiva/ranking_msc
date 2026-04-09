@@ -31,6 +31,8 @@ def register_tab(cls: type[TabBase]) -> type[TabBase]:
             ...
     """
     instance = cls()
+    if not getattr(instance, "tab_id", ""):
+        raise ValueError(f"Tab {cls.__name__} precisa definir 'tab_id'.")
     TAB_REGISTRY[instance.tab_id] = instance
     return cls
 
@@ -46,9 +48,9 @@ class TabBase(ABC):
         5. Importar em app/tabs/__init__.py
     """
 
-    tab_id: str    # identificador único, ex: "status_geral"
-    tab_name: str  # label exibido na UI, ex: "Status Geral"
-    order: int     # posição na barra de abas (menor = mais à esquerda)
+    tab_id: str = ""    # identificador único, ex: "status_geral"
+    tab_name: str = ""  # label exibido na UI, ex: "Status Geral"
+    order: int = -1     # posição na barra de abas (menor = mais à esquerda)
 
     @abstractmethod
     def render(self, result: EngineResult | None) -> pn.viewable.Viewable:
