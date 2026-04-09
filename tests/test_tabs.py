@@ -97,12 +97,24 @@ def test_render_result_retorna_viewable(result_with_issues):
 def test_status_geral_conta_severidades(result_with_issues):
     """StatusGeralTab deve contar ERROs e ALERTAs corretamente."""
     import app.tabs  # noqa: F401
+    import panel as pn
     from app.tabs.base import TAB_REGISTRY
 
     tab = TAB_REGISTRY["status_geral"]
     viewable = tab.render(result_with_issues)
-    # Smoke: renderizou sem exceção com dados reais
     assert viewable is not None
+    # Verify Number indicators show correct counts.
+    # Numbers are nested inside a Row inside the Column — walk one level deep.
+    numbers: list[pn.indicators.Number] = []
+    for obj in viewable.objects:
+        if isinstance(obj, pn.indicators.Number):
+            numbers.append(obj)
+        elif hasattr(obj, "objects"):
+            numbers.extend(o for o in obj.objects if isinstance(o, pn.indicators.Number))
+    by_name = {n.name: n.value for n in numbers}
+    assert by_name["ERROs"] == 1
+    assert by_name["ALERTAs"] == 1
+    assert by_name["INFOs"] == 0
 
 
 @pytest.mark.skip(reason="Tab not implemented yet — Task 2/3/4")

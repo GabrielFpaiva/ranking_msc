@@ -12,11 +12,15 @@ Exibe:
 
 from __future__ import annotations
 
+import logging
+
 import pandas as pd
 import panel as pn
 
 from app.tabs.base import TabBase, register_tab
 from ranking_msc.engine.executor import EngineResult
+
+logger = logging.getLogger("ranking_msc")
 
 
 @register_tab
@@ -80,6 +84,10 @@ class StatusGeralTab(TabBase):
             for col in ["ERRO", "ALERTA", "INFO"]:
                 if col not in pivot.columns:
                     pivot[col] = 0
+            known = ("dimensao", "ERRO", "ALERTA", "INFO")
+            unexpected = [c for c in pivot.columns if c not in known]
+            if unexpected:
+                logger.warning("Severidades inesperadas no pivot (serão ignoradas): %s", unexpected)
             resumo = pivot[
                 ["dimensao"] + [c for c in ["ERRO", "ALERTA", "INFO"] if c in pivot.columns]
             ]
