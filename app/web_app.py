@@ -81,9 +81,9 @@ _stats_html = pn.pane.HTML(
 _controle_table = pn.widgets.Tabulator(
     pd.DataFrame(columns=["regra_id", "regra_nome", "dimensao", "pendencias"]),
     editors={},
-    selectable=True,
+    selectable="toggle",
     pagination="local",
-    page_size=35,
+    page_size=40,
     sizing_mode="stretch_width",
     show_index=False,
     titles={"regra_id": "Regra", "regra_nome": "Nome", "dimensao": "Dimensão", "pendencias": "Qtd"},
@@ -101,21 +101,22 @@ _regras_hint = pn.pane.HTML(
 _pendencias_table = pn.widgets.Tabulator(
     pd.DataFrame(columns=_PEND_COLS),
     editors={},
+    disabled=True,
     selectable=False,
     pagination="local",
-    page_size=30,
+    page_size=50,
     sizing_mode="stretch_width",
     show_index=False,
     titles={
-        "regra_id": "Regra", "severidade": "Sev.",
-        "conta_contabil": "Conta", "descricao": "Descrição",
+        "regra_id": "Regra", "severidade": "Severidade",
+        "conta_contabil": "Conta Contábil", "descricao": "Descrição",
         "valor_esperado": "Esperado", "valor_encontrado": "Encontrado",
-        "regra_nome": "Nome Regra", "dimensao": "Dimensão",
+        "regra_nome": "Nome da Regra", "dimensao": "Dimensão",
     },
     widths={
-        "regra_id": 65, "severidade": 75, "conta_contabil": 150,
-        "descricao": 320, "valor_esperado": 105, "valor_encontrado": 115,
-        "regra_nome": 160, "dimensao": 95,
+        "regra_id": 65, "severidade": 85, "conta_contabil": 160,
+        "descricao": 400, "valor_esperado": 120, "valor_encontrado": 130,
+        "regra_nome": 180, "dimensao": 100,
     },
 )
 
