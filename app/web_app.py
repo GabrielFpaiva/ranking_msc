@@ -29,6 +29,12 @@ from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
 # Init
 # ---------------------------------------------------------------------------
 pn.extension("plotly", "tabulator", sizing_mode="stretch_width")
+pn.config.raw_css.append("""
+.tabulator .tabulator-cell { cursor: default !important; }
+.tabulator .tabulator-editing { display: none !important; }
+.tabulator input.tabulator-edit-input { display: none !important; }
+.tabulator textarea { display: none !important; }
+""")
 
 try:
     settings = load_settings(_PROJECT_ROOT / "config" / "settings.yaml")
@@ -81,7 +87,7 @@ _stats_html = pn.pane.HTML(
 _controle_table = pn.widgets.Tabulator(
     pd.DataFrame(columns=["regra_id", "regra_nome", "dimensao", "pendencias"]),
     editors={},
-    selectable="toggle",
+    disabled=True,
     pagination="local",
     page_size=40,
     sizing_mode="stretch_width",
@@ -120,10 +126,6 @@ _pendencias_table = pn.widgets.Tabulator(
     },
 )
 
-_filter_banner = pn.pane.HTML("")
-btn_limpar = pn.widgets.Button(
-    name="✕ Limpar filtro", button_type="light", width=130, visible=False,
-)
 
 # ---------------------------------------------------------------------------
 # Tabs
@@ -131,7 +133,7 @@ btn_limpar = pn.widgets.Button(
 tabs = pn.Tabs(
     ("📊 Status Geral", pn.Column(_stats_html)),
     ("📋 Regras", pn.Column(_regras_hint, _controle_table)),
-    ("⚠ Pendências", pn.Column(pn.Row(_filter_banner, btn_limpar), _pendencias_table)),
+    ("⚠ Pendências", pn.Column(_pendencias_table)),
     ("💰 Meu Caixa", pn.pane.HTML("<p style='color:#aaa;padding:30px;'>Fase 5</p>")),
     ("📑 Passivos", pn.pane.HTML("<p style='color:#aaa;padding:30px;'>Fase 5</p>")),
     ("📈 Superávit", pn.pane.HTML("<p style='color:#aaa;padding:30px;'>Fase 5</p>")),
@@ -140,45 +142,8 @@ tabs = pn.Tabs(
     sizing_mode="stretch_width",
 )
 
-# ---------------------------------------------------------------------------
-# Interação: clique regra → pendências filtradas
-# ---------------------------------------------------------------------------
-
-def _reset_filter() -> None:
-    _pendencias_table.value = (
-        _all_pendencias if not _all_pendencias.empty
-        else pd.DataFrame(columns=_PEND_COLS)
-    )
-    _filter_banner.object = ""
-    btn_limpar.visible = False
-    _controle_table.selection = []
-
-
-def _on_rule_click(event: object) -> None:
-    sel = _controle_table.selection
-    if not sel or _all_pendencias.empty:
-        return
-
-    row = _controle_table.value.iloc[sel[0]]
-    rid = row["regra_id"]
-    rname = row["regra_nome"]
-    filtered = _all_pendencias[_all_pendencias["regra_id"] == rid]
-
-    _pendencias_table.value = (
-        filtered if not filtered.empty
-        else pd.DataFrame(columns=_PEND_COLS)
-    )
-    _filter_banner.object = (
-        f"<span style='background:#dbeafe;border:1px solid #93c5fd;"
-        f"border-radius:6px;padding:4px 12px;font-size:13px;'>"
-        f"<strong>{rid}</strong> — {rname} ({len(filtered)})</span>"
-    )
-    btn_limpar.visible = True
-    tabs.active = 2  # vai para aba Pendências
-
-
-btn_limpar.on_click(lambda e: _reset_filter())
-_controle_table.param.watch(_on_rule_click, "selection")
+# Click-through regra→pendências desabilitado (tabelas disabled).
+# Será reimplementado na Fase 5 com o redesign do dashboard.
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -320,7 +285,6 @@ def _on_processar(event: object) -> None:
     else:
         ctrl = pd.DataFrame(columns=["regra_id", "regra_nome", "dimensao", "pendencias"])
     _controle_table.value = ctrl
-    _controle_table.selection = []
 
     # Pendências
     cols = [c for c in _PEND_COLS if c in result.pendencias.columns]
@@ -330,8 +294,6 @@ def _on_processar(event: object) -> None:
         else pd.DataFrame(columns=_PEND_COLS)
     )
     _pendencias_table.value = _all_pendencias
-    _filter_banner.object = ""
-    btn_limpar.visible = False
 
     tabs.active = 0  # vai para Status Geral
 
