@@ -80,9 +80,7 @@ class EngineResult:
             return "OK"
         if any(error.get("fatal", False) for error in self.erros):
             return "ERRO"
-        if self.regras_com_erro > 0:
-            return "PARCIAL"
-        return "OK"
+        return "PARCIAL"
 
     @property
     def total_pendencias(self) -> int:
