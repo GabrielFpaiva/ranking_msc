@@ -23,6 +23,7 @@ Abas obrigatórias:
 
 from __future__ import annotations
 
+import io
 import sys
 from pathlib import Path
 
@@ -33,8 +34,12 @@ import panel as pn
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
+import ranking_msc.rules  # noqa: E402, F401  # popula RULE_REGISTRY via @register_rule
 from ranking_msc.config.settings import load_settings  # noqa: E402
-from ranking_msc.outputs.logs import setup_logging      # noqa: E402
+from ranking_msc.engine.executor import EngineContext, run_engine  # noqa: E402
+from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
+from ranking_msc.outputs.logs import setup_logging  # noqa: E402
+from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Inicialização
@@ -76,42 +81,96 @@ status_indicator = pn.pane.Alert(
 )
 
 
+_ENGINE_STATUS_TO_ALERT: dict[str, str] = {
+    "OK": "success",
+    "PARCIAL": "warning",
+    "ERRO": "danger",
+}
+
+
 def _on_processar(event: object) -> None:
     """Callback do botão Processar.
 
-    Fluxo futuro:
-        1. Validar que um arquivo foi selecionado.
-        2. Chamar read_msc_csv(file_upload.value) para obter RawMSC.
-        3. Chamar normalize_ic(raw.df) para normalizar IC/TIPO.
-        4. Montar EngineContext com competência, siconfi, settings.
-        5. Chamar run_engine(df_normalizado, context) para obter EngineResult.
-        6. Gravar snapshot (write_snapshot_atomic).
-        7. Atualizar widgets das abas com os resultados.
-        8. Gerar relatório Excel (export_issues_excel) se solicitado.
-
-    TODO: tratar exceções e exibir mensagens amigáveis no status_indicator.
+    Fluxo:
+        1. Valida que um arquivo foi selecionado.
+        2. Lê o CSV via read_msc_csv() → RawMSC.
+        3. Normaliza IC/TIPO via normalize_ic().
+        4. Monta EngineContext e executa run_engine().
+        5. Mapeia result.status → alert_type do banner (OK/PARCIAL/ERRO).
+           O banner reflete falhas do motor (regras com erro) mesmo quando
+           nenhuma pendência com severidade ERRO foi produzida.
     """
-    if file_upload.value is None:
+    if not file_upload.value:  # cobre None e b"" (arquivo desmarcado no widget)
         status_indicator.object = "⚠ Selecione um arquivo CSV antes de processar."
         status_indicator.alert_type = "warning"
         return
 
-    status_indicator.object = "⏳ Processando... (stub — motor não implementado ainda)"
+    status_indicator.object = "⏳ Processando..."
     status_indicator.alert_type = "info"
 
-    # --- STUB: aqui entra o fluxo real ---
-    # from ranking_msc.io.reader_msc import read_msc_csv
-    # from ranking_msc.transform.ic_normalize import normalize_ic
-    # from ranking_msc.engine.executor import run_engine, EngineContext
-    #
-    # raw = read_msc_csv(io.BytesIO(file_upload.value))
-    # df = normalize_ic(raw.df)
-    # context = EngineContext(competencia=raw.competencia, siconfi=raw.siconfi, settings=settings)
-    # result = run_engine(df, context)
-    # _update_tabs(result)
+    try:
+        raw = read_msc_csv(io.BytesIO(file_upload.value))
+    except Exception as exc:
+        logger.error("Falha ao ler CSV MSC: %s", exc, exc_info=True)
+        status_indicator.object = f"❌ Erro ao ler o arquivo CSV: {exc}"
+        status_indicator.alert_type = "danger"
+        return
 
-    status_indicator.object = "✅ Stub concluído. Implemente run_engine() para resultados reais."
-    status_indicator.alert_type = "success"
+    try:
+        df = normalize_ic(raw.df)
+    except Exception as exc:
+        logger.error("Falha ao normalizar IC: %s", exc, exc_info=True)
+        status_indicator.object = f"❌ Erro ao normalizar o arquivo: {exc}"
+        status_indicator.alert_type = "danger"
+        return
+
+    context = EngineContext(
+        competencia=raw.competencia,
+        siconfi=raw.siconfi,
+        settings=settings,
+        pre_pivot_issues=raw.pre_pivot_issues,
+    )
+
+    try:
+        result = run_engine(df, context)
+    except Exception as exc:
+        logger.error("Falha crítica no motor: %s", exc, exc_info=True)
+        status_indicator.object = f"❌ Erro crítico no motor de regras: {exc}"
+        status_indicator.alert_type = "danger"
+        return
+
+    # Mapeia result.status → alert. Desta forma, falhas de execução de regras
+    # (result.status == "PARCIAL" ou "ERRO") sempre chegam ao usuário como
+    # warning/danger — independente de quantas pendências foram geradas.
+    alert_type = _ENGINE_STATUS_TO_ALERT.get(result.status, "warning")
+
+    if result.status == "OK":
+        msg = (
+            f"✅ Processado: {raw.competencia} — {raw.siconfi}. "
+            f"{result.total_pendencias} pendência(s), "
+            f"{result.regras_executadas} regra(s) executada(s)."
+        )
+    elif result.status == "PARCIAL":
+        msg = (
+            f"⚠ Processamento parcial: {result.regras_com_erro} regra(s) com erro, "
+            f"{result.regras_executadas} executada(s). "
+            f"{result.total_pendencias} pendência(s) gerada(s). "
+            "Verifique o log de auditoria."
+        )
+    else:  # ERRO
+        msg = (
+            f"❌ Falha no motor: {result.regras_com_erro} regra(s) com erro fatal. "
+            f"{result.total_pendencias} pendência(s) gerada(s) antes da falha. "
+            "Verifique o log de auditoria."
+        )
+
+    status_indicator.object = msg
+    status_indicator.alert_type = alert_type
+    logger.info(
+        "Execução concluída: status=%s, regras=%d, erros=%d, pendencias=%d",
+        result.status, result.regras_executadas, result.regras_com_erro, result.total_pendencias,
+        extra={"execucao_id": context.execucao_id, "competencia": raw.competencia},
+    )
 
 
 btn_processar.on_click(_on_processar)
