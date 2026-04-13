@@ -10,15 +10,6 @@ Para rodar localmente:
 Para rodar no servidor (multiusuário):
     panel serve app/web_app.py --address 0.0.0.0 --port 5006 \\
         --allow-websocket-origin=* --num-procs 2
-
-Abas obrigatórias:
-    1. Status Geral       — visão consolidada (score, totais por severidade)
-    2. Controle por Regras — detalhamento das regras R082–R111
-    3. Pendências         — listagem filtrada de pendências
-    4. Meu Caixa          — fluxo de caixa / conciliação
-    5. Passivos           — análise de passivos
-    6. Superávit          — análise do superávit financeiro
-    7. Auditoria          — log de execuções e rastreabilidade
 """
 
 from __future__ import annotations
@@ -27,10 +18,10 @@ import io
 import sys
 from pathlib import Path
 
+import pandas as pd
 import panel as pn
 
 # --- Ajuste de path para importar o pacote src/ ---
-# Em produção, prefira instalar o pacote via pip install -e .
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
@@ -39,6 +30,7 @@ from ranking_msc.config.settings import load_settings  # noqa: E402
 from ranking_msc.engine.executor import EngineContext, run_engine  # noqa: E402
 from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
 from ranking_msc.outputs.logs import setup_logging  # noqa: E402
+from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS  # noqa: E402
 from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -49,7 +41,6 @@ pn.extension("plotly", "tabulator", sizing_mode="stretch_width")
 try:
     settings = load_settings(_PROJECT_ROOT / "config" / "settings.yaml")
 except Exception as exc:
-    # Se o config não existir, usa defaults (bom para primeiro run)
     from ranking_msc.config.settings import Settings
     settings = Settings()
     print(f"⚠ Config não encontrado, usando defaults: {exc}")
@@ -59,7 +50,7 @@ logger.info("Aplicação web iniciada.")
 
 
 # ---------------------------------------------------------------------------
-# Widgets de upload e controle
+# Widgets de controle (sidebar)
 # ---------------------------------------------------------------------------
 
 file_upload = pn.widgets.FileInput(
@@ -74,12 +65,76 @@ btn_processar = pn.widgets.Button(
     width=200,
 )
 
-# Indicador de status do processamento
 status_indicator = pn.pane.Alert(
     "Nenhum arquivo processado ainda.",
     alert_type="info",
 )
 
+
+# ---------------------------------------------------------------------------
+# Widgets reativos das abas — atualizados após cada execução
+# ---------------------------------------------------------------------------
+
+# Aba Status Geral
+_stats_pane = pn.pane.Markdown("*Aguardando processamento...*")
+tab_status_geral = pn.Column(
+    "## 📊 Status Geral",
+    _stats_pane,
+)
+
+# Aba Controle por Regras
+_controle_table = pn.widgets.Tabulator(
+    pd.DataFrame(columns=["regra_id", "regra_nome", "dimensao", "pendencias"]),
+    pagination="local",
+    page_size=20,
+    sizing_mode="stretch_width",
+    show_index=False,
+)
+tab_controle_regras = pn.Column(
+    "## 📋 Controle por Regras",
+    _controle_table,
+)
+
+# Aba Pendências
+_pendencias_table = pn.widgets.Tabulator(
+    pd.DataFrame(columns=FACT_RESULTADO_REGRAS_COLUMNS),
+    pagination="local",
+    page_size=25,
+    sizing_mode="stretch_width",
+    show_index=False,
+    hidden_columns=["competencia"],
+    header_filters=True,
+)
+tab_pendencias = pn.Column(
+    "## ⚠ Pendências",
+    _pendencias_table,
+)
+
+# Abas ainda não implementadas — Fase 5
+tab_meu_caixa = pn.Column(
+    "## 💰 Meu Caixa",
+    pn.pane.Markdown("*Análise de fluxo de caixa — implementação na Fase 5.*"),
+)
+
+tab_passivos = pn.Column(
+    "## 📑 Passivos",
+    pn.pane.Markdown("*Análise de passivos — implementação na Fase 5.*"),
+)
+
+tab_superavit = pn.Column(
+    "## 📈 Superávit",
+    pn.pane.Markdown("*Análise do superávit financeiro — implementação na Fase 5.*"),
+)
+
+tab_auditoria = pn.Column(
+    "## 🔍 Auditoria",
+    pn.pane.Markdown("*Log de execuções — implementação na Fase 5.*"),
+)
+
+
+# ---------------------------------------------------------------------------
+# Callback do botão Processar
+# ---------------------------------------------------------------------------
 
 _ENGINE_STATUS_TO_ALERT: dict[str, str] = {
     "OK": "success",
@@ -87,20 +142,16 @@ _ENGINE_STATUS_TO_ALERT: dict[str, str] = {
     "ERRO": "danger",
 }
 
+_STATUS_ICON: dict[str, str] = {
+    "OK": "✅",
+    "PARCIAL": "⚠️",
+    "ERRO": "❌",
+}
+
 
 def _on_processar(event: object) -> None:
-    """Callback do botão Processar.
-
-    Fluxo:
-        1. Valida que um arquivo foi selecionado.
-        2. Lê o CSV via read_msc_csv() → RawMSC.
-        3. Normaliza IC/TIPO via normalize_ic().
-        4. Monta EngineContext e executa run_engine().
-        5. Mapeia result.status → alert_type do banner (OK/PARCIAL/ERRO).
-           O banner reflete falhas do motor (regras com erro) mesmo quando
-           nenhuma pendência com severidade ERRO foi produzida.
-    """
-    if not file_upload.value:  # cobre None e b"" (arquivo desmarcado no widget)
+    """Executa o pipeline MSC e atualiza todas as abas com os resultados."""
+    if not file_upload.value:  # cobre None e b""
         status_indicator.object = "⚠ Selecione um arquivo CSV antes de processar."
         status_indicator.alert_type = "warning"
         return
@@ -139,33 +190,75 @@ def _on_processar(event: object) -> None:
         status_indicator.alert_type = "danger"
         return
 
-    # Mapeia result.status → alert. Desta forma, falhas de execução de regras
-    # (result.status == "PARCIAL" ou "ERRO") sempre chegam ao usuário como
-    # warning/danger — independente de quantas pendências foram geradas.
+    # --- Banner de status ---
     alert_type = _ENGINE_STATUS_TO_ALERT.get(result.status, "warning")
+    icon = _STATUS_ICON.get(result.status, "❓")
 
     if result.status == "OK":
         msg = (
-            f"✅ Processado: {raw.competencia} — {raw.siconfi}. "
+            f"{icon} Processado: {raw.competencia} — {raw.siconfi}. "
             f"{result.total_pendencias} pendência(s), "
             f"{result.regras_executadas} regra(s) executada(s)."
         )
     elif result.status == "PARCIAL":
         msg = (
-            f"⚠ Processamento parcial: {result.regras_com_erro} regra(s) com erro, "
-            f"{result.regras_executadas} executada(s). "
+            f"{icon} Processamento parcial: {result.regras_com_erro} regra(s) com erro. "
             f"{result.total_pendencias} pendência(s) gerada(s). "
             "Verifique o log de auditoria."
         )
     else:  # ERRO
         msg = (
-            f"❌ Falha no motor: {result.regras_com_erro} regra(s) com erro fatal. "
+            f"{icon} Falha no motor: {result.regras_com_erro} regra(s) com erro fatal. "
             f"{result.total_pendencias} pendência(s) gerada(s) antes da falha. "
             "Verifique o log de auditoria."
         )
 
     status_indicator.object = msg
     status_indicator.alert_type = alert_type
+
+    # --- Atualizar aba Status Geral ---
+    if not result.pendencias.empty:
+        counts = result.pendencias.groupby("severidade").size().to_dict()
+    else:
+        counts = {}
+
+    n_erros = counts.get("ERRO", 0)
+    n_alertas = counts.get("ALERTA", 0)
+    n_infos = counts.get("INFO", 0)
+
+    _stats_pane.object = f"""
+**Competência:** {raw.competencia} &nbsp;|&nbsp; **Ente (SICONFI):** {raw.siconfi}
+
+**Status da execução:** {icon} {result.status}
+
+| Severidade | Pendências |
+|:---|---:|
+| 🔴 ERRO | {n_erros} |
+| 🟡 ALERTA | {n_alertas} |
+| 🔵 INFO | {n_infos} |
+| **Total** | **{result.total_pendencias}** |
+
+**Regras executadas:** {result.regras_executadas} &nbsp;|&nbsp; **Com erro:** {result.regras_com_erro}
+"""
+
+    # --- Atualizar aba Controle por Regras ---
+    if not result.pendencias.empty:
+        controle_df = (
+            result.pendencias
+            .groupby(["regra_id", "regra_nome", "dimensao"])
+            .size()
+            .reset_index(name="pendencias")
+            .sort_values("pendencias", ascending=False)
+        )
+    else:
+        controle_df = pd.DataFrame(
+            columns=["regra_id", "regra_nome", "dimensao", "pendencias"]
+        )
+    _controle_table.value = controle_df
+
+    # --- Atualizar aba Pendências ---
+    _pendencias_table.value = result.pendencias
+
     logger.info(
         "Execução concluída: status=%s, regras=%d, erros=%d, pendencias=%d",
         result.status, result.regras_executadas, result.regras_com_erro, result.total_pendencias,
@@ -175,7 +268,10 @@ def _on_processar(event: object) -> None:
 
 btn_processar.on_click(_on_processar)
 
-# Painel lateral de controle
+# ---------------------------------------------------------------------------
+# Layout
+# ---------------------------------------------------------------------------
+
 sidebar = pn.Column(
     "## 📂 Importar MSC",
     file_upload,
@@ -183,69 +279,6 @@ sidebar = pn.Column(
     pn.layout.Divider(),
     status_indicator,
     width=320,
-)
-
-
-# ---------------------------------------------------------------------------
-# Abas de conteúdo
-# ---------------------------------------------------------------------------
-
-def _make_placeholder(title: str, description: str) -> pn.Column:
-    """Cria conteúdo placeholder para uma aba ainda não implementada."""
-    return pn.Column(
-        f"## {title}",
-        pn.pane.Markdown(f"*{description}*"),
-        pn.pane.Markdown("---\n> Conteúdo será preenchido após implementação do motor."),
-    )
-
-
-tab_status_geral = _make_placeholder(
-    "📊 Status Geral",
-    "Visão consolidada: score final, total de pendências por severidade, "
-    "e gráficos de evolução por competência.",
-    # TODO: adicionar gráficos Plotly (gauge do score, barras por severidade)
-    # TODO: adicionar tabela resumo usando pn.widgets.Tabulator
-)
-
-tab_controle_regras = _make_placeholder(
-    "📋 Controle por Regras (R082–R111)",
-    "Detalhamento regra a regra: status (OK / ERRO / ALERTA), "
-    "quantidade de pendências, e drill-down.",
-    # TODO: tabela com uma linha por regra, colunas: id, nome, status, count
-    # TODO: filtro por dimensão e severidade
-)
-
-tab_pendencias = _make_placeholder(
-    "⚠ Pendências",
-    "Listagem completa de pendências com filtros interativos.",
-    # TODO: pn.widgets.Tabulator com df de pendências
-    # TODO: filtros: severidade, regra, conta contábil
-    # TODO: botão "Exportar Excel"
-)
-
-tab_meu_caixa = _make_placeholder(
-    "💰 Meu Caixa",
-    "Análise de fluxo de caixa e conciliação bancária.",
-    # TODO: tabelas e gráficos específicos de caixa
-)
-
-tab_passivos = _make_placeholder(
-    "📑 Passivos",
-    "Análise de passivos financeiros e patrimoniais.",
-    # TODO: detalhamento de contas de passivo
-)
-
-tab_superavit = _make_placeholder(
-    "📈 Superávit",
-    "Análise do superávit financeiro.",
-    # TODO: cálculo e visualização do superávit
-)
-
-tab_auditoria = _make_placeholder(
-    "🔍 Auditoria",
-    "Log de execuções: quem processou, quando, resultados.",
-    # TODO: tabela com Fact_Execucao
-    # TODO: filtro por usuário, competência, status
 )
 
 tabs = pn.Tabs(
@@ -259,11 +292,6 @@ tabs = pn.Tabs(
     dynamic=True,
 )
 
-
-# ---------------------------------------------------------------------------
-# Layout principal
-# ---------------------------------------------------------------------------
-
 template = pn.template.FastListTemplate(
     title=settings.app.title,
     sidebar=[sidebar],
@@ -272,5 +300,4 @@ template = pn.template.FastListTemplate(
     header_background="#1f77b4",
 )
 
-# Panel serve procura por ``template`` ou objetos servíveis no módulo.
 template.servable()
