@@ -23,7 +23,6 @@ from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
 from ranking_msc.outputs.logs import log_execucao, setup_logging  # noqa: E402
 from ranking_msc.outputs.reports import export_issues_excel  # noqa: E402
 from ranking_msc.outputs.snapshot import write_snapshot_atomic  # noqa: E402
-from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS  # noqa: E402
 from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -121,7 +120,9 @@ _pendencias_table = pn.widgets.Tabulator(
 )
 
 _filter_banner = pn.pane.HTML("")
-btn_limpar = pn.widgets.Button(name="✕ Limpar filtro", button_type="light", width=130, visible=False)
+btn_limpar = pn.widgets.Button(
+    name="✕ Limpar filtro", button_type="light", width=130, visible=False,
+)
 
 # ---------------------------------------------------------------------------
 # Tabs
@@ -292,12 +293,18 @@ def _on_processar(event: object) -> None:
         f"✅ {raw.competencia} — {result.total_pendencias} pendência(s), "
         f"{result.regras_executadas} regras."
         if result.status == "OK"
-        else f"⚠ {result.status}: {result.regras_com_erro} erro(s), {result.total_pendencias} pendência(s)."
+        else (
+            f"⚠ {result.status}: {result.regras_com_erro} erro(s), "
+            f"{result.total_pendencias} pendência(s)."
+        )
     )
     status_indicator.alert_type = alert_map.get(result.status, "warning")
 
     # Status Geral
-    counts = result.pendencias.groupby("severidade").size().to_dict() if not result.pendencias.empty else {}
+    counts = (
+        result.pendencias.groupby("severidade").size().to_dict()
+        if not result.pendencias.empty else {}
+    )
     _stats_html.object = _build_stats(raw, result, counts)
 
     # Regras
@@ -316,7 +323,11 @@ def _on_processar(event: object) -> None:
 
     # Pendências
     cols = [c for c in _PEND_COLS if c in result.pendencias.columns]
-    _all_pendencias = result.pendencias[cols].copy() if not result.pendencias.empty else pd.DataFrame(columns=_PEND_COLS)
+    _all_pendencias = (
+        result.pendencias[cols].copy()
+        if not result.pendencias.empty
+        else pd.DataFrame(columns=_PEND_COLS)
+    )
     _pendencias_table.value = _all_pendencias
     _filter_banner.object = ""
     btn_limpar.visible = False
