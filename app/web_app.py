@@ -20,7 +20,9 @@ import ranking_msc.rules  # noqa: E402, F401
 from ranking_msc.config.settings import load_settings  # noqa: E402
 from ranking_msc.engine.executor import EngineContext, run_engine  # noqa: E402
 from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
-from ranking_msc.outputs.logs import setup_logging  # noqa: E402
+from ranking_msc.outputs.logs import log_execucao, setup_logging  # noqa: E402
+from ranking_msc.outputs.reports import export_issues_excel  # noqa: E402
+from ranking_msc.outputs.snapshot import write_snapshot_atomic  # noqa: E402
 from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS  # noqa: E402
 from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
 
@@ -242,9 +244,11 @@ def _on_processar(event: object) -> None:
         status_indicator.alert_type = "danger"
         return
 
+    snapshots_dir = (_PROJECT_ROOT / settings.paths.snapshots_dir).resolve()
     ctx = EngineContext(
         competencia=raw.competencia, siconfi=raw.siconfi,
         settings=settings, pre_pivot_issues=raw.pre_pivot_issues,
+        snapshots_dir=snapshots_dir,
     )
 
     try:
@@ -254,6 +258,33 @@ def _on_processar(event: object) -> None:
         status_indicator.object = f"❌ Erro no motor: {exc}"
         status_indicator.alert_type = "danger"
         return
+
+    # --- Persistência (snapshot + Excel + log) ---
+    snap_base = snapshots_dir / raw.siconfi
+    try:
+        write_snapshot_atomic(
+            df, raw.competencia,
+            base_dir=snap_base, label="msc_normalizado",
+        )
+        write_snapshot_atomic(
+            result.pendencias, raw.competencia,
+            base_dir=snap_base, label="resultado_regras",
+        )
+        reports_dir = (_PROJECT_ROOT / settings.paths.reports_dir).resolve()
+        export_issues_excel(
+            result.pendencias, raw.competencia, output_dir=reports_dir,
+        )
+        log_execucao(
+            logger,
+            execucao_id=ctx.execucao_id,
+            competencia=raw.competencia,
+            status=result.status,
+            message="Execução web concluída",
+            siconfi=raw.siconfi,
+            usuario=ctx.usuario,
+        )
+    except Exception as exc:
+        logger.error("Falha ao persistir resultados: %s", exc, exc_info=True)
 
     # Banner
     alert_map = {"OK": "success", "PARCIAL": "warning", "ERRO": "danger"}
