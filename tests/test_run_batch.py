@@ -494,3 +494,53 @@ def test_run_cli_batch_processa_dois_csvs_corretamente(
     assert summary.total == 2
     assert summary.succeeded == 2
     assert summary.failed == 0
+
+
+def test_execute_single_csv_engine_parcial_propaga_status(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Engine retornando PARCIAL gera CsvResult com status PARCIAL."""
+    logger = logging.getLogger("test_batch_parcial")
+    settings = Settings()
+    output_paths = batch.OutputPaths(
+        snapshots_dir=tmp_path / "snapshots",
+        reports_dir=tmp_path / "reports",
+        logs_dir=tmp_path / "logs",
+    )
+    csv_path = tmp_path / "parcial.csv"
+    csv_path.touch()
+
+    monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
+    monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
+    monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
+    monkeypatch.setattr(batch, "run_engine", _fake_engine_erro)
+    monkeypatch.setattr(batch, "export_issues_excel", _noop)
+    monkeypatch.setattr(batch, "log_execucao", lambda *a, **kw: None)
+
+    result = batch._execute_single_csv(
+        csv_path=csv_path,
+        settings=settings,
+        output_paths=output_paths,
+        logger=logger,
+    )
+
+    assert result.status == "ERRO"
+    assert result.error_message == ""
+
+
+def test_run_cli_batch_dir_inexistente_retorna_codigo_2(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Diretório inexistente (não vazio, mas ausente) retorna exit code 2."""
+    input_dir = tmp_path / "nao_existe"
+
+    logger = logging.getLogger("test_batch_cli_dir_inexistente")
+
+    monkeypatch.setattr(batch, "load_settings", lambda _: Settings())
+    monkeypatch.setattr(batch, "setup_logging", lambda *, log_dir, **kw: logger)
+
+    exit_code = batch.run_cli(["--dir", str(input_dir)])
+
+    assert exit_code == 2

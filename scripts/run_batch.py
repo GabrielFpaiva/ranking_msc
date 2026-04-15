@@ -198,9 +198,6 @@ def _find_csv_files(directory: Path) -> list[Path]:
 
     Returns:
         Lista de Paths de arquivos *.csv, ordenada por nome.
-
-    Raises:
-        RankingMSCError: nunca — retorna lista vazia se não encontrar nada.
     """
     if not directory.is_dir():
         return []
@@ -435,7 +432,7 @@ def _log_failure(logger: logging.Logger | None, message: str) -> None:
         level=logging.ERROR,
         format="%(levelname)s:%(name)s:%(message)s",
     )
-    logging.getLogger("ranking_msc").error(message)
+    logging.getLogger("ranking_msc").error(message, exc_info=True)
 
 
 def main() -> None:
