@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Glob|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f graphify-out/graph.json ] && python3 /c/Users/detup/OneDrive/Desktop/psb/psb/.claude/hooks/graphify_context.py 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
