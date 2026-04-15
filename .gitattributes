@@ -1,0 +1,8 @@
+# Exclui arquivos binários e de dados das estatísticas de linguagem do GitHub Linguist.
+# Sem isso, os .xlsx (ZIP de XML) aparecem como "HTML" e distorcem o gráfico de linguagens.
+
+*.xlsx linguist-vendored
+*.pdf  linguist-vendored
+*.csv  linguist-vendored
+
+ref/amostras/* linguist-vendored
