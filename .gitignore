@@ -27,8 +27,10 @@ data/
 *.parquet
 *.jsonl
 
-# Relatórios e scripts de geração
-doc/
+# Relatórios e scripts de geração (binários e gerados)
+doc/*.docx
+doc/*.pdf
+doc/superpowers/
 *.xlsx
 *.docx
 scripts/gen_*.py
