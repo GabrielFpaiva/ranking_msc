@@ -1,6 +1,6 @@
 # Modelo de Pontuação — Ranking MSC
 
-> **Versão:** 1.2
+> **Versão:** 1.3
 > **Fase:** F4 — Scoring
 > **Referência:** Indicador de Conformidade Fiscal (ICF) do Ranking Siconfi / STN
 
@@ -53,8 +53,9 @@ As 20 categorias do catálogo são agrupadas em 5 dimensões:
 | Temporal | **10%** | Coerência entre competências; dependente de snapshot anterior |
 | **Total** | **100%** | |
 
-> **Quando Temporal indisponível** (snapshot ausente): redistribuir 10% proporcionalmente às demais dimensões.
-> Pesos ajustados: Estrutura=22,2%, Fechamento=27,8%, IC/Domínio=33,3%, PCASP/Completude=16,7%.
+> **Quando Temporal indisponível** (snapshot ausente): ver seção 8.2 — a dimensão é excluída
+> e os pesos das demais são renormalizados pela fórmula geral de 5.3 (`w_total = sum(active)`).
+> Os valores finais dependem de quais outras dimensões estejam ativas no run; não há pesos fixos pré-calculados.
 
 ---
 
@@ -65,14 +66,21 @@ As 20 categorias do catálogo são agrupadas em 5 dimensões:
 O peso é determinado pela **severidade observada na execução atual** — não por uma propriedade estática da regra. Várias regras do catálogo produzem ERRO *ou* ALERTA dependendo dos dados (ex.: R024, R026, R027, R028, R029), portanto não existe um `w_r` fixo que represente corretamente todos os cenários.
 
 ```
-w_r(run) = 2  se a regra produziu ≥1 issue com severidade "ERRO"
-           1  nos demais casos (passou sem issues, ou produziu apenas "ALERTA")
-           0  se a regra produziu apenas issues "INFO" ou não foi executada
+w_r(run) = 2   se a regra produziu ≥1 issue com severidade "ERRO"
+           1   se a regra produziu ≥1 issue com severidade "ALERTA" (sem ERRO)
+           1   se a regra passou sem issues E é pontuável (pode produzir ERRO ou ALERTA)
+           0   se a regra é INFO-only (só pode produzir INFO) — mesmo que passe sem issues
+           0   se a regra não foi executada
 ```
 
-> Consequência: o denominador de P_d reflete o **custo real** das falhas observadas,
-> não o custo hipotético máximo. ERRO-failures pesam 2×, ALERTA-failures pesam 1×,
-> regras que passaram contribuem com baseline 1 (mesmo as que poderiam ter gerado ERRO).
+> **Regra pontuável** é toda regra que pode produzir issues ERRO ou ALERTA. Regras INFO-only
+> têm `w_r = 0` independentemente do resultado da execução — elas não participam de
+> nenhum somatório do score (nem numerador nem denominador). A classificação como INFO-only
+> deve ser declarada na classe da regra via atributo `is_scoring: ClassVar[bool] = False`.
+>
+> Consequência: o denominador de P_d reflete o custo real das falhas observadas.
+> ERRO-failures pesam 2×, ALERTA-failures pesam 1×, regras pontuáveis que passaram
+> contribuem com baseline 1. INFO-only rules são transparentes ao score.
 
 ### 5.2 Resultado de uma regra
 
@@ -146,14 +154,15 @@ Cenário hipotético: competência `2025-01`, ente `250400`.
 | Fechamento | 8 (5 ERRO-cap + 3 ALT-cap) | 1 | 1 |
 | IC/Domínio | 18 (11 ERRO-cap + 7 ALT-cap) | 2 | 2 |
 | PCASP/Completude | 11 (2 ERRO-cap + 9 ALT-cap) | 2 | 0 |
-| Temporal | 3 | 0 | 0 |
+| Temporal | 3 (3 ALT-cap; 3 INFO excluídas) | 0 | 0 |
 
-> "ERRO-cap" e "ALT-cap" indicam a severidade que a regra PODE produzir.
+> "ERRO-cap" e "ALT-cap" indicam a severidade que a regra PODE produzir. Regras INFO-only
+> (`is_scoring = False`) não entram nas contagens nem no denominador.
 > Para o cálculo, o que importa é a severidade **observada** nesta execução.
 
 ### Cálculo de P_d
 
-**Regra de cálculo:** passaram → `w_r=1`, falhou-ALERTA → `w_r=1`, falhou-ERRO → `w_r=2`.
+**Regra de cálculo:** passou (pontuável) → `w_r=1`, falhou-ALERTA → `w_r=1`, falhou-ERRO → `w_r=2`, INFO-only → `w_r=0` (excluída do cálculo).
 
 **Estrutura**
 ```
@@ -208,18 +217,27 @@ Pontuação = 100 × (0,20×1,000 + 0,25×0,727 + 0,30×0,750 + 0,15×0,846 + 0,
 
 ### 8.1 Regras INFO
 
-Regras com `severidade = INFO` têm `w_r = 0`. Elas **não afetam a nota** mas devem aparecer no relatório Excel de pendências com severidade `INFO` para ciência do analista.
+Regras INFO-only têm `w_r = 0` **sempre** — inclusive quando passam sem issues. Elas não entram no numerador nem no denominador de nenhuma dimensão. Devem aparecer no relatório Excel de pendências com severidade `INFO` para ciência do analista.
+
+Identificação: a classe da regra declara `is_scoring: ClassVar[bool] = False`. O score engine deve filtrar `[r for r in rules if r.is_scoring]` antes de calcular P_d. Regras sem esse atributo têm `is_scoring = True` por padrão (compatível com o ABC existente).
 
 ### 8.2 Dimensão Temporal indisponível
 
 Quando o snapshot do mês anterior não está disponível (primeira competência do ano ou arquivo ausente):
-- `P_Temporal` não é calculado
-- Os 10% de peso da dimensão Temporal são redistribuídos proporcionalmente:
+- `P_Temporal` não é calculado — Temporal é tratada como dimensão com `Σ w_r = 0`
+- O comportamento é idêntico ao da seção 5.3: usa a fórmula geral de renormalização
 
 ```python
-# pesos ajustados quando Temporal indisponível
-adjusted = {d: w / 0.90 for d, w in pesos.items() if d != "Temporal"}
+# Fórmula geral — cobre Temporal ausente e qualquer outra combinação de dimensões inativas
+excluidas = {d for d in dims if sum_w[d] == 0}   # inclui Temporal se snapshot ausente
+active = {d: W[d] for d in dims if d not in excluidas}
+w_total = sum(active.values())                    # NÃO hardcodar 0.90
+W_norm = {d: w / w_total for d, w in active.items()}
 ```
+
+> O hardcode `/ 0.90` só é correto quando Temporal é a única dimensão excluída.
+> Se outra dimensão também tiver `Σ w_r = 0` (ex.: todas as regras de PCASP desabilitadas),
+> `w_total` seria menor que 0,90 e os pesos `W_norm` deixariam de somar 1,0.
 
 ### 8.3 Score mínimo
 
@@ -273,6 +291,8 @@ Isso permite:
 | Pesos fixos por dimensão | Pesos configuráveis por ente | Simplidade; ajuste via configuração pode ser adicionado em F4-03+ |
 | Bandas A–E ICF Siconfi | Nota 0–10 estilo escolar | Manter coerência com o benchmark nacional do Ranking Siconfi |
 | `w_r` dinâmico (severidade observada) | `w_r` estático (metadata da regra) | Várias regras (R024, R026–R029) produzem ERRO ou ALERTA dependendo dos dados; `w_r` fixo forçaria uma escolha arbitrária que superpenaliza ou subpenaliza; `w_r` dinâmico = custo real da falha observada |
+| INFO-only excluídas via `is_scoring = False` | Inferir INFO-only pelo output do run | Regra que passou com zero issues não revela sua natureza INFO; única forma segura é declaração na classe — evita diluição artificial do score por regras INFO em execuções limpas |
+| Renormalização dinâmica (`w_total = sum(active)`) | Divisor fixo `0.90` para Temporal ausente | `0.90` só é correto quando Temporal é a única dimensão excluída; se outra dimensão também tiver `Σ w_r = 0`, os pesos normalizados deixam de somar 1,0 e o score fica subescalado |
 
 ---
 
