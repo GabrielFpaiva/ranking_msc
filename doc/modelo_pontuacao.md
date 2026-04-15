@@ -27,13 +27,13 @@ Princípios adotados:
 
 ## 3. Mapeamento Categorias → Dimensões
 
-As 18 categorias do catálogo são agrupadas em 5 dimensões:
+As 20 categorias do catálogo são agrupadas em 5 dimensões:
 
 | Dimensão | Categorias incluídas | Qtd regras | ERRO | ALERTA | INFO |
 |---|---|:---:|:---:|:---:|:---:|
 | **Estrutura** | Estrutura, Formato, Duplicidade | 14 | 14 | 0 | 0 |
 | **Fechamento** | Fechamento, Interconta | 10 | 6 | 4 | 0 |
-| **IC/Domínio** | IC, PO, NR, ND, FR, CO, FS, DC | 23 | 13 | 9 | 1 |
+| **IC/Domínio** | IC, PO, NR, ND, FR, CO, FS, DC, FP, AI | 23 | 13 | 9 | 1 |
 | **PCASP/Completude** | PCASP, Completude, Superávit | 14 | 2 | 11 | 1 |
 | **Temporal** | Temporal, Qualidade | 6 | 0 | 3 | 3 |
 | **Total** | | **67** | **35** | **27** | **5** |
@@ -80,21 +80,36 @@ ok_r = { 1  se a regra não gerou nenhum issue
 ```
 P_d = Σ_{r ∈ d} (w_r × ok_r)  /  Σ_{r ∈ d} w_r
 
-onde d = conjunto de regras da dimensão d (excluindo regras INFO, pois w_r = 0)
+onde d = conjunto de regras executadas da dimensão d com w_r > 0
+     (exclui regras INFO e regras desabilitadas)
 ```
 
-Se `Σ w_r = 0` para a dimensão (ex.: dimensão composta só por regras INFO), `P_d = 1,0` (dimensão não penaliza).
+Se `Σ w_r = 0` para a dimensão (todas as regras são INFO ou estão desabilitadas),
+a dimensão é **excluída** do cálculo e os pesos `W_d` das demais dimensões ativas
+são renormalizados para somar 1,0:
+
+```python
+# Renormalize quando Σ w_r = 0 para alguma dimensão
+active = {d: W[d] for d in dims if sum_w[d] > 0}
+w_total = sum(active.values())
+W_norm = {d: w / w_total for d, w in active.items()}
+```
+
+> Isso garante que dimensões sem regras executadas não recebam crédito integral
+> nem inflem artificialmente o score final.
 
 ### 5.4 Pontuação final
 
 ```
-Pontuação = 100 × Σ_d (W_d × P_d)
+Pontuação = 100 × Σ_{d ∈ ativas} (W_norm_d × P_d)
 ```
+
+onde `ativas` = dimensões com `Σ w_r > 0` e `W_norm_d` = peso renormalizado.
 
 ### 5.5 Resumo em notação compacta
 
 ```
-Pontuação = 100 × Σ_d [ W_d × ( Σ_{r∈d} w_r·ok_r / Σ_{r∈d} w_r ) ]
+Pontuação = 100 × Σ_{d ∈ ativas} [ W_norm_d × ( Σ_{r∈d} w_r·ok_r / Σ_{r∈d} w_r ) ]
 ```
 
 ---
@@ -201,6 +216,8 @@ O score é **sempre ≥ 0**. Não há penalidade extra além das regras do catá
 ### 8.4 Regras desabilitadas
 
 Regras desabilitadas em `settings.yaml` são tratadas como "não executadas". Uma regra não executada **não conta no denominador** — equivale a removê-la da dimensão para aquela execução.
+
+Se **todas** as regras de uma dimensão forem desabilitadas, `Σ w_r = 0` para essa dimensão e o comportamento é idêntico ao da seção 5.3: a dimensão é excluída e os pesos das demais são renormalizados. Isso impede que uma dimensão com rollout parcial de regras inflacione artificialmente o score.
 
 ---
 

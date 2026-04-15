@@ -1,6 +1,6 @@
 # Fase 4 — Plano de Implementação
 
-**Status:** A iniciar
+**Status:** Em andamento (F4-01 concluído)
 **Depende de:** Fase 3 (concluída — 35 regras, 471 testes, pipeline completo)
 **Referência do backlog:** F4-01 a F4-11
 
@@ -31,7 +31,7 @@ evolução entre meses, e otimizar performance para CSVs grandes.
 
 | ID | Task | Descrição | Prioridade | Horas | Depende de | Status |
 |---|---|---|---|---|---|---|
-| F4-01 | Definir modelo de pontuação (scoring) | Modelo 0-100 inspirado no ICF do Ranking Siconfi: peso por dimensão × severidade. | Crítica | 8 | F3-16 | **PR #53 aberto** |
+| F4-01 | Definir modelo de pontuação (scoring) | Modelo 0-100 inspirado no ICF do Ranking Siconfi: peso por dimensão × severidade. | Crítica | 8 | F3-16 | **Concluído** (P1: renorm dims c/ Σw=0; P2: FP+AI em IC/Domínio) |
 | F4-02 | Implementar score_engine.py | Calcular nota por categoria e nota final do ente com base nas pendências. | Crítica | 10 | F4-01 | A Fazer |
 | F4-03 | Relatório com score e ranking por categoria | Aba de Score no Excel: nota por categoria + nota geral + bandas A-E. | Alta | 8 | F4-02 | A Fazer |
 | F4-04 | Suporte a múltiplas competências (batch) | Pipeline aceita diretório com múltiplos CSVs e gera snapshot + relatório por competência. | Alta | 8 | F3-12 | A Fazer |
