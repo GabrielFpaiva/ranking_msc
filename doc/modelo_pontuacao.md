@@ -1,6 +1,6 @@
 # Modelo de Pontuação — Ranking MSC
 
-> **Versão:** 1.0 (draft para revisão)
+> **Versão:** 1.2
 > **Fase:** F4 — Scoring
 > **Referência:** Indicador de Conformidade Fiscal (ICF) do Ranking Siconfi / STN
 
@@ -62,17 +62,23 @@ As 20 categorias do catálogo são agrupadas em 5 dimensões:
 
 ### 5.1 Peso de uma regra
 
+O peso é determinado pela **severidade observada na execução atual** — não por uma propriedade estática da regra. Várias regras do catálogo produzem ERRO *ou* ALERTA dependendo dos dados (ex.: R024, R026, R027, R028, R029), portanto não existe um `w_r` fixo que represente corretamente todos os cenários.
+
 ```
-w_r = { 2  se severidade == "ERRO"
-      { 1  se severidade == "ALERTA"
-      { 0  se severidade == "INFO"
+w_r(run) = 2  se a regra produziu ≥1 issue com severidade "ERRO"
+           1  nos demais casos (passou sem issues, ou produziu apenas "ALERTA")
+           0  se a regra produziu apenas issues "INFO" ou não foi executada
 ```
+
+> Consequência: o denominador de P_d reflete o **custo real** das falhas observadas,
+> não o custo hipotético máximo. ERRO-failures pesam 2×, ALERTA-failures pesam 1×,
+> regras que passaram contribuem com baseline 1 (mesmo as que poderiam ter gerado ERRO).
 
 ### 5.2 Resultado de uma regra
 
 ```
-ok_r = { 1  se a regra não gerou nenhum issue
-       { 0  se a regra gerou ≥ 1 issue
+ok_r = { 1  se a regra não gerou nenhum issue com w_r(run) > 0  (passou, ou apenas INFO)
+       { 0  se a regra gerou ≥1 issue com severidade ERRO ou ALERTA
 ```
 
 ### 5.3 Pontuação de uma dimensão
@@ -134,61 +140,67 @@ Cenário hipotético: competência `2025-01`, ente `250400`.
 
 ### Resultado das regras por dimensão
 
-| Dimensão | Regras | Regras ERRO (w=2) | Regras ALERTA (w=1) | ok_r = 1 (passou) | ok_r = 0 (falhou) |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Estrutura | 14 | 14 | 0 | 14 / 14 ERRO passaram | 0 |
-| Fechamento | 10 | 6 | 4 | 5 ERRO + 3 ALERTA | 1 ERRO + 1 ALERTA |
-| IC/Domínio | 23 | 13 | 9 | 11 ERRO + 7 ALERTA | 2 ERRO + 2 ALERTA |
-| PCASP/Completude | 14 | 2 | 11 | 2 ERRO + 9 ALERTA | 0 + 2 ALERTA |
-| Temporal | 6 | 0 | 3 | 3 ALERTA | 0 |
+| Dimensão | Passaram | Falharam c/ ALERTA | Falharam c/ ERRO |
+|---|:---:|:---:|:---:|
+| Estrutura | 14 | 0 | 0 |
+| Fechamento | 8 (5 ERRO-cap + 3 ALT-cap) | 1 | 1 |
+| IC/Domínio | 18 (11 ERRO-cap + 7 ALT-cap) | 2 | 2 |
+| PCASP/Completude | 11 (2 ERRO-cap + 9 ALT-cap) | 2 | 0 |
+| Temporal | 3 | 0 | 0 |
+
+> "ERRO-cap" e "ALT-cap" indicam a severidade que a regra PODE produzir.
+> Para o cálculo, o que importa é a severidade **observada** nesta execução.
 
 ### Cálculo de P_d
 
+**Regra de cálculo:** passaram → `w_r=1`, falhou-ALERTA → `w_r=1`, falhou-ERRO → `w_r=2`.
+
 **Estrutura**
 ```
-Σ w_r·ok_r = 14×2 = 28
-Σ w_r      = 14×2 = 28
-P_Estrutura = 28/28 = 1,000  (100%)
+Passaram 14 × w=1 → numerador = 14
+Denominador = 14 × 1 = 14
+P_Estrutura = 14/14 = 1,000  (100%)
 ```
 
 **Fechamento**
 ```
-Passou: 5 ERRO + 3 ALERTA → 5×2 + 3×1 = 13
-Total:  6 ERRO + 4 ALERTA → 6×2 + 4×1 = 16
-P_Fechamento = 13/16 = 0,813  (81,3%)
+Passaram 8 × w=1   → numerador  = 8,   denominador += 8
+Falhou ALERTA 1 × w=1            → denominador += 1
+Falhou ERRO   1 × w=2            → denominador += 2
+P_Fechamento = 8 / (8+1+2) = 8/11 ≈ 0,727  (72,7%)
 ```
 
 **IC/Domínio**
 ```
-Passou: 11 ERRO + 7 ALERTA → 22 + 7 = 29
-Total:  13 ERRO + 9 ALERTA → 26 + 9 = 35
-P_IC_Domínio = 29/35 = 0,829  (82,9%)
+Passaram 18 × w=1  → numerador  = 18,  denominador += 18
+Falhou ALERTA 2 × w=1            → denominador += 2
+Falhou ERRO   2 × w=2            → denominador += 4
+P_IC_Domínio = 18 / (18+2+4) = 18/24 = 0,750  (75,0%)
 ```
 
 **PCASP/Completude**
 ```
-Passou: 2 ERRO + 9 ALERTA → 4 + 9 = 13
-Total:  2 ERRO + 11 ALERTA → 4 + 11 = 15
-P_PCASP = 13/15 = 0,867  (86,7%)
+Passaram 11 × w=1  → numerador  = 11,  denominador += 11
+Falhou ALERTA 2 × w=1            → denominador += 2
+P_PCASP = 11 / (11+2) = 11/13 ≈ 0,846  (84,6%)
 ```
 
 **Temporal**
 ```
-Passou: 3 ALERTA → 3
-Total:  3 ALERTA → 3
+Passaram 3 × w=1   → numerador  = 3,   denominador += 3
 P_Temporal = 3/3 = 1,000  (100%)
 ```
 
 ### Pontuação final
 
 ```
-Pontuação = 100 × (0,20×1,000 + 0,25×0,813 + 0,30×0,829 + 0,15×0,867 + 0,10×1,000)
-          = 100 × (0,200 + 0,203 + 0,249 + 0,130 + 0,100)
-          = 100 × 0,882
-          = 88,2
+Pontuação = 100 × (0,20×1,000 + 0,25×0,727 + 0,30×0,750 + 0,15×0,846 + 0,10×1,000)
+          = 100 × (0,200 + 0,182 + 0,225 + 0,127 + 0,100)
+          = 100 × 0,834
+          = 83,4
 ```
 
-**Banda: B (Bom)**
+**Banda: C (Regular)**
 
 ---
 
@@ -260,6 +272,7 @@ Isso permite:
 | 5 dimensões agregadas | 18 categorias como dimensões | Granularidade excessiva → volatilidade alta entre entes |
 | Pesos fixos por dimensão | Pesos configuráveis por ente | Simplidade; ajuste via configuração pode ser adicionado em F4-03+ |
 | Bandas A–E ICF Siconfi | Nota 0–10 estilo escolar | Manter coerência com o benchmark nacional do Ranking Siconfi |
+| `w_r` dinâmico (severidade observada) | `w_r` estático (metadata da regra) | Várias regras (R024, R026–R029) produzem ERRO ou ALERTA dependendo dos dados; `w_r` fixo forçaria uma escolha arbitrária que superpenaliza ou subpenaliza; `w_r` dinâmico = custo real da falha observada |
 
 ---
 
