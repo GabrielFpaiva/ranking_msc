@@ -86,12 +86,14 @@ class TestImports:
 
     def test_import_outputs(self) -> None:
         from ranking_msc.outputs.logs import log_execucao, setup_logging
+        from ranking_msc.outputs.report_consolidado import export_consolidado_excel
         from ranking_msc.outputs.reports import export_issues_excel
         from ranking_msc.outputs.snapshot import read_snapshot, write_snapshot_atomic
 
         assert callable(setup_logging)
         assert callable(log_execucao)
         assert callable(export_issues_excel)
+        assert callable(export_consolidado_excel)
         assert callable(write_snapshot_atomic)
         assert callable(read_snapshot)
 
