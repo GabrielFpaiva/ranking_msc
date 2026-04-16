@@ -134,6 +134,7 @@ def test_run_cli_fluxo_feliz_orquestra_pipeline(
             status="OK",
             pendencias=pendencias_df,
             total_pendencias=0,
+            executed_rule_ids=[],
         )
 
     def fake_write_snapshot_atomic(
@@ -155,11 +156,13 @@ def test_run_cli_fluxo_feliz_orquestra_pipeline(
         *,
         output_dir: str | Path,
         filename: str | None = None,
+        score_result: object = None,
     ) -> Path:
         del filename
         captured["report_rows"] = len(df_pendencias)
         captured["report_competencia"] = competencia
         captured["report_dir"] = Path(output_dir)
+        captured["score_result_passed"] = score_result is not None
         return Path(output_dir) / f"pendencias_{competencia}.xlsx"
 
     def fake_log_execucao(logger_obj: logging.Logger, **kwargs: object) -> None:
@@ -201,6 +204,7 @@ def test_run_cli_fluxo_feliz_orquestra_pipeline(
     assert captured["report_rows"] == 0
     assert captured["report_competencia"] == "2025-11"
     assert captured["report_dir"] == (output_base / "reports").resolve()
+    assert captured["score_result_passed"] is True
     assert captured["log_execucao_logger"] == "ranking_msc_test_cli"
     assert captured["log_execucao_status"] == "OK"
     assert captured["log_execucao_competencia"] == "2025-11"

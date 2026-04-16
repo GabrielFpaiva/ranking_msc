@@ -19,6 +19,7 @@ from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from ranking_msc.engine.score_engine import ScoreResult
 from ranking_msc.exceptions import ReportError
 from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS
 
@@ -57,6 +58,34 @@ _COLUMN_LABELS: dict[str, str] = {
 _MAX_COLUMN_WIDTH = 60
 _MIN_COLUMN_WIDTH = 10
 
+# Cores para aba Score — por banda A-E
+_BAND_FILLS: dict[str, PatternFill] = {
+    "A": PatternFill(fill_type="solid", fgColor="FF70AD47"),  # verde
+    "B": PatternFill(fill_type="solid", fgColor="FFC6EFCE"),  # verde claro
+    "C": PatternFill(fill_type="solid", fgColor="FFFFEB9C"),  # amarelo
+    "D": PatternFill(fill_type="solid", fgColor="FFFFCC00"),  # laranja
+    "E": PatternFill(fill_type="solid", fgColor="FFFFC7CE"),  # vermelho
+}
+
+# Thresholds de banda para tabela de benchmarks — doc/modelo_pontuacao.md §6
+_BAND_THRESHOLDS: list[tuple[str, str]] = [
+    ("A", "≥ 95"),
+    ("B", "≥ 85"),
+    ("C", "≥ 75"),
+    ("D", "≥ 65"),
+    ("E", "< 65"),
+]
+
+# Thresholds numéricos para colorir linhas de dimensão na aba Score
+# Espelha _BANDS de score_engine.py para consistência visual com a legenda
+_DIM_FILL_THRESHOLDS: list[tuple[float, str]] = [
+    (95.0, "A"),
+    (85.0, "B"),
+    (75.0, "C"),
+    (65.0, "D"),
+    (0.0, "E"),
+]
+
 
 def export_issues_excel(
     df_pendencias: pd.DataFrame,
@@ -64,6 +93,7 @@ def export_issues_excel(
     *,
     output_dir: str | Path = "data/reports",
     filename: str | None = None,
+    score_result: ScoreResult | None = None,
 ) -> Path:
     """Exporta pendências para arquivo Excel formatado.
 
@@ -73,6 +103,9 @@ def export_issues_excel(
         output_dir: diretório de saída do relatório.
         filename: nome do arquivo. Se ``None``, usa
             ``pendencias_<competencia>.xlsx``.
+        score_result: resultado de ``calculate_score()``. Se fornecido,
+            adiciona aba "Score" com nota geral, breakdown por dimensão
+            e tabela de benchmarks.
 
     Returns:
         Path absoluto para o arquivo Excel gerado.
@@ -111,6 +144,8 @@ def export_issues_excel(
             _rename_headers(ws_pendencias)
 
             _add_saldo_devedor_sheet(writer, df_pendencias)
+            if score_result is not None:
+                _add_score_sheet(writer, score_result)
     except Exception as exc:  # noqa: BLE001
         raise ReportError(
             f"Falha ao exportar relatório Excel para competência {competencia}: {exc}"
@@ -258,6 +293,111 @@ def _find_column_index(ws: Worksheet, header_name: str) -> int | None:
         if isinstance(value, str) and value.strip().lower() == normalized_header:
             return col_idx
     return None
+
+
+def _dim_band_fill(nota: float) -> PatternFill:
+    """Retorna fill correspondente à banda A-E de uma nota de dimensão (0-100)."""
+    for threshold, band in _DIM_FILL_THRESHOLDS:
+        if nota >= threshold:
+            return _BAND_FILLS[band]
+    return _BAND_FILLS["E"]
+
+
+def _add_score_sheet(
+    writer: pd.ExcelWriter,
+    score_result: ScoreResult,
+) -> None:
+    """Adiciona aba 'Score' com nota geral, breakdown por dimensão e benchmarks.
+
+    Layout:
+        Seção 1 (linha 1-2): cabeçalho + linha com nota final, banda e totais.
+        Seção 2 (a partir da linha 5): tabela de desempenho por dimensão.
+        Seção 3 (após dimensões + 2 linhas): tabela de benchmarks A-E.
+
+    Args:
+        writer: ExcelWriter aberto (contexto ``with pd.ExcelWriter``).
+        score_result: resultado de ``calculate_score()``.
+    """
+    sheet_name = "Score"
+
+    # -- Seção 1: Nota Geral --------------------------------------------------
+    summary_headers = ["Nota Final", "Banda", "Regras Executadas", "Com Erro", "Com Alerta"]
+    summary_values = [
+        round(score_result.pontuacao, 2),
+        score_result.banda,
+        score_result.regras_executadas,
+        score_result.regras_falhas_erro,
+        score_result.regras_falhas_alerta,
+    ]
+
+    # -- Seção 2: Desempenho por Dimensão -------------------------------------
+    dim_headers = ["Dimensão", "Nota (%)", "Peso (%)", "Regras", "Passou", "Alerta", "Erro"]
+    dim_rows: list[list[object]] = []
+    for dim_score in score_result.dimensions.values():
+        dim_rows.append([
+            dim_score.dimension,
+            round(dim_score.score * 100, 2),
+            round(dim_score.weight_normalized * 100, 2),
+            dim_score.rules_total,
+            dim_score.rules_passed,
+            dim_score.rules_failed_alerta,
+            dim_score.rules_failed_erro,
+        ])
+
+    # -- Seção 3: Benchmarks --------------------------------------------------
+    bench_headers = ["Banda", "Faixa"]
+
+    # Montar um DataFrame com tudo para usar to_excel (sem índice)
+    # Usamos startrow para espaçar as seções manualmente
+    wb = writer.book
+    ws = wb.create_sheet(sheet_name)
+
+    # Seção 1 — cabeçalho na linha 1, valores na linha 2
+    for col_idx, header in enumerate(summary_headers, start=1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.font = _HEADER_FONT
+        cell.fill = _HEADER_FILL
+
+    for col_idx, value in enumerate(summary_values, start=1):
+        ws.cell(row=2, column=col_idx, value=value)
+
+    # Colorir nota e banda conforme a banda obtida
+    banda_fill = _BAND_FILLS.get(score_result.banda, _BAND_FILLS["E"])
+    for col_idx in range(1, len(summary_headers) + 1):
+        ws.cell(row=2, column=col_idx).fill = banda_fill
+
+    # Seção 2 — começa na linha 5 (linha 3 vazia, linha 4 = cabeçalho)
+    section2_start = 4
+    for col_idx, header in enumerate(dim_headers, start=1):
+        cell = ws.cell(row=section2_start, column=col_idx, value=header)
+        cell.font = _HEADER_FONT
+        cell.fill = _HEADER_FILL
+
+    for row_offset, row_data in enumerate(dim_rows, start=1):
+        row_idx = section2_start + row_offset
+        for col_idx, value in enumerate(row_data, start=1):
+            ws.cell(row=row_idx, column=col_idx, value=value)
+        # Colorir linha conforme nota da dimensão (coluna 2 = nota %)
+        dim_fill = _dim_band_fill(float(row_data[1]))  # type: ignore[arg-type]
+        for col_idx in range(1, len(dim_headers) + 1):
+            ws.cell(row=row_idx, column=col_idx).fill = dim_fill
+
+    # Seção 3 — benchmarks, após dimensões + 2 linhas de espaço
+    bench_start = section2_start + len(dim_rows) + 3
+    for col_idx, header in enumerate(bench_headers, start=1):
+        cell = ws.cell(row=bench_start, column=col_idx, value=header)
+        cell.font = _HEADER_FONT
+        cell.fill = _HEADER_FILL
+
+    for row_offset, (banda, faixa) in enumerate(_BAND_THRESHOLDS, start=1):
+        row_idx = bench_start + row_offset
+        ws.cell(row=row_idx, column=1, value=banda)
+        ws.cell(row=row_idx, column=2, value=faixa)
+        bench_fill = _BAND_FILLS[banda]
+        ws.cell(row=row_idx, column=1).fill = bench_fill
+        ws.cell(row=row_idx, column=2).fill = bench_fill
+
+    _auto_fit_columns(ws)
 
 
 def _add_saldo_devedor_sheet(

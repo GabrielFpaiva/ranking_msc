@@ -73,6 +73,8 @@ class EngineResult:
     regras_com_erro: int = 0
     erros: list[dict[str, Any]] = field(default_factory=list)
     fim: datetime = field(default_factory=datetime.now)
+    executed_rule_ids: list[str] = field(default_factory=list)
+    """IDs das regras efetivamente executadas (em RULE_REGISTRY e habilitadas)."""
 
     @property
     def status(self) -> str:
@@ -127,6 +129,7 @@ def run_engine(df: pd.DataFrame, context: EngineContext) -> EngineResult:
             continue
 
         result.regras_executadas += 1
+        result.executed_rule_ids.append(rule_id)
 
         try:
             rule = rule_class()

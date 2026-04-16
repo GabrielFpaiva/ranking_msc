@@ -21,6 +21,7 @@ if str(_SRC_DIR) not in sys.path:
 
 from ranking_msc.config.settings import Settings, load_settings  # noqa: E402
 from ranking_msc.engine.executor import EngineContext, run_engine  # noqa: E402
+from ranking_msc.engine.score_engine import calculate_score  # noqa: E402
 from ranking_msc.exceptions import InputFormatError, RankingMSCError  # noqa: E402
 from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
 from ranking_msc.outputs.logs import log_execucao, setup_logging  # noqa: E402
@@ -223,6 +224,22 @@ def _execute_pipeline(
 
     engine_result = run_engine(normalized_df, context)
 
+    score_result = calculate_score(
+        engine_result.pendencias,
+        engine_result.executed_rule_ids,
+    )
+    logger.info(
+        "Score calculado: pontuacao=%.2f banda=%s regras=%d",
+        score_result.pontuacao,
+        score_result.banda,
+        score_result.regras_executadas,
+        extra={
+            "execucao_id": context.execucao_id,
+            "competencia": context.competencia,
+            "siconfi": context.siconfi,
+        },
+    )
+
     snapshot_path = write_snapshot_atomic(
         engine_result.pendencias,
         raw_msc.competencia,
@@ -233,6 +250,7 @@ def _execute_pipeline(
         engine_result.pendencias,
         raw_msc.competencia,
         output_dir=output_paths.reports_dir,
+        score_result=score_result,
     )
 
     log_execucao(

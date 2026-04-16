@@ -19,6 +19,7 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import Cell, MergedCell
 from openpyxl.worksheet.worksheet import Worksheet
 
+from ranking_msc.engine.score_engine import DimensionScore, ScoreResult
 from ranking_msc.exceptions import ReportError
 from ranking_msc.outputs.reports import export_issues_excel
 
@@ -443,3 +444,161 @@ class TestSaldoDevedorSheet:
         msg = ws.cell(row=2, column=1).value
         assert isinstance(msg, str)
         assert "sem incompatibilidades" in msg.lower()
+
+
+# ---------------------------------------------------------------------------
+# Testes — aba Score (F4-03)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def score_result_banda_b() -> ScoreResult:
+    """ScoreResult sintético com pontuação 87.5 → banda B."""
+    return ScoreResult(
+        pontuacao=87.5,
+        banda="B",
+        dimensions={
+            "Estrutura": DimensionScore(
+                dimension="Estrutura",
+                score=0.95,
+                weight_normalized=0.30,
+                rules_total=4,
+                rules_passed=4,
+                rules_failed_alerta=0,
+                rules_failed_erro=0,
+            ),
+            "Fechamento": DimensionScore(
+                dimension="Fechamento",
+                score=0.80,
+                weight_normalized=0.70,
+                rules_total=3,
+                rules_passed=2,
+                rules_failed_alerta=1,
+                rules_failed_erro=0,
+            ),
+        },
+        regras_executadas=7,
+        regras_falhas_erro=0,
+        regras_falhas_alerta=1,
+    )
+
+
+@pytest.fixture
+def score_result_vazio() -> ScoreResult:
+    """ScoreResult sem dimensões ativas (edge case: nenhuma regra pontuável)."""
+    return ScoreResult(
+        pontuacao=0.0,
+        banda="E",
+        dimensions={},
+        regras_executadas=0,
+        regras_falhas_erro=0,
+        regras_falhas_alerta=0,
+    )
+
+
+class TestScoreSheet:
+    def test_sem_score_result_nao_cria_aba_score(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+    ) -> None:
+        """Sem score_result, aba 'Score' não deve ser criada no Excel."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+        )
+        wb = load_workbook(output)
+        assert "Score" not in wb.sheetnames
+
+    def test_com_score_result_cria_aba_score(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+        score_result_banda_b: ScoreResult,
+    ) -> None:
+        """Com score_result, aba 'Score' deve ser criada com dados corretos."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+            score_result=score_result_banda_b,
+        )
+        wb = load_workbook(output)
+        assert "Score" in wb.sheetnames
+
+        ws = wb["Score"]
+        # Linha 2: nota geral e banda
+        nota = ws.cell(row=2, column=1).value
+        banda = ws.cell(row=2, column=2).value
+        assert nota == pytest.approx(87.5)
+        assert banda == "B"
+
+    def test_score_sheet_contem_dimensoes(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+        score_result_banda_b: ScoreResult,
+    ) -> None:
+        """Aba Score deve conter uma linha por dimensão ativa."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+            score_result=score_result_banda_b,
+        )
+        wb = load_workbook(output)
+        ws = wb["Score"]
+
+        # Seção 2 começa na linha 4 (cabeçalho) → dados nas linhas 5 e 6
+        dim_names = [
+            ws.cell(row=r, column=1).value
+            for r in range(5, 5 + len(score_result_banda_b.dimensions))
+        ]
+        assert "Estrutura" in dim_names
+        assert "Fechamento" in dim_names
+
+    def test_score_sheet_score_zero_nao_quebra(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+        score_result_vazio: ScoreResult,
+    ) -> None:
+        """ScoreResult vazio (sem dimensões) não deve levantar exceção."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+            score_result=score_result_vazio,
+        )
+        wb = load_workbook(output)
+        ws = wb["Score"]
+        nota = ws.cell(row=2, column=1).value
+        banda = ws.cell(row=2, column=2).value
+        assert nota == pytest.approx(0.0)
+        assert banda == "E"
+
+    def test_score_sheet_contem_benchmarks(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+        score_result_banda_b: ScoreResult,
+    ) -> None:
+        """Aba Score deve conter tabela de benchmarks com bandas A-E."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+            score_result=score_result_banda_b,
+        )
+        wb = load_workbook(output)
+        ws = wb["Score"]
+
+        # Coletar todos os valores de texto da planilha
+        all_values = {
+            ws.cell(row=r, column=c).value
+            for r in range(1, ws.max_row + 1)
+            for c in range(1, ws.max_column + 1)
+        }
+        for banda in ("A", "B", "C", "D", "E"):
+            assert banda in all_values, f"Banda {banda} não encontrada na aba Score"
