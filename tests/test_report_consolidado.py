@@ -11,11 +11,13 @@ from pathlib import Path
 
 import openpyxl
 import pytest
+from openpyxl.chart import LineChart
 
 from ranking_msc.engine.compare_periods import PeriodComparison, PeriodScore
 from ranking_msc.engine.score_engine import DimensionScore, ScoreResult
 from ranking_msc.exceptions import ReportError
 from ranking_msc.outputs.report_consolidado import (
+    _add_score_chart,
     _build_headers,
     export_consolidado_excel,
 )
@@ -300,3 +302,58 @@ class TestBuildHeaders:
             "PCASP Completude (%)",
             "Temporal (%)",
         ]
+
+
+# ---------------------------------------------------------------------------
+# Regressão — Finding 5: decisão LineChart vs SparklineGroup
+# ---------------------------------------------------------------------------
+
+
+class TestLineChartDecision:
+    """Finding 5: gráfico usa LineChart (não SparklineGroup — não disponível em openpyxl 3.x)."""
+
+    def test_grafico_usa_linechart(self, tmp_path: Path) -> None:
+        """_add_score_chart insere um LineChart na worksheet, não SparklineGroup."""
+        from openpyxl import Workbook
+
+        periods = [
+            _make_period("2024-01", pontuacao=80.0),
+            _make_period("2024-02", pontuacao=85.0),
+        ]
+        comparison = _make_comparison(periods=periods)
+
+        wb = Workbook()
+        ws = wb.active
+        assert ws is not None
+
+        # Escreve alguns dados para que a referência tenha linhas válidas
+        ws.cell(row=1, column=1, value="Competência")
+        ws.cell(row=1, column=2, value="Pontuação")
+        ws.cell(row=2, column=1, value="2024-01")
+        ws.cell(row=2, column=2, value=80.0)
+        ws.cell(row=3, column=1, value="2024-02")
+        ws.cell(row=3, column=2, value=85.0)
+
+        _add_score_chart(ws, comparison)
+
+        assert len(ws._charts) == 1, "Esperado exatamente 1 gráfico na worksheet"
+        chart = ws._charts[0]
+        assert isinstance(chart, LineChart), (
+            f"Esperado LineChart, obteve {type(chart).__name__}. "
+            "SparklineGroup não está disponível na API pública do openpyxl 3.x."
+        )
+
+    def test_grafico_ausente_para_periodo_unico(self) -> None:
+        """Sem 2+ períodos, nenhum gráfico é adicionado (evita gráfico vazio)."""
+        from openpyxl import Workbook
+
+        periods = [_make_period("2024-01", pontuacao=80.0)]
+        comparison = _make_comparison(periods=periods)
+
+        wb = Workbook()
+        ws = wb.active
+        assert ws is not None
+
+        _add_score_chart(ws, comparison)
+
+        assert len(ws._charts) == 0, "Não deve criar gráfico com menos de 2 períodos"

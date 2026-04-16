@@ -10,6 +10,7 @@ em ``data/snapshots/<competencia>/``.
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
@@ -98,6 +99,92 @@ def read_snapshot(
         extra={"competencia": competencia, "modulo": "snapshot"},
     )
     return df
+
+
+def write_scoring_metadata(
+    rule_ids: list[str],
+    competencia: str,
+    *,
+    base_dir: str | Path = "data/snapshots",
+) -> Path:
+    """Persiste a lista de regras executadas junto ao snapshot de resultado_regras.
+
+    Garante estabilidade histórica do score: ao recalcular períodos anteriores
+    em compare_periods(), usa as regras que *foram* executadas naquele período,
+    não as atualmente habilitadas em settings.rules.enabled.
+
+    Args:
+        rule_ids: lista de rule_id executadas no pipeline para esta competência.
+        competencia: "YYYY-MM" — subdiretório de destino.
+        base_dir: diretório raiz de snapshots (mesmo usado por write_snapshot_atomic).
+
+    Returns:
+        Path do arquivo JSON gravado.
+
+    Raises:
+        SnapshotError: falha de I/O ou permissão.
+    """
+    dest_dir = Path(base_dir) / competencia
+    tmp_path = dest_dir / "scoring_metadata.json.tmp"
+    final_path = dest_dir / "scoring_metadata.json"
+
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        tmp_path.write_text(
+            json.dumps({"executed_rule_ids": sorted(rule_ids)}, indent=2),
+            encoding="utf-8",
+        )
+        tmp_path.replace(final_path)
+    except OSError as exc:
+        try:
+            if tmp_path.exists():
+                tmp_path.unlink()
+        except OSError:
+            pass
+        raise SnapshotError(
+            f"Falha ao gravar metadados de scoring para competência {competencia}: {exc}"
+        ) from exc
+
+    logger.info(
+        "Metadados de scoring gravados: competência=%s regras=%d path=%s",
+        competencia,
+        len(rule_ids),
+        final_path,
+        extra={"competencia": competencia, "modulo": "snapshot"},
+    )
+    return final_path
+
+
+def read_scoring_metadata(
+    competencia: str,
+    *,
+    base_dir: str | Path = "data/snapshots",
+) -> list[str] | None:
+    """Lê a lista de regras executadas do metadado persistido para uma competência.
+
+    Args:
+        competencia: "YYYY-MM" — subdiretório do snapshot.
+        base_dir: diretório raiz de snapshots.
+
+    Returns:
+        Lista de rule_id persistidos, ou ``None`` se o arquivo não existir ou
+        estiver corrompido (sem levantar exceção — o chamador decide o fallback).
+    """
+    path = Path(base_dir) / competencia / "scoring_metadata.json"
+    if not path.exists():
+        return None
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return list(data.get("executed_rule_ids", []))
+    except (OSError, ValueError):
+        logger.warning(
+            "Falha ao ler metadados de scoring para competência %s em %s — arquivo corrompido.",
+            competencia,
+            path,
+            extra={"competencia": competencia, "modulo": "snapshot"},
+        )
+        return None
 
 
 def _remove_tmp_if_exists(tmp_path: Path) -> None:

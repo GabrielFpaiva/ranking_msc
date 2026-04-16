@@ -1,6 +1,6 @@
 # Fase 4 — Plano de Implementação
 
-**Status:** Em andamento (F4-01, F4-02 e F4-04 concluídos)
+**Status:** Em andamento (F4-01 a F4-06 concluídos)
 **Depende de:** Fase 3 (concluída — 35 regras, 471 testes, pipeline completo)
 **Referência do backlog:** F4-01 a F4-20
 
@@ -35,17 +35,11 @@ comparação temporal e otimizações de performance.
 | ID | Task | Descrição | Prioridade | Horas | Depende de | Status |
 |---|---|---|---|---|---|---|
 | F4-01 | Definir modelo de pontuação (scoring) | Modelo 0-100 inspirado no ICF do Ranking Siconfi: peso por dimensão × severidade. | Crítica | 8 | F3-16 | **Concluído** (P1: renorm dims c/ Σw=0; P2: FP+AI em IC/Domínio) |
-<<<<<<< Updated upstream
-| F4-02 | Implementar score_engine.py | Calcular nota por categoria e nota final com base nas pendências. | Crítica | 10 | F4-01 | Em andamento |
-| F4-03 | Relatório com score e ranking por categoria | Aba Score no Excel: nota por categoria + nota geral + bandas A-E. | Alta | 8 | F4-02 | A Fazer |
-| F4-04 | Suporte a múltiplas competências (batch) | `run_batch.py`: diretório com N CSVs → snapshot + relatório por competência. | Alta | 8 | F3-12 | **Concluído** |
-=======
 | F4-02 | Implementar score_engine.py | Calcular nota por categoria e nota final do ente com base nas pendências. | Crítica | 10 | F4-01 | **Concluído** (is_scoring em Rule ABC; calculate_score w/ dynamic w_r + renorm; 23 testes; PR #57) |
-| F4-03 | Relatório com score e ranking por categoria | Aba de Score no Excel: nota por categoria + nota geral + bandas A-E. | Alta | 8 | F4-02 | A Fazer |
-| F4-04 | Suporte a múltiplas competências (batch) | Pipeline aceita diretório com múltiplos CSVs e gera snapshot + relatório por competência. | Alta | 8 | F3-12 | A Fazer |
->>>>>>> Stashed changes
-| F4-05 | Comparação entre competências (evolução temporal) | Comparar scores entre meses para mostrar evolução da qualidade. | Alta | 8 | F4-02, F4-04 | A Fazer |
-| F4-06 | Relatório consolidado multi-competência | Excel com aba de evolução temporal + gráficos. | Alta | 8 | F4-05 | A Fazer |
+| F4-03 | Relatório com score e ranking por categoria | Aba Score no Excel: nota por categoria + nota geral + bandas A-E. | Alta | 8 | F4-02 | **Concluído** (EngineResult.executed_rule_ids; _add_score_sheet() 3 seções; cores A–E; PR #58) |
+| F4-04 | Suporte a múltiplas competências (batch) | `run_batch.py`: diretório com N CSVs → snapshot + relatório por competência. | Alta | 8 | F3-12 | **Concluído** |
+| F4-05 | Comparação entre competências (evolução temporal) | Comparar scores entre meses para mostrar evolução da qualidade. | Alta | 8 | F4-02, F4-04 | **Concluído** (PeriodComparison; score_delta(); compare_periods(); CLI scripts/compare_periods.py; 22 testes) |
+| F4-06 | Relatório consolidado multi-competência | Excel com aba de evolução temporal + gráficos. | Alta | 8 | F4-05 | **Concluído** (export_consolidado_excel(); 12 colunas; LineChart; band coloring; 16 testes; PR #60) |
 | F4-07 | Regras de Estrutura — R006 a R0011 | 6 regras de formato do CSV: siconfi/período válidos, separador, colunas, cabeçalho, valores não-negativos. | Alta | 6 | — | A Fazer |
 | F4-08 | Testes de carga com CSVs grandes (>100k linhas) | Benchmark de performance com CSVs reais grandes. | Alta | 6 | F4-04 | A Fazer |
 | F4-09 | Otimizar regras com operações vetorizadas | Refatorar regras para usar groupby/vectorized ao invés de loops. Melhoria ≥50%. | Alta | 8 | F4-08 | A Fazer |

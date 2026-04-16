@@ -21,7 +21,7 @@ from ranking_msc.engine.compare_periods import (
     compare_periods,
 )
 from ranking_msc.engine.score_engine import ScoreResult
-from ranking_msc.outputs.snapshot import write_snapshot_atomic
+from ranking_msc.outputs.snapshot import write_scoring_metadata, write_snapshot_atomic
 from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS
 
 # ---------------------------------------------------------------------------
@@ -301,3 +301,107 @@ class TestComparePeriodsCLI:
 
         code = run_cli(["--siconfi", "250400", "--snapshots-dir", str(tmp_path)])
         assert code == 0
+
+    def test_run_cli_com_output_dir_exporta_excel(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Finding 4: CLI com --output-dir exporta relatório Excel consolidado."""
+        _write_resultado_snapshot(
+            tmp_path, "250400", "2024-01",
+            pd.DataFrame(columns=FACT_RESULTADO_REGRAS_COLUMNS),
+        )
+
+        import ranking_msc.config.settings as _settings_mod
+
+        monkeypatch.setattr(
+            _settings_mod,
+            "load_settings",
+            lambda path=None: _make_settings(),
+        )
+
+        output_dir = tmp_path / "reports"
+
+        from scripts.compare_periods import run_cli
+
+        code = run_cli([
+            "--siconfi", "250400",
+            "--snapshots-dir", str(tmp_path),
+            "--output-dir", str(output_dir),
+        ])
+
+        assert code == 0
+        excel_files = list(output_dir.glob("consolidado_*.xlsx"))
+        assert len(excel_files) == 1, (
+            f"Esperado 1 arquivo consolidado_*.xlsx em {output_dir}, encontrado: {excel_files}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Regressão — Finding 1: estabilidade de scores históricos
+# ---------------------------------------------------------------------------
+
+
+class TestScoreEstabilidadeHistorica:
+    """Verifica que scores históricos não mudam quando settings.rules.enabled cresce."""
+
+    def test_score_estavel_quando_regras_mudam(self, tmp_path: Path) -> None:
+        """Finding 1: score de período anterior não muda ao adicionar nova regra.
+
+        Simula o cenário onde um snapshot foi gravado com R001 habilitado, e
+        depois R002 é adicionado a settings. O score deve refletir apenas R001
+        (regras realmente executadas), não R001+R002.
+        """
+        pendencias = pd.DataFrame(columns=FACT_RESULTADO_REGRAS_COLUMNS)
+        _write_resultado_snapshot(tmp_path, "250400", "2024-01", pendencias)
+        # Persiste metadados: apenas R001 foi executado neste período
+        write_scoring_metadata(
+            ["R001"],
+            "2024-01",
+            base_dir=tmp_path / "250400",
+        )
+
+        # Settings original (apenas R001)
+        settings_original = _make_settings(enabled=["R001"])
+        result_original = compare_periods(
+            "250400",
+            snapshots_dir=tmp_path,
+            settings=settings_original,
+        )
+        assert len(result_original.periods) == 1
+        score_original = result_original.periods[0].score_result.pontuacao
+
+        # Settings expandido (R001 + R002 adicionado depois)
+        settings_ampliado = _make_settings(enabled=["R001", "R002"])
+        result_ampliado = compare_periods(
+            "250400",
+            snapshots_dir=tmp_path,
+            settings=settings_ampliado,
+        )
+        assert len(result_ampliado.periods) == 1
+        score_ampliado = result_ampliado.periods[0].score_result.pontuacao
+
+        assert score_original == score_ampliado, (
+            f"Score histórico mudou de {score_original} para {score_ampliado} "
+            "apenas porque settings.rules.enabled foi expandido — "
+            "os metadados persistidos devem fixar o conjunto de regras do período."
+        )
+
+    def test_fallback_sem_metadata_usa_settings_e_loga_warning(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Finding 1 (fallback): sem scoring_metadata.json, usa settings e avisa."""
+        pendencias = pd.DataFrame(columns=FACT_RESULTADO_REGRAS_COLUMNS)
+        _write_resultado_snapshot(tmp_path, "250400", "2024-01", pendencias)
+        # NÃO grava scoring_metadata.json — simula snapshot legado
+
+        settings = _make_settings(enabled=[])
+        import logging
+        with caplog.at_level(logging.WARNING, logger="ranking_msc"):
+            result = compare_periods(
+                "250400",
+                snapshots_dir=tmp_path,
+                settings=settings,
+            )
+
+        assert len(result.periods) == 1
+        assert "fallback" in caplog.text.lower() or "metadados" in caplog.text.lower()

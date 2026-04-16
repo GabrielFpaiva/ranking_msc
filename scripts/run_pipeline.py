@@ -26,7 +26,7 @@ from ranking_msc.exceptions import InputFormatError, RankingMSCError  # noqa: E4
 from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
 from ranking_msc.outputs.logs import log_execucao, setup_logging  # noqa: E402
 from ranking_msc.outputs.reports import export_issues_excel  # noqa: E402
-from ranking_msc.outputs.snapshot import write_snapshot_atomic  # noqa: E402
+from ranking_msc.outputs.snapshot import write_scoring_metadata, write_snapshot_atomic  # noqa: E402
 from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
 
 
@@ -246,6 +246,11 @@ def _execute_pipeline(
         base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
         label="resultado_regras",
     )
+    write_scoring_metadata(
+        engine_result.executed_rule_ids,
+        raw_msc.competencia,
+        base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
+    )
     report_path = export_issues_excel(
         engine_result.pendencias,
         raw_msc.competencia,
@@ -281,16 +286,21 @@ def _execute_pipeline(
 
 
 def _log_failure(logger: logging.Logger | None, message: str) -> None:
-    """Registra falha de execução com fallback de logging para stderr."""
+    """Registra falha de execução com fallback de logging para stderr.
+
+    Inclui traceback apenas quando há uma exceção ativa — evita ruído
+    ``NoneType: None`` em caminhos de falha sem exceção real.
+    """
+    exc_info = sys.exc_info()[0] is not None
     if logger is not None:
-        logger.error(message, exc_info=True)
+        logger.error(message, exc_info=exc_info)
         return
 
     logging.basicConfig(
         level=logging.ERROR,
         format="%(levelname)s:%(name)s:%(message)s",
     )
-    logging.getLogger("ranking_msc").error(message, exc_info=True)
+    logging.getLogger("ranking_msc").error(message, exc_info=exc_info)
 
 
 def main() -> None:

@@ -31,7 +31,7 @@ from pathlib import Path
 from ranking_msc.config.settings import Settings
 from ranking_msc.engine.score_engine import ScoreResult, calculate_score
 from ranking_msc.exceptions import SnapshotNotFoundError
-from ranking_msc.outputs.snapshot import read_snapshot
+from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
 
 logger = logging.getLogger("ranking_msc")
 
@@ -201,7 +201,26 @@ def _load_period_score(
         )
         return None
 
-    score_result = calculate_score(pendencias, executed_rule_ids)
+    # Usa regras realmente executadas no período, se disponíveis.
+    # Sem metadados (snapshots anteriores à F4-fix), cai de volta na lista atual
+    # com aviso explícito — scores históricos podem ser imprecisos.
+    persisted_ids = read_scoring_metadata(
+        competencia,
+        base_dir=base_dir / siconfi,
+    )
+    if persisted_ids is None:
+        logger.warning(
+            "Metadados de scoring ausentes para siconfi=%s competencia=%s — "
+            "usando regras configuradas como fallback. "
+            "Scores históricos podem ser imprecisos se o conjunto de regras mudou.",
+            siconfi,
+            competencia,
+        )
+        rule_ids_to_use = executed_rule_ids
+    else:
+        rule_ids_to_use = persisted_ids
+
+    score_result = calculate_score(pendencias, rule_ids_to_use)
 
     return PeriodScore(
         competencia=competencia,

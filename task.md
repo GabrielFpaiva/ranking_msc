@@ -5,10 +5,10 @@ Quero que você apenas ARQUITETE a task abaixo, sem implementar nada por enquant
 Regras:
 - Leia sempre o claude.md antes de decidir qualquer coisa.
 - Crie uma NOVA BRANCH específica para esta task antes de qualquer alteração, usando o padrão:
-  feat/f4-03-relat-rio-com-score-e-ranking-por-categoria
+  feat/f4-01-definir-modelo-de-pontua-o-scoring
   Ajuste o nome conforme a task atual, mantendo prefixo, código da task e descrição curta em kebab-case.
 - Sugira também a mensagem de commit inicial no padrão:
-  F4-03: implement Relatório com score e ranking por categoria
+  F4-01: implement Definir modelo de pontuação (scoring)
   Ajuste conforme a task atual.
 - Não implemente nada nesta etapa.
 - Não entregue resposta genérica.
@@ -48,16 +48,16 @@ Responda nesta estrutura:
   `normalize_ic` usa `.str.upper()` upstream; "NAN" não bate com "_IC_VAZIA" que tem "nan".
 
 Task:
-[F4-03 — Relatório com score e ranking por categoria]
+[F4-01 — Definir modelo de pontuação (scoring)]
 
 Descrição task:
 [
-Adicionar aba de Score ao Excel: nota por categoria + nota geral + benchmarks.
+Criar modelo de pontuação inspirado no Ranking Siconfi: peso por categoria, severidade, e nota final 0-100.
 ]
 
 Entregável:
 [
-outputs/reports.py com aba Score
+doc/modelo_pontuacao.md
 ]
 
 Referências:
@@ -66,10 +66,10 @@ Referências:
 - ic_esta_informada() centralizada em src/ranking_msc/rules/base.py (não reimplementar)
 - FACT_MSC_COLUMNS em src/ranking_msc/schemas.py
 - ref/regras_catalogo.md — seções das regras desta task
-- Depende de: F4-02
+- Depende de: F3-16
 ]
 
 Critério de aceite:
 [
-Excel exibe notas por categoria e geral.
+Modelo documentado com fórmulas e pesos.
 ]

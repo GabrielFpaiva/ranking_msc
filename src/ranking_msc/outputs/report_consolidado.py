@@ -8,6 +8,14 @@ multi-competência.
 Formato gerado:
     - "Evolução": tabela competência × métricas (pontuação, banda, pendências,
       breakdown por dimensão) com gráfico de linha de pontuação embedded.
+
+Nota sobre gráficos:
+    O gráfico de pontuação usa ``openpyxl.chart.LineChart``, não SparklineGroup.
+    O openpyxl 3.x não expõe SparklineGroup na API pública — apenas na leitura
+    interna de arquivos existentes. LineChart oferece funcionalidade equivalente
+    (linha de evolução temporal com título e eixos) com suporte público garantido.
+    Esta é a decisão definitiva: se openpyxl adicioná-lo em versão futura, avaliar
+    migração então; até lá, LineChart é correto e suficiente.
 """
 
 from __future__ import annotations
@@ -204,7 +212,7 @@ def _add_score_chart(ws: Worksheet, comparison: PeriodComparison) -> None:
         comparison: comparação com os períodos.
     """
     n_periods = len(comparison.periods)
-    if n_periods == 0:
+    if n_periods < 2:
         return
 
     chart = LineChart()

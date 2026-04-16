@@ -11,6 +11,7 @@ import pytest
 import scripts.run_batch as batch
 
 from ranking_msc.config.settings import PathsSettings, Settings
+from ranking_msc.engine.score_engine import ScoreResult
 from ranking_msc.exceptions import ConfigError, InputFormatError
 from ranking_msc.io.reader_msc import RawMSC
 
@@ -66,14 +67,34 @@ _SAMPLE_RAW_MSC = RawMSC(
 )
 
 
+_FAKE_SCORE = ScoreResult(
+    pontuacao=100.0,
+    banda="A",
+    dimensions={},
+    regras_executadas=0,
+    regras_falhas_erro=0,
+    regras_falhas_alerta=0,
+)
+
+
 def _fake_engine_ok(_df: pd.DataFrame, _ctx: object) -> SimpleNamespace:
     """Stub de run_engine que retorna status OK sem pendências."""
-    return SimpleNamespace(status="OK", pendencias=_EMPTY_PENDENCIAS, total_pendencias=0)
+    return SimpleNamespace(
+        status="OK",
+        pendencias=_EMPTY_PENDENCIAS,
+        total_pendencias=0,
+        executed_rule_ids=[],
+    )
 
 
 def _fake_engine_erro(_df: pd.DataFrame, _ctx: object) -> SimpleNamespace:
     """Stub de run_engine que retorna status ERRO."""
-    return SimpleNamespace(status="ERRO", pendencias=_EMPTY_PENDENCIAS, total_pendencias=0)
+    return SimpleNamespace(
+        status="ERRO",
+        pendencias=_EMPTY_PENDENCIAS,
+        total_pendencias=0,
+        executed_rule_ids=[],
+    )
 
 
 def _noop(*_args: object, **_kwargs: object) -> Path:
@@ -230,7 +251,9 @@ def test_execute_single_csv_fluxo_feliz(
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
     monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
+    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
+    monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
     monkeypatch.setattr(batch, "log_execucao", lambda *a, **kw: None)
 
@@ -267,12 +290,19 @@ def test_execute_single_csv_usuario_e_batch(
 
     def fake_run_engine(_df: pd.DataFrame, ctx: object) -> SimpleNamespace:
         captured["usuario"] = getattr(ctx, "usuario", "")
-        return SimpleNamespace(status="OK", pendencias=_EMPTY_PENDENCIAS, total_pendencias=0)
+        return SimpleNamespace(
+            status="OK",
+            pendencias=_EMPTY_PENDENCIAS,
+            total_pendencias=0,
+            executed_rule_ids=[],
+        )
 
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
     monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
+    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
     monkeypatch.setattr(batch, "run_engine", fake_run_engine)
+    monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
     monkeypatch.setattr(batch, "log_execucao", lambda *a, **kw: None)
 
@@ -376,7 +406,9 @@ def test_run_cli_batch_fluxo_feliz_retorna_zero(
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
     monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
+    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
+    monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
     monkeypatch.setattr(batch, "log_execucao", lambda *a, **kw: None)
 
@@ -415,7 +447,9 @@ def test_run_cli_batch_csv_com_erro_continua_proximo(
     monkeypatch.setattr(batch, "read_msc_csv", fake_read)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
     monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
+    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
+    monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
     monkeypatch.setattr(batch, "log_execucao", lambda *a, **kw: None)
 
@@ -482,7 +516,9 @@ def test_run_cli_batch_processa_dois_csvs_corretamente(
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
     monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
+    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
+    monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
     monkeypatch.setattr(batch, "log_execucao", lambda *a, **kw: None)
     monkeypatch.setattr(batch, "_log_batch_summary", spy_log_summary)
@@ -514,7 +550,9 @@ def test_execute_single_csv_engine_parcial_propaga_status(
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
     monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
+    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_erro)
+    monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
     monkeypatch.setattr(batch, "log_execucao", lambda *a, **kw: None)
 
@@ -544,3 +582,139 @@ def test_run_cli_batch_dir_inexistente_retorna_codigo_2(
     exit_code = batch.run_cli(["--dir", str(input_dir)])
 
     assert exit_code == 2
+
+
+# ---------------------------------------------------------------------------
+# Regressões — findings da revisão F4
+# ---------------------------------------------------------------------------
+
+
+def test_filenames_unicos_para_csvs_da_mesma_competencia(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Finding 2: dois CSVs com mesma competência mas siconfi distintos não colide.
+
+    O nome de arquivo deve incluir siconfi para que processar múltiplos entes
+    no mesmo lote não sobrescreva relatórios.
+    """
+    logger = logging.getLogger("test_batch_filename_collision")
+    settings = Settings()
+    output_paths = batch.OutputPaths(
+        snapshots_dir=tmp_path / "snapshots",
+        reports_dir=tmp_path / "reports",
+        logs_dir=tmp_path / "logs",
+    )
+
+    raw_a = _SAMPLE_RAW_MSC  # siconfi = "2507507EX"
+    raw_b = RawMSC(
+        competencia="2025-11",   # mesma competência
+        siconfi="9999999XX",     # siconfi diferente
+        df=raw_a.df.copy(),
+        source="outro.csv",
+    )
+
+    filenames_captured: list[str] = []
+
+    def capture_export(
+        df: pd.DataFrame, comp: str, *, output_dir: object,
+        filename: str | None = None, **kw: object
+    ) -> Path:
+        if filename:
+            filenames_captured.append(filename)
+        return Path("/tmp/fake.xlsx")
+
+    for raw, csv_name in [(raw_a, "ente_a.csv"), (raw_b, "ente_b.csv")]:
+        csv_path = tmp_path / csv_name
+        csv_path.touch()
+        monkeypatch.setattr(batch, "read_msc_csv", lambda _, r=raw: r)
+        monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
+        monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
+        monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
+        monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
+        monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
+        monkeypatch.setattr(batch, "export_issues_excel", capture_export)
+        monkeypatch.setattr(batch, "log_execucao", lambda *a, **kw: None)
+
+        batch._execute_single_csv(
+            csv_path=csv_path,
+            settings=settings,
+            output_paths=output_paths,
+            logger=logger,
+        )
+
+    assert len(filenames_captured) == 2
+    assert filenames_captured[0] != filenames_captured[1], (
+        "Dois CSVs com mesma competência e siconfi distintos geraram o mesmo filename"
+    )
+    # Cada filename deve conter o siconfi do respectivo ente
+    assert "2507507EX" in filenames_captured[0]
+    assert "9999999XX" in filenames_captured[1]
+
+
+def test_batch_gera_aba_score_no_excel(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Finding 3: batch calcula score e passa score_result para export_issues_excel."""
+    logger = logging.getLogger("test_batch_score_sheet")
+    settings = Settings()
+    output_paths = batch.OutputPaths(
+        snapshots_dir=tmp_path / "snapshots",
+        reports_dir=tmp_path / "reports",
+        logs_dir=tmp_path / "logs",
+    )
+    csv_path = tmp_path / "teste.csv"
+    csv_path.touch()
+
+    score_results_received: list[object] = []
+
+    def capture_export(
+        df: object,
+        comp: object,
+        *,
+        output_dir: object,
+        filename: object = None,
+        score_result: object = None,
+        **kw: object,
+    ) -> Path:
+        score_results_received.append(score_result)
+        return Path("/tmp/fake.xlsx")
+
+    monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
+    monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
+    monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
+    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
+    monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
+    monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
+    monkeypatch.setattr(batch, "export_issues_excel", capture_export)
+    monkeypatch.setattr(batch, "log_execucao", lambda *a, **kw: None)
+
+    batch._execute_single_csv(
+        csv_path=csv_path,
+        settings=settings,
+        output_paths=output_paths,
+        logger=logger,
+    )
+
+    assert len(score_results_received) == 1
+    assert score_results_received[0] is _FAKE_SCORE, (
+        "score_result não foi passado para export_issues_excel"
+        " — aba Score ausente no relatório batch"
+    )
+
+
+def test_log_failure_sem_excecao_nao_emite_traceback(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Finding 6: _log_failure sem exceção ativa não loga 'NoneType: None'."""
+    logger = logging.getLogger("test_log_failure")
+
+    with caplog.at_level(logging.ERROR, logger="test_log_failure"):
+        # Chama fora de qualquer bloco except — não há exceção ativa
+        batch._log_failure(logger, "falha sem exceção")
+
+    assert "NoneType" not in caplog.text
+    assert "None" not in caplog.text or "NoneType" not in caplog.text
+    # Mensagem deve ter sido logada normalmente
+    assert "falha sem exceção" in caplog.text

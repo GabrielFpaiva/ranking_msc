@@ -9,6 +9,7 @@ Uso::
     python scripts/compare_periods.py --siconfi 250400
     python scripts/compare_periods.py --siconfi 250400 --competencias 2024-01 2024-02 2024-03
     python scripts/compare_periods.py --siconfi 250400 --snapshots-dir ./data/snapshots
+    python scripts/compare_periods.py --siconfi 250400 --output-dir ./data/reports
 
 Códigos de saída:
     0 — comparação concluída com pelo menos 1 período
@@ -32,6 +33,7 @@ from ranking_msc.config.settings import load_settings  # noqa: E402
 from ranking_msc.engine.compare_periods import PeriodComparison, compare_periods  # noqa: E402
 from ranking_msc.exceptions import RankingMSCError  # noqa: E402
 from ranking_msc.outputs.logs import setup_logging  # noqa: E402
+from ranking_msc.outputs.report_consolidado import export_consolidado_excel  # noqa: E402
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -41,7 +43,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         argv: lista de argumentos (sem nome do programa).
 
     Returns:
-        Namespace com siconfi, competencias, config, snapshots_dir.
+        Namespace com siconfi, competencias, config, snapshots_dir, output_dir.
     """
     parser = argparse.ArgumentParser(
         description="Compara scores entre competências de um ente SICONFI.",
@@ -69,6 +71,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--snapshots-dir",
         required=False,
         help="Diretório raiz de snapshots (opcional).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        required=False,
+        help=(
+            "Diretório de saída para o relatório Excel consolidado (opcional). "
+            "Quando informado, exporta consolidado_{siconfi}.xlsx no diretório indicado."
+        ),
     )
     return parser.parse_args(argv)
 
@@ -108,6 +118,19 @@ def run_cli(argv: list[str] | None = None) -> int:
             return 2
 
         _print_comparison(result)
+
+        if args.output_dir:
+            report_path = export_consolidado_excel(
+                result,
+                output_dir=args.output_dir,
+            )
+            print(f"\nRelatório consolidado exportado: {report_path}")
+            logger.info(
+                "Relatório consolidado exportado: siconfi=%s path=%s",
+                args.siconfi,
+                report_path,
+            )
+
         logger.info(
             "Comparação concluída: siconfi=%s períodos=%d",
             args.siconfi,
@@ -188,16 +211,21 @@ def _resolve_project_path(path_value: str) -> Path:
 
 
 def _log_failure(logger: logging.Logger | None, message: str) -> None:
-    """Registra falha de execução com fallback para stderr."""
+    """Registra falha de execução com fallback para stderr.
+
+    Inclui traceback apenas quando há uma exceção ativa — evita ruído
+    ``NoneType: None`` em caminhos de falha sem exceção real.
+    """
+    exc_info = sys.exc_info()[0] is not None
     if logger is not None:
-        logger.error(message, exc_info=True)
+        logger.error(message, exc_info=exc_info)
         return
 
     logging.basicConfig(
         level=logging.ERROR,
         format="%(levelname)s:%(name)s:%(message)s",
     )
-    logging.getLogger("ranking_msc").error(message, exc_info=True)
+    logging.getLogger("ranking_msc").error(message, exc_info=exc_info)
 
 
 def main() -> None:
