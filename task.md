@@ -5,10 +5,10 @@ Quero que você apenas ARQUITETE a task abaixo, sem implementar nada por enquant
 Regras:
 - Leia sempre o claude.md antes de decidir qualquer coisa.
 - Crie uma NOVA BRANCH específica para esta task antes de qualquer alteração, usando o padrão:
-  feat/F3-03-read-msc-csv-completo-pivot-testes
+  feat/f4-03-relat-rio-com-score-e-ranking-por-categoria
   Ajuste o nome conforme a task atual, mantendo prefixo, código da task e descrição curta em kebab-case.
 - Sugira também a mensagem de commit inicial no padrão:
-  F3-03: implementar read_msc_csv() completo com pivot e testes
+  F4-03: implement Relatório com score e ranking por categoria
   Ajuste conforme a task atual.
 - Não implemente nada nesta etapa.
 - Não entregue resposta genérica.
@@ -25,23 +25,51 @@ Responda nesta estrutura:
 2. Branch a criar
 3. Commit sugerido
 4. Estratégia de implementação
+   (inclua aqui: → Implemente seguindo as convenções do CLAUDE.md)
 5. Arquivos impactados
 6. Passo a passo
 7. Validações e riscos
 8. Como garantir o critério de aceite
 9. Plano final para aprovação
+   (o plano DEVE incluir como últimos passos obrigatórios, nesta ordem:
+    a) Invocar skill task-validate → Skill(skill='task-validate')
+       Bloqueia automaticamente se ruff/mypy/pytest falharem
+    b) Após validate OK → Agent(subagent_type='code-reviewer')
+    c) Após review OK  → Invocar skill task-deliver → Skill(skill='task-deliver')
+       commit + push + PR (pr-body.md) + vault finalization
+    Agentes disponíveis no projeto: code-reviewer, rule-implementer, session-end)
+
+⚠️ Ao descrever regras com "N dígitos": detalhar SEMPRE como 3 checks separados:
+  1. `len(val) != N → ERRO` (comprimento)
+  2. `not val.isdigit() → ERRO` (formato — alfanumérico é ERRO, não ALERTA)
+  3. `val not in tabela → ERRO ou ALERTA` (domínio — conforme a regra)
+
+⚠️ Ao usar `ic_esta_informada()`: garantir que o valor chega em lowercase (`.lower()`).
+  `normalize_ic` usa `.str.upper()` upstream; "NAN" não bate com "_IC_VAZIA" que tem "nan".
 
 Task:
-[Documentar Fase 2 + handoff Fase 3]
+[F4-03 — Relatório com score e ranking por categoria]
 
 Descrição task:
-[README atualizado + plano Fase 3.]
+[
+Adicionar aba de Score ao Excel: nota por categoria + nota geral + benchmarks.
+]
 
 Entregável:
-[README + doc/fase3_plan.md]
+[
+outputs/reports.py com aba Score
+]
 
 Referências:
-[F2-11 a F2-23, backlog_regras_msc_completo.xlsx]
+[
+- Padrão de implementação: ver regras existentes em src/ranking_msc/rules/ (ex: r022.py, r024.py)
+- ic_esta_informada() centralizada em src/ranking_msc/rules/base.py (não reimplementar)
+- FACT_MSC_COLUMNS em src/ranking_msc/schemas.py
+- ref/regras_catalogo.md — seções das regras desta task
+- Depende de: F4-02
+]
 
 Critério de aceite:
-[Documentação suficiente para handoff — outro dev entende o que foi feito e o que falta sem abrir o backlog Excel.]
+[
+Excel exibe notas por categoria e geral.
+]
