@@ -16,10 +16,14 @@ Uso:
         print(period.competencia, period.score_result.pontuacao, delta)
 
 Nota:
-    executed_rule_ids é derivado de settings.rules.enabled — assume que as
-    regras configuradas hoje são as mesmas que foram executadas em cada período.
-    Se o conjunto de regras mudou entre competências, os scores não são
-    diretamente comparáveis.
+    executed_rule_ids é lido de ``scoring_metadata.json`` persistido junto ao
+    snapshot de cada competência. Isso garante que o score histórico reflita
+    as regras que **foram** executadas naquele período, não as atualmente
+    habilitadas em settings.rules.enabled.
+
+    Fallback: se o metadado não existir (snapshots anteriores à F4-fix),
+    settings.rules.enabled é usado com aviso explícito no log — os scores
+    históricos podem ser imprecisos nesse caso.
 """
 
 from __future__ import annotations
