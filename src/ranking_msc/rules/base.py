@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import pandas as pd
 
@@ -58,6 +58,8 @@ class Rule(ABC):
     rule_id: str = ""
     rule_name: str = ""
     dimensao: str = ""
+    is_scoring: ClassVar[bool] = True
+    """Se False, a regra é INFO-only e não entra no cálculo de pontuação."""
 
     @abstractmethod
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
