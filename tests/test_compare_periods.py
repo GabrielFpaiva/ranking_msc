@@ -21,7 +21,7 @@ from ranking_msc.engine.compare_periods import (
     compare_periods,
 )
 from ranking_msc.engine.score_engine import ScoreResult
-from ranking_msc.outputs.snapshot import write_snapshot_atomic
+from ranking_msc.outputs.snapshot import write_scoring_metadata, write_snapshot_atomic
 from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS
 
 # ---------------------------------------------------------------------------
@@ -301,3 +301,187 @@ class TestComparePeriodsCLI:
 
         code = run_cli(["--siconfi", "250400", "--snapshots-dir", str(tmp_path)])
         assert code == 0
+
+    def test_run_cli_com_output_dir_exporta_excel(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Finding 4: CLI com --output-dir exporta relatório Excel consolidado."""
+        _write_resultado_snapshot(
+            tmp_path, "250400", "2024-01",
+            pd.DataFrame(columns=FACT_RESULTADO_REGRAS_COLUMNS),
+        )
+
+        import ranking_msc.config.settings as _settings_mod
+
+        monkeypatch.setattr(
+            _settings_mod,
+            "load_settings",
+            lambda path=None: _make_settings(),
+        )
+
+        output_dir = tmp_path / "reports"
+
+        from scripts.compare_periods import run_cli
+
+        code = run_cli([
+            "--siconfi", "250400",
+            "--snapshots-dir", str(tmp_path),
+            "--output-dir", str(output_dir),
+        ])
+
+        assert code == 0
+        excel_files = list(output_dir.glob("consolidado_*.xlsx"))
+        assert len(excel_files) == 1, (
+            f"Esperado 1 arquivo consolidado_*.xlsx em {output_dir}, encontrado: {excel_files}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Regressão — Finding 1: estabilidade de scores históricos
+# ---------------------------------------------------------------------------
+
+
+class TestScoreEstabilidadeHistorica:
+    """Verifica que scores históricos não mudam quando settings.rules.enabled cresce."""
+
+    def test_score_estavel_quando_regras_mudam(self, tmp_path: Path) -> None:
+        """Finding 1: score histórico não muda quando settings.rules.enabled cresce.
+
+        Cenário real:
+        - Snapshot gravado com R001 habilitado; R001 gerou 1 ERRO.
+        - Posteriormente R002 é adicionado a settings (ambas em dimensão Estrutura).
+        - Se os metadados forem ignorados e settings for usado, R002 passa → score
+          sobe (R001 falhou + R002 passou = pontuação parcial em Estrutura).
+        - Se os metadados forem respeitados, apenas R001 é avaliado → score
+          permanece o mesmo independentemente do settings passado.
+        - O teste falha quando compare_periods() ignora os metadados persistidos.
+        """
+        # Snapshot com 1 ERRO de R001 — score NÃO é neutro
+        pendencias = _make_pendencias(["R001"], ["ERRO"])
+        _write_resultado_snapshot(tmp_path, "250400", "2024-01", pendencias)
+        # Metadados persistem que apenas R001 foi executado naquele período
+        write_scoring_metadata(
+            ["R001"],
+            "2024-01",
+            base_dir=tmp_path / "250400",
+        )
+
+        # Chamada com settings original (só R001) — deve usar metadados
+        settings_original = _make_settings(enabled=["R001"])
+        result_original = compare_periods(
+            "250400", snapshots_dir=tmp_path, settings=settings_original
+        )
+        assert len(result_original.periods) == 1
+        score_original = result_original.periods[0].score_result.pontuacao
+
+        # Chamada com settings ampliado (R001 + R002) — ainda deve usar metadados
+        # Se metadados forem ignorados, R002 (sem erros) eleva o score → falso positivo
+        settings_ampliado = _make_settings(enabled=["R001", "R002"])
+        result_ampliado = compare_periods(
+            "250400", snapshots_dir=tmp_path, settings=settings_ampliado
+        )
+        assert len(result_ampliado.periods) == 1
+        score_ampliado = result_ampliado.periods[0].score_result.pontuacao
+
+        # Scores devem ser idênticos: ambas as chamadas devem ter usado ["R001"]
+        assert score_original == score_ampliado, (
+            f"Score histórico mudou de {score_original:.2f} para {score_ampliado:.2f} "
+            "apenas porque settings.rules.enabled foi expandido — "
+            "compare_periods() deve usar os metadados persistidos, não settings."
+        )
+
+    def test_fallback_sem_metadata_usa_settings_e_loga_warning(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Finding 1 (fallback): sem scoring_metadata.json, usa settings e avisa."""
+        import logging
+
+        pendencias = pd.DataFrame(columns=FACT_RESULTADO_REGRAS_COLUMNS)
+        _write_resultado_snapshot(tmp_path, "250400", "2024-01", pendencias)
+        # NÃO grava scoring_metadata.json — simula snapshot legado
+
+        settings = _make_settings(enabled=[])
+        with caplog.at_level(logging.WARNING, logger="ranking_msc"):
+            result = compare_periods(
+                "250400",
+                snapshots_dir=tmp_path,
+                settings=settings,
+            )
+
+        assert len(result.periods) == 1
+        assert "fallback" in caplog.text.lower() or "metadados" in caplog.text.lower()
+
+
+# ---------------------------------------------------------------------------
+# Regressão — Finding 2: validação de metadados corrompidos
+# ---------------------------------------------------------------------------
+
+
+class TestReadScoringMetadataValidacao:
+    """Verifica que read_scoring_metadata rejeita payloads estruturalmente inválidos."""
+
+    def _write_raw(self, tmp_path: Path, content: str) -> None:
+        d = tmp_path / "2024-01"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "scoring_metadata.json").write_text(content, encoding="utf-8")
+
+    def test_json_valido_retorna_lista(self, tmp_path: Path) -> None:
+        """Payload correto é aceito."""
+        from ranking_msc.outputs.snapshot import read_scoring_metadata
+
+        self._write_raw(tmp_path, '{"executed_rule_ids": ["R001", "R002"]}')
+        result = read_scoring_metadata("2024-01", base_dir=tmp_path)
+        assert result == ["R001", "R002"]
+
+    def test_payload_nao_dict_retorna_none(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """JSON que não é objeto (ex: lista) → None + warning."""
+        import logging
+
+        from ranking_msc.outputs.snapshot import read_scoring_metadata
+
+        self._write_raw(tmp_path, '["R001", "R002"]')
+        with caplog.at_level(logging.WARNING, logger="ranking_msc"):
+            result = read_scoring_metadata("2024-01", base_dir=tmp_path)
+        assert result is None
+        assert caplog.text != ""
+
+    def test_executed_rule_ids_ausente_retorna_none(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Chave 'executed_rule_ids' ausente → None + warning."""
+        import logging
+
+        from ranking_msc.outputs.snapshot import read_scoring_metadata
+
+        self._write_raw(tmp_path, '{"other_key": []}')
+        with caplog.at_level(logging.WARNING, logger="ranking_msc"):
+            result = read_scoring_metadata("2024-01", base_dir=tmp_path)
+        assert result is None
+
+    def test_executed_rule_ids_string_retorna_none(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """'executed_rule_ids' como string (ex: "R001") → None, não itera chars."""
+        import logging
+
+        from ranking_msc.outputs.snapshot import read_scoring_metadata
+
+        self._write_raw(tmp_path, '{"executed_rule_ids": "R001"}')
+        with caplog.at_level(logging.WARNING, logger="ranking_msc"):
+            result = read_scoring_metadata("2024-01", base_dir=tmp_path)
+        assert result is None
+
+    def test_executed_rule_ids_com_item_nao_string_retorna_none(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Lista com item não-string → None + warning."""
+        import logging
+
+        from ranking_msc.outputs.snapshot import read_scoring_metadata
+
+        self._write_raw(tmp_path, '{"executed_rule_ids": ["R001", 42]}')
+        with caplog.at_level(logging.WARNING, logger="ranking_msc"):
+            result = read_scoring_metadata("2024-01", base_dir=tmp_path)
+        assert result is None

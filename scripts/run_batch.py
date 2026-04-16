@@ -33,11 +33,12 @@ if str(_SRC_DIR) not in sys.path:
 
 from ranking_msc.config.settings import Settings, load_settings  # noqa: E402
 from ranking_msc.engine.executor import EngineContext, run_engine  # noqa: E402
+from ranking_msc.engine.score_engine import calculate_score  # noqa: E402
 from ranking_msc.exceptions import RankingMSCError  # noqa: E402
 from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
 from ranking_msc.outputs.logs import log_execucao, setup_logging  # noqa: E402
 from ranking_msc.outputs.reports import export_issues_excel  # noqa: E402
-from ranking_msc.outputs.snapshot import write_snapshot_atomic  # noqa: E402
+from ranking_msc.outputs.snapshot import write_scoring_metadata, write_snapshot_atomic  # noqa: E402
 from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
 
 
@@ -289,16 +290,34 @@ def _execute_single_csv(
 
         engine_result = run_engine(normalized_df, context)
 
+        score_result = calculate_score(
+            engine_result.pendencias,
+            engine_result.executed_rule_ids,
+        )
+
         write_snapshot_atomic(
             engine_result.pendencias,
             raw_msc.competencia,
             base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
             label="resultado_regras",
         )
+        write_scoring_metadata(
+            engine_result.executed_rule_ids,
+            raw_msc.competencia,
+            base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
+        )
+        # Filename inclui siconfi + competencia + stem do CSV para eliminar
+        # colisões mesmo quando dois arquivos distintos representam o mesmo
+        # ente e competência (ex: reenvio com nome diferente).
         export_issues_excel(
             engine_result.pendencias,
             raw_msc.competencia,
             output_dir=output_paths.reports_dir,
+            filename=(
+                f"pendencias_{raw_msc.siconfi}_{raw_msc.competencia}"
+                f"_{csv_path.stem}.xlsx"
+            ),
+            score_result=score_result,
         )
 
         log_execucao(
@@ -423,16 +442,21 @@ def _log_batch_summary(summary: BatchSummary, logger: logging.Logger) -> None:
 
 
 def _log_failure(logger: logging.Logger | None, message: str) -> None:
-    """Registra falha de execução com fallback para stderr."""
+    """Registra falha de execução com fallback para stderr.
+
+    Inclui traceback apenas quando há uma exceção ativa — evita ruído
+    ``NoneType: None`` em caminhos de falha sem exceção real.
+    """
+    exc_info = sys.exc_info()[0] is not None
     if logger is not None:
-        logger.error(message, exc_info=True)
+        logger.error(message, exc_info=exc_info)
         return
 
     logging.basicConfig(
         level=logging.ERROR,
         format="%(levelname)s:%(name)s:%(message)s",
     )
-    logging.getLogger("ranking_msc").error(message, exc_info=True)
+    logging.getLogger("ranking_msc").error(message, exc_info=exc_info)
 
 
 def main() -> None:
