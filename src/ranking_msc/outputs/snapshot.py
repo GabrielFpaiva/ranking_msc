@@ -174,17 +174,36 @@ def read_scoring_metadata(
     if not path.exists():
         return None
 
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return list(data.get("executed_rule_ids", []))
-    except (OSError, ValueError):
+    def _warn_corrupt(reason: str) -> None:
         logger.warning(
-            "Falha ao ler metadados de scoring para competência %s em %s — arquivo corrompido.",
+            "Metadados de scoring inválidos para competência %s em %s — %s. "
+            "Tratando como ausentes.",
             competencia,
             path,
+            reason,
             extra={"competencia": competencia, "modulo": "snapshot"},
         )
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        _warn_corrupt("arquivo corrompido ou ilegível")
         return None
+
+    if not isinstance(data, dict):
+        _warn_corrupt("payload não é um objeto JSON")
+        return None
+
+    ids = data.get("executed_rule_ids")
+    if not isinstance(ids, list):
+        _warn_corrupt("'executed_rule_ids' ausente ou não é uma lista")
+        return None
+
+    if not all(isinstance(item, str) for item in ids):
+        _warn_corrupt("'executed_rule_ids' contém itens não-string")
+        return None
+
+    return ids
 
 
 def _remove_tmp_if_exists(tmp_path: Path) -> None:

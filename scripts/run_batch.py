@@ -306,13 +306,17 @@ def _execute_single_csv(
             raw_msc.competencia,
             base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
         )
-        # Filename inclui siconfi para evitar colisão quando dois CSVs de
-        # fornecedores diferentes compartilham a mesma competência.
+        # Filename inclui siconfi + competencia + stem do CSV para eliminar
+        # colisões mesmo quando dois arquivos distintos representam o mesmo
+        # ente e competência (ex: reenvio com nome diferente).
         export_issues_excel(
             engine_result.pendencias,
             raw_msc.competencia,
             output_dir=output_paths.reports_dir,
-            filename=f"pendencias_{raw_msc.siconfi}_{raw_msc.competencia}.xlsx",
+            filename=(
+                f"pendencias_{raw_msc.siconfi}_{raw_msc.competencia}"
+                f"_{csv_path.stem}.xlsx"
+            ),
             score_result=score_result,
         )
 

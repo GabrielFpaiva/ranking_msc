@@ -593,10 +593,10 @@ def test_filenames_unicos_para_csvs_da_mesma_competencia(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Finding 2: dois CSVs com mesma competência mas siconfi distintos não colide.
+    """Finding 2: dois CSVs com mesmo siconfi e mesma competência não colidem.
 
-    O nome de arquivo deve incluir siconfi para que processar múltiplos entes
-    no mesmo lote não sobrescreva relatórios.
+    Cenário real: o mesmo ente reenvia o CSV com nome diferente. O filename
+    deve incluir o stem do CSV para distinguir os dois relatórios.
     """
     logger = logging.getLogger("test_batch_filename_collision")
     settings = Settings()
@@ -606,13 +606,8 @@ def test_filenames_unicos_para_csvs_da_mesma_competencia(
         logs_dir=tmp_path / "logs",
     )
 
-    raw_a = _SAMPLE_RAW_MSC  # siconfi = "2507507EX"
-    raw_b = RawMSC(
-        competencia="2025-11",   # mesma competência
-        siconfi="9999999XX",     # siconfi diferente
-        df=raw_a.df.copy(),
-        source="outro.csv",
-    )
+    # Mesmo siconfi, mesma competência — apenas o nome do arquivo muda
+    raw_same = _SAMPLE_RAW_MSC  # siconfi = "2507507EX", competencia = "2025-11"
 
     filenames_captured: list[str] = []
 
@@ -624,10 +619,10 @@ def test_filenames_unicos_para_csvs_da_mesma_competencia(
             filenames_captured.append(filename)
         return Path("/tmp/fake.xlsx")
 
-    for raw, csv_name in [(raw_a, "ente_a.csv"), (raw_b, "ente_b.csv")]:
+    for csv_name in ["envio_v1.csv", "envio_v2.csv"]:
         csv_path = tmp_path / csv_name
         csv_path.touch()
-        monkeypatch.setattr(batch, "read_msc_csv", lambda _, r=raw: r)
+        monkeypatch.setattr(batch, "read_msc_csv", lambda _: raw_same)
         monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
         monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
         monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
@@ -645,11 +640,11 @@ def test_filenames_unicos_para_csvs_da_mesma_competencia(
 
     assert len(filenames_captured) == 2
     assert filenames_captured[0] != filenames_captured[1], (
-        "Dois CSVs com mesma competência e siconfi distintos geraram o mesmo filename"
+        "Dois CSVs com mesmo siconfi e mesma competência geraram o mesmo filename"
+        " — o stem do CSV deve fazer parte do nome do relatório"
     )
-    # Cada filename deve conter o siconfi do respectivo ente
-    assert "2507507EX" in filenames_captured[0]
-    assert "9999999XX" in filenames_captured[1]
+    assert "envio_v1" in filenames_captured[0]
+    assert "envio_v2" in filenames_captured[1]
 
 
 def test_batch_gera_aba_score_no_excel(
