@@ -64,7 +64,7 @@ instrumentado → coleta `BenchmarkResult` → reporter escreve markdown.
 - Combinações `IC/TIPO` válidas: sorteadas de `ref/mapeamento_ic_tipo.csv`
 - Contas contábeis: sorteadas de `ref/pcasp.csv` filtrando `nivel` analítico
 - Valores: `np.random.uniform(-1e7, 1e7)` com seed fixo
-- `Tipo_valor ∈ {beginning_balance, monthly_flow, ending_balance}`
+- `Tipo_valor ∈ {beginning_balance, period_change, ending_balance}`
 - `Natureza_valor ∈ {D, C}`
 - Sem garantia de D=C balanceado — é stress test
 
