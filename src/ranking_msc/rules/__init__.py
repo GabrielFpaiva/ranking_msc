@@ -17,6 +17,10 @@ from ranking_msc.rules.r002 import R002  # noqa: F401
 from ranking_msc.rules.r003 import R003  # noqa: F401
 from ranking_msc.rules.r004 import R004  # noqa: F401
 from ranking_msc.rules.r005 import R005  # noqa: F401
+from ranking_msc.rules.r006 import R006  # noqa: F401
+from ranking_msc.rules.r007 import R007  # noqa: F401
+from ranking_msc.rules.r008 import R008  # noqa: F401
+from ranking_msc.rules.r009 import R009  # noqa: F401
 from ranking_msc.rules.r010 import R010  # noqa: F401
 from ranking_msc.rules.r011 import R011  # noqa: F401
 from ranking_msc.rules.r012 import R012  # noqa: F401

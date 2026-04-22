@@ -20,6 +20,7 @@ Validações de conteúdo (domínios, PCASP, etc.) ficam nas regras.
 
 from __future__ import annotations
 
+import datetime
 import io
 import logging
 import re
@@ -87,8 +88,10 @@ class RawMSC:
         siconfi: código SICONFI do ente (ex: "2507507EX").
         df: DataFrame com colunas de RAW_MSC_COLUMNS (valores já pivotados).
         source: caminho ou nome do arquivo de origem.
-        pre_pivot_issues: violações de Tipo_valor/Natureza_valor detectadas
-            antes do pivot (usadas pelas regras R003 e R004).
+        pre_pivot_issues: violações estruturais detectadas antes do pivot —
+            inclui erros de Tipo_valor/Natureza_valor (R003, R004), código
+            Siconfi inválido (R006), período inválido (R007), separador
+            incorreto (R008) e contagem de colunas IC/TIPO (R009).
     """
 
     competencia: str
@@ -139,6 +142,8 @@ def read_msc_csv(
         )
 
     competencia, siconfi = _extract_metadata(lines[0])
+    metadata_issues = _validate_metadata(siconfi, competencia)
+    r008_issues = _detect_separator_issue(lines[1], separator)
     logger.info(
         "Lendo CSV MSC: siconfi=%s, competência=%s, fonte=%s",
         siconfi, competencia, source,
@@ -147,9 +152,9 @@ def read_msc_csv(
 
     csv_text = "\n".join(lines[1:])
     df = _parse_csv(csv_text, separator, source)
-    r001_issues = _validate_columns(df, source)
+    r001_r009_issues = _validate_columns(df, source)
     df, pivot_issues = _pivot_values(df, competencia, siconfi)
-    pre_pivot_issues = r001_issues + pivot_issues
+    pre_pivot_issues = metadata_issues + r008_issues + r001_r009_issues + pivot_issues
 
     logger.info(
         "CSV MSC lido com sucesso: %d linhas pivotadas. Fonte: %s",
@@ -210,6 +215,7 @@ def _read_and_decode(file: str | Path | io.BytesIO, encoding: str) -> str:
 
 
 _METADATA_RE = re.compile(r"^(.+);(\d{4}-\d{2})$")
+_SICONFI_RE = re.compile(r"^\d{7}EX$")
 
 
 def _extract_metadata(first_line: str) -> tuple[str, str]:
@@ -237,6 +243,80 @@ def _extract_metadata(first_line: str) -> tuple[str, str]:
     siconfi = match.group(1)
     competencia = match.group(2)
     return competencia, siconfi
+
+
+def _validate_metadata(siconfi: str, competencia: str) -> list[dict[str, object]]:
+    """Valida código Siconfi (R006) e período (R007) extraídos da linha de metadata.
+
+    Args:
+        siconfi: código SICONFI extraído da primeira linha.
+        competencia: período no formato YYYY-MM extraído da primeira linha.
+
+    Returns:
+        Lista de issues R006 e/ou R007 (pode ser vazia).
+    """
+    issues: list[dict[str, object]] = []
+
+    if not _SICONFI_RE.match(siconfi):
+        issues.append({
+            "regra": "R006",
+            "conta_contabil": "",
+            "campo": "siconfi",
+            "valor_encontrado": siconfi,
+            "competencia": competencia,
+        })
+
+    try:
+        ano_str, mes_str = competencia.split("-")
+        mes_int = int(mes_str)
+        ano_int = int(ano_str)
+        ano_corrente = datetime.date.today().year
+        if not (1 <= mes_int <= 13) or not (2020 <= ano_int <= ano_corrente + 1):
+            issues.append({
+                "regra": "R007",
+                "conta_contabil": "",
+                "campo": "competencia",
+                "valor_encontrado": competencia,
+                "competencia": competencia,
+            })
+    except (ValueError, AttributeError):
+        issues.append({
+            "regra": "R007",
+            "conta_contabil": "",
+            "campo": "competencia",
+            "valor_encontrado": competencia,
+            "competencia": competencia,
+        })
+
+    return issues
+
+
+def _detect_separator_issue(header_line: str, expected_sep: str) -> list[dict[str, object]]:
+    """Detecta uso de separador incorreto na linha de cabeçalho (R008).
+
+    Compara contagem de ponto-e-vírgula vs vírgula no header. Se o header
+    não tem nenhum ";" mas tem "," → separador incorreto.
+
+    Args:
+        header_line: segunda linha do arquivo CSV (cabeçalho das colunas).
+        expected_sep: separador esperado (padrão ";").
+
+    Returns:
+        Lista com um issue R008 se vírgula for detectada em vez de ";".
+    """
+    if expected_sep != ";":
+        return []
+    semi_count = header_line.count(";")
+    comma_count = header_line.count(",")
+    if semi_count == 0 and comma_count > 0:
+        return [{
+            "regra": "R008",
+            "conta_contabil": "",
+            "campo": "separador",
+            "valor_encontrado": ",",
+            "competencia": "",
+        }]
+    return []
 
 
 def _parse_csv(csv_text: str, separator: str, source: str) -> pd.DataFrame:
@@ -288,6 +368,15 @@ def _validate_columns(df: pd.DataFrame, source: str) -> list[dict[str, object]]:
         }
         for col in missing
     ]
+
+    ic_tipo_cols = [c for c in df.columns if c.startswith("IC") or c.startswith("TIPO")]
+    if len(ic_tipo_cols) != 12:
+        issues.append({
+            "regra": "R009",
+            "conta_contabil": "",
+            "campo": "colunas_ic_tipo",
+            "valor_encontrado": str(len(ic_tipo_cols)),
+        })
 
     critical_missing = {col for col in missing if col in _CRITICAL_CSV_COLUMNS}
     if critical_missing:
