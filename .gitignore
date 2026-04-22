@@ -24,6 +24,7 @@ env/
 
 # Dados (não versionar arquivos de dados)
 data/
+data/benchmark/
 *.parquet
 *.jsonl
 
