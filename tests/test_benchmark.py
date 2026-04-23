@@ -107,6 +107,69 @@ class TestGenerator:
         # Não deve levantar exceção
         normalize_ic(raw.df)
 
+    def test_generate_csv_usa_apenas_contas_analiticas(
+        self, tmp_csv: Path, ref_dir: str
+    ) -> None:
+        """Contas geradas são apenas do nível 'Último' (analítico).
+
+        Contas 'Superior' são de síntese e não devem aparecer em CSVs
+        MSC reais — o perfil do dataset sintético precisa refletir isso.
+        """
+        import pandas as pd
+
+        pcasp = pd.read_csv(
+            Path(ref_dir) / "pcasp.csv", sep=";", dtype=str, keep_default_na=False
+        )
+        pcasp["nivel"] = pcasp["nivel"].str.strip()
+        contas_superiores = set(
+            pcasp[pcasp["nivel"].str.lower() == "superior"]["conta_contabil"]
+        )
+        contas_ultimas = set(
+            pcasp[pcasp["nivel"].str.lower() == "último"]["conta_contabil"]
+        )
+
+        generate_csv(n_rows=200, path=tmp_csv, ref_dir=ref_dir, seed=7)
+
+        content = tmp_csv.read_bytes().decode("ascii")
+        lines = content.strip().split("\r")
+        data_lines = lines[2:]
+        contas_geradas = {line.split(";")[0] for line in data_lines}
+
+        assert contas_geradas.isdisjoint(contas_superiores), (
+            "CSV sintético não deve conter contas de nível 'Superior' "
+            f"(encontradas: {contas_geradas & contas_superiores})"
+        )
+        assert contas_geradas.issubset(contas_ultimas), (
+            "Todas as contas geradas devem ser do nível 'Último'"
+        )
+
+    def test_generate_csv_pcasp_sem_ultimo_levanta_erro(
+        self, tmp_path: Path
+    ) -> None:
+        """PCASP sem contas 'Último' deve levantar BenchmarkError.
+
+        Evita fallback silencioso que incluiria contas de síntese
+        (Superior) no dataset sintético.
+        """
+        from ranking_msc.exceptions import BenchmarkError
+
+        fake_ref = tmp_path / "ref"
+        fake_ref.mkdir()
+        (fake_ref / "pcasp.csv").write_text(
+            "conta_contabil;id_ic;nat_saldo;status;nivel;ind_sf\n"
+            "100000000;0;Devedora;Ativa;Superior;-\n"
+            "110000000;0;Devedora;Ativa;Superior;-\n",
+            encoding="utf-8",
+        )
+        (fake_ref / "mapeamento_ic_tipo.csv").write_text(
+            "tipo1;tipo2;tipo3;tipo4;tipo5;tipo6\nPO;;;;;\n",
+            encoding="utf-8",
+        )
+
+        out = tmp_path / "out.csv"
+        with pytest.raises(BenchmarkError, match="Último"):
+            generate_csv(n_rows=10, path=out, ref_dir=fake_ref)
+
 
 # ---------------------------------------------------------------------------
 # TestProfiler
@@ -254,3 +317,92 @@ class TestReporter:
 
         content = output.read_text(encoding="utf-8")
         assert "INTERROMPIDO" in content
+
+
+# ---------------------------------------------------------------------------
+# TestInstrumentedPipeline — propagação de falha do engine
+# ---------------------------------------------------------------------------
+
+def _load_benchmark_script():
+    """Carrega scripts/benchmark.py como módulo (não é pacote)."""
+    import importlib.util
+
+    script_path = Path(__file__).parent.parent / "scripts" / "benchmark.py"
+    spec = importlib.util.spec_from_file_location("_benchmark_script", script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class TestInstrumentedPipelinePropagatesEngineFailure:
+    """Garante que erros internos do engine viram BenchmarkResult.failed=True.
+
+    Com ``rules.fail_fast=False`` (padrão), ``run_engine`` captura exceções
+    por regra e retorna ``EngineResult`` com ``regras_com_erro > 0`` e
+    ``status`` != ``OK``. Sem tratamento, o benchmark publicava throughput
+    normal para uma execução inválida.
+    """
+
+    def test_engine_result_com_erros_marca_falha(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """regras_com_erro > 0 → BenchmarkResult.failed=True + failure_reason."""
+        from ranking_msc.config.settings import load_settings
+        from ranking_msc.engine.executor import EngineContext, EngineResult
+
+        bench = _load_benchmark_script()
+
+        # Stub que substitui run_engine por uma versão que retorna erro
+        def fake_run_engine(_df, ctx: EngineContext) -> EngineResult:
+            return EngineResult(
+                context=ctx,
+                regras_executadas=3,
+                regras_com_erro=1,
+                erros=[{
+                    "regra_id": "R030",
+                    "mensagem": "boom",
+                    "fatal": False,
+                }],
+            )
+
+        monkeypatch.setattr(bench, "run_engine", fake_run_engine)
+
+        # Gerar CSV pequeno real para alimentar o pipeline até o engine
+        csv_path = tmp_path / "msc.csv"
+        generate_csv(n_rows=10, path=csv_path, ref_dir="ref")
+
+        settings = load_settings()
+        result = bench._run_instrumented_pipeline(
+            csv_path=csv_path, n_rows=10, settings=settings,
+        )
+
+        assert result.failed is True
+        assert result.failure_reason is not None
+        assert "R030" in result.failure_reason
+        assert "regras_com_erro=1" in result.failure_reason
+
+    def test_engine_result_ok_nao_marca_falha(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """status=OK e regras_com_erro=0 → failed=False."""
+        from ranking_msc.config.settings import load_settings
+        from ranking_msc.engine.executor import EngineContext, EngineResult
+
+        bench = _load_benchmark_script()
+
+        def fake_run_engine(_df, ctx: EngineContext) -> EngineResult:
+            return EngineResult(context=ctx, regras_executadas=3, regras_com_erro=0)
+
+        monkeypatch.setattr(bench, "run_engine", fake_run_engine)
+
+        csv_path = tmp_path / "msc.csv"
+        generate_csv(n_rows=10, path=csv_path, ref_dir="ref")
+
+        settings = load_settings()
+        result = bench._run_instrumented_pipeline(
+            csv_path=csv_path, n_rows=10, settings=settings,
+        )
+
+        assert result.failed is False
+        assert result.failure_reason is None

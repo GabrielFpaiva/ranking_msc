@@ -147,10 +147,16 @@ def generate_csv(
 def _load_contas_analiticas(ref_dir: Path) -> list[str]:
     """Carrega contas analíticas de ref/pcasp.csv.
 
-    Filtra pelo nível mais detalhado disponível (analítico).
+    Filtra pelo nível mais detalhado disponível. No PCASP da STN, a
+    coluna ``nivel`` assume os valores ``Superior`` (contas de síntese
+    de níveis superiores) e ``Último`` (contas analíticas, folhas da
+    árvore). Apenas as ``Último`` devem alimentar o benchmark, para
+    que o perfil do dataset sintético seja representativo dos CSVs
+    MSC reais.
 
     Returns:
-        Lista de strings com códigos de contas contábeis.
+        Lista de strings com códigos de contas contábeis do nível
+        analítico (``Último``).
     """
     pcasp_path = ref_dir / "pcasp.csv"
     if not pcasp_path.exists():
@@ -161,21 +167,26 @@ def _load_contas_analiticas(ref_dir: Path) -> list[str]:
     except Exception as exc:  # noqa: BLE001
         raise BenchmarkError(f"Falha ao ler PCASP: {exc}") from exc
 
-    # Normalizar coluna nivel para filtrar
-    if "nivel" in df.columns:
-        df["nivel"] = df["nivel"].str.strip()
-        analiticas = df[df["nivel"].str.lower() == "analítico"]["conta_contabil"].tolist()
-        if analiticas:
-            return analiticas
+    if "conta_contabil" not in df.columns:
+        raise BenchmarkError(
+            f"Coluna 'conta_contabil' não encontrada em {pcasp_path}. "
+            f"Colunas disponíveis: {list(df.columns)}"
+        )
+    if "nivel" not in df.columns:
+        raise BenchmarkError(
+            f"Coluna 'nivel' não encontrada em {pcasp_path}. "
+            f"Colunas disponíveis: {list(df.columns)}"
+        )
 
-    # Fallback: usar todas as contas disponíveis
-    if "conta_contabil" in df.columns:
-        return df["conta_contabil"].tolist()
-
-    raise BenchmarkError(
-        f"Coluna 'conta_contabil' não encontrada em {pcasp_path}. "
-        f"Colunas disponíveis: {list(df.columns)}"
-    )
+    df["nivel"] = df["nivel"].str.strip()
+    analiticas = df[df["nivel"].str.lower() == "último"]["conta_contabil"].tolist()
+    if not analiticas:
+        niveis_encontrados = sorted(df["nivel"].unique().tolist())
+        raise BenchmarkError(
+            f"Nenhuma conta analítica (nivel='Último') encontrada em {pcasp_path}. "
+            f"Níveis presentes: {niveis_encontrados}"
+        )
+    return analiticas
 
 
 def _load_ic_tipo_combinations(ref_dir: Path) -> list[dict[str, str]]:

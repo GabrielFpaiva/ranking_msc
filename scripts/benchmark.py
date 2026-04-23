@@ -149,7 +149,27 @@ def _run_instrumented_pipeline(
             df_norm = normalize_ic(raw.df)
         with profiler.instrument_rules() as rule_metrics:
             with profiler.measure("run_engine") as m_engine:
-                run_engine(df_norm, context)
+                engine_result = run_engine(df_norm, context)
+
+    # Com rules.fail_fast=False (padrão), run_engine captura exceções por
+    # regra e retorna um resultado parcial/de erro em vez de propagar.
+    # Marcamos o benchmark como falho para não publicar throughput de
+    # execuções inválidas, mas preservamos as métricas coletadas.
+    failed = engine_result.regras_com_erro > 0 or engine_result.status != "OK"
+    failure_reason: str | None = None
+    if failed:
+        first_error = engine_result.erros[0] if engine_result.erros else {}
+        regra = first_error.get("regra_id", "?") if isinstance(first_error, dict) else "?"
+        mensagem = first_error.get("mensagem", "") if isinstance(first_error, dict) else ""
+        failure_reason = (
+            f"engine status={engine_result.status}, "
+            f"regras_com_erro={engine_result.regras_com_erro} "
+            f"(ex: {regra}: {mensagem})"
+        )
+        logger.error(
+            "Benchmark n_rows=%d marcado como falho: %s",
+            n_rows, failure_reason,
+        )
 
     return BenchmarkResult(
         n_rows=n_rows,
@@ -158,6 +178,8 @@ def _run_instrumented_pipeline(
         throughput_rows_per_sec=n_rows / total.wall_seconds if total.wall_seconds > 0 else 0.0,
         stages=[m_read.to_stage(), m_norm.to_stage(), m_engine.to_stage()],
         rules=rule_metrics,
+        failed=failed,
+        failure_reason=failure_reason,
     )
 
 
