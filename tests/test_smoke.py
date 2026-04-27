@@ -257,3 +257,10 @@ class TestLogging:
         logger.info("smoke test")
         # Verifica que o arquivo foi criado
         assert (tmp_path / "test.jsonl").exists()
+
+
+def test_benchmark_error_importavel() -> None:
+    """BenchmarkError deve ser importável de ranking_msc.exceptions."""
+    from ranking_msc.exceptions import BenchmarkError, RankingMSCError
+
+    assert issubclass(BenchmarkError, RankingMSCError)

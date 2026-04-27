@@ -12,7 +12,8 @@ Hierarquia:
     │   └── SnapshotNotFoundError — snapshot de competência não encontrado
     ├── ReportError          — falha ao gerar relatório Excel
     ├── RuleExecutionError   — erro durante execução de uma regra
-    └── ConcurrencyError     — conflito de concorrência entre usuários
+    ├── ConcurrencyError     — conflito de concorrência entre usuários
+    └── BenchmarkError       — falha no módulo de benchmark
 
 Regra geral: cada módulo levanta a exceção mais específica possível,
 sempre incluindo mensagem descritiva em português para o log.
@@ -58,3 +59,7 @@ class RuleExecutionError(RankingMSCError):
 
 class ConcurrencyError(RankingMSCError):
     """Conflito de concorrência — ex: dois usuários processando a mesma competência."""
+
+
+class BenchmarkError(RankingMSCError):
+    """Falha no módulo de benchmark (gerador, profiler ou reporter)."""
