@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import PROJECT_ROOT, get_logger, get_settings
@@ -84,21 +84,45 @@ def api_root() -> dict[str, str]:
     return {"service": "mcra-pmjp", "version": app.version}
 
 
-# Em prod (após `cd web && npm run build`), monta o dist/ na raiz "/" pra que
-# o mesmo processo sirva API + SPA. Em dev o Vite serve o front no :5173.
+# Em prod (após `cd web && npm run build`), o mesmo processo serve API + SPA.
+# Em dev o Vite serve o front no :5173, então este bloco só ativa quando o
+# build existe. /assets/* fica no StaticFiles (bundles hashados, cacheáveis);
+# todo o resto vai pra um catch-all que serve arquivos do dist quando existem
+# e cai em index.html caso contrário, deixando o React Router resolver a rota.
+# Importante: NÃO usar app.mount("/", StaticFiles(...)) + exception_handler(404),
+# porque o StaticFiles montado em "/" vira sub-app e seu 404 não dispara de
+# forma confiável o handler global do app principal (Starlette/uvicorn).
 _WEB_DIST: Path = PROJECT_ROOT / "web" / "dist"
 if _WEB_DIST.is_dir():
     _INDEX_HTML = (_WEB_DIST / "index.html").read_text(encoding="utf-8")
+    _WEB_DIST_RESOLVED = _WEB_DIST.resolve()
 
-    @app.exception_handler(404)
-    async def _spa_fallback(request: Request, _exc: object) -> HTMLResponse | JSONResponse:
-        """SPA history fallback: rotas client-side caem em index.html.
+    _ASSETS_DIR = _WEB_DIST / "assets"
+    if _ASSETS_DIR.is_dir():
+        app.mount("/assets", StaticFiles(directory=_ASSETS_DIR), name="assets")
 
-        API routes (/api/*) get a proper JSON 404; all other paths serve the
-        SPA shell so that React Router can handle the route client-side.
+    @app.get("/{full_path:path}", include_in_schema=False, response_model=None)
+    async def spa_catchall(full_path: str) -> FileResponse | HTMLResponse | JSONResponse:
+        """Catch-all explícito para SPA history fallback.
+
+        Convenções:
+        * ``/api/*`` não casado pelos routers retorna JSON 404 (mantém o
+          contrato com o frontend, que espera JSON nas chamadas de API).
+        * Demais caminhos tentam servir um arquivo físico do dist (favicon,
+          robots.txt, manifest...) e, se não existir, devolvem o
+          ``index.html`` para o React Router cuidar da rota client-side.
+        * Tentativas de path traversal (``../``) caem no index.html.
         """
-        if request.url.path.startswith("/api"):
+        if full_path == "api" or full_path.startswith("api/"):
             return JSONResponse(content={"detail": "Not Found"}, status_code=404)
-        return HTMLResponse(content=_INDEX_HTML, status_code=200)
 
-    app.mount("/", StaticFiles(directory=_WEB_DIST, html=True), name="web")
+        if full_path:
+            candidate = (_WEB_DIST / full_path).resolve()
+            try:
+                candidate.relative_to(_WEB_DIST_RESOLVED)
+            except ValueError:
+                return HTMLResponse(content=_INDEX_HTML, status_code=200)
+            if candidate.is_file():
+                return FileResponse(candidate)
+
+        return HTMLResponse(content=_INDEX_HTML, status_code=200)

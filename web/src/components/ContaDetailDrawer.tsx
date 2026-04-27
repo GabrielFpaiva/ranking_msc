@@ -19,11 +19,13 @@ export function ContaDetailDrawer({ contaContabil }: ContaDetailDrawerProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setError(null);
+    setConta(null);
     if (!siconfi || !competencia) {
       setError('Sem competência ativa — execute uma run em Início primeiro.');
       return;
     }
-    let cancelled = false;
     api
       .conta(contaContabil, siconfi, competencia)
       .then((c) => !cancelled && setConta(c))
