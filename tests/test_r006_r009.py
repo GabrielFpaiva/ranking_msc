@@ -165,6 +165,26 @@ class TestR007:
         assert result.iloc[0]["regra_id"] == "R007"
         assert "2024-14" in result.iloc[0]["descricao"]
 
+    def test_mes_um_digito_gera_r007(self, settings: Settings) -> None:
+        """Competência com mês de 1 dígito ('2024-1') → R007 em pre_pivot_issues."""
+        raw = read_msc_csv(io.BytesIO(_csv_bytes(competencia="2024-1")))
+        r007_issues = [i for i in raw.pre_pivot_issues if i.get("regra") == "R007"]
+        assert len(r007_issues) == 1
+        assert r007_issues[0]["valor_encontrado"] == "2024-1"
+
+    def test_ano_cinco_digitos_gera_r007(self, settings: Settings) -> None:
+        """Competência com ano de 5 dígitos ('02024-01') → R007 em pre_pivot_issues."""
+        raw = read_msc_csv(io.BytesIO(_csv_bytes(competencia="02024-01")))
+        r007_issues = [i for i in raw.pre_pivot_issues if i.get("regra") == "R007"]
+        assert len(r007_issues) == 1
+        assert r007_issues[0]["valor_encontrado"] == "02024-01"
+
+    def test_periodo_formato_correto_sem_r007(self, settings: Settings) -> None:
+        """Competência exatamente YYYY-MM ('2024-01') e no intervalo → sem R007."""
+        raw = read_msc_csv(io.BytesIO(_csv_bytes(competencia="2024-01")))
+        r007_issues = [i for i in raw.pre_pivot_issues if i.get("regra") == "R007"]
+        assert r007_issues == []
+
 
 # ---------------------------------------------------------------------------
 # R008 — Separador ponto-e-vírgula

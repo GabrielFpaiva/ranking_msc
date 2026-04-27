@@ -311,10 +311,19 @@ def _validate_metadata(siconfi: str, competencia: str) -> list[dict[str, object]
             "competencia": competencia,
         })
 
-    try:
-        ano_str, mes_str = competencia.split("-")
-        mes_int = int(mes_str)
-        ano_int = int(ano_str)
+    if not _COMPETENCIA_SAFE_RE.match(competencia):
+        # Formato inválido (ex: "2024-1", "02024-01") → emitir imediatamente.
+        issues.append({
+            "regra": "R007",
+            "conta_contabil": "",
+            "campo": "competencia",
+            "valor_encontrado": competencia,
+            "competencia": competencia,
+        })
+    else:
+        # Formato garantido YYYY-MM — parse direto sem try/except.
+        ano_int = int(competencia[:4])
+        mes_int = int(competencia[5:])
         ano_corrente = datetime.date.today().year
         if not (1 <= mes_int <= 13) or not (2020 <= ano_int <= ano_corrente + 1):
             issues.append({
@@ -324,14 +333,6 @@ def _validate_metadata(siconfi: str, competencia: str) -> list[dict[str, object]
                 "valor_encontrado": competencia,
                 "competencia": competencia,
             })
-    except (ValueError, AttributeError):
-        issues.append({
-            "regra": "R007",
-            "conta_contabil": "",
-            "campo": "competencia",
-            "valor_encontrado": competencia,
-            "competencia": competencia,
-        })
 
     return issues
 
