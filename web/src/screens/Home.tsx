@@ -51,26 +51,47 @@ export function Home() {
           </div>
           <UploadDrop onFile={handleFile} />
           {run && (
-            <div className="samid-kv" style={{ marginTop: 16 }}>
-              <div>
-                <dt>Status</dt>
-                <dd>
-                  <Sev level={run.status === 'OK' ? 'INFO' : run.status === 'PARCIAL' ? 'ALERTA' : 'ERRO'} />
-                </dd>
+            <>
+              <div className="samid-kv" style={{ marginTop: 16 }}>
+                <div>
+                  <dt>Status</dt>
+                  <dd>
+                    <Sev level={run.status === 'OK' ? 'INFO' : run.status === 'PARCIAL' ? 'ALERTA' : 'ERRO'} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>Competência</dt>
+                  <dd className="mono">{run.competencia}</dd>
+                </div>
+                <div>
+                  <dt>Ente</dt>
+                  <dd className="mono">{run.siconfi}</dd>
+                </div>
+                <div>
+                  <dt>Pendências</dt>
+                  <dd className="mono">{run.total_pendencias.toLocaleString('pt-BR')}</dd>
+                </div>
               </div>
-              <div>
-                <dt>Competência</dt>
-                <dd className="mono">{run.competencia}</dd>
+              <div className="samid-export-btns">
+                <a
+                  href={`/api/exports/excel?competencia=${encodeURIComponent(run.competencia)}`}
+                  className="samid-btn samid-btn-primary"
+                  download
+                  id="btn-export-excel"
+                >
+                  ⬇ Exportar Excel
+                </a>
+                <button
+                  type="button"
+                  className="samid-btn samid-btn-disabled"
+                  disabled
+                  title="Exportação PDF será implementada em F0-06"
+                  id="btn-export-pdf"
+                >
+                  📄 Exportar PDF
+                </button>
               </div>
-              <div>
-                <dt>Ente</dt>
-                <dd className="mono">{run.siconfi}</dd>
-              </div>
-              <div>
-                <dt>Pendências</dt>
-                <dd className="mono">{run.total_pendencias.toLocaleString('pt-BR')}</dd>
-              </div>
-            </div>
+            </>
           )}
         </section>
 

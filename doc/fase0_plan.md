@@ -1,6 +1,6 @@
 # Fase 0 — Frontend MCRA PMJP (React + FastAPI)
 
-**Status:** Em andamento (F0-00.A e F0-00.B concluídos)
+**Status:** Concluído (F0-00.A → F0-00.F)
 **Depende de:** Fase 4 (motor estável: 35 regras, score_engine, compare_periods, snapshots/Excel/log)
 **Referência do handoff visual:** `psb/03 - Resources/SAMID Design System (1)/handoff/`
 
@@ -40,10 +40,10 @@ Em **prod**: `uvicorn app.api.main:app` serve `/api/*` + `web/dist/` estático.
 |---|---|---|---|---|---|---|
 | F0-00.A | Scaffold | Vite+React+TS, tokens 1:1, layout shell (Sidebar+TopBar), 10 rotas placeholder, FastAPI shell + healthcheck. | Crítica | 8 | — | **Concluído** (commit 64fb6ee) |
 | F0-00.B | Run + Pendências + Score | `POST /api/run`, `GET /api/competencias`, `/api/score`, `/api/score-history`, `/api/pendencias`. Home (upload→score→6m→top 8) e Pendências (filtros) wired ao motor real. `outputs/aggregations.py` parte 1. | Crítica | 12 | F0-00.A | **Concluído** (commit 8626586 · 20 testes API) |
-| F0-00.C | Regras + Drawers | `GET /api/rules`, `/api/rules/:id`, `/api/heatmap`, `/api/rule-history/:id`, `/api/contas/:codigo`. Tela Regras (heatmap 35×6 + tabela). Drawer Regra (descrição, fórmula, ocorrências). Drawer Conta (saldos + classificadores PCASP). Estado global de drawer via Context. `outputs/aggregations.py` parte 2 (heatmap, rule_history). | Crítica | 14 | F0-00.B | A Fazer |
-| F0-00.D | Caixa / Passivos / Superávit | `GET /api/caixa`, `/api/passivos`, `/api/superavit`. Telas equivalentes wired à MSC normalizada (filtragem por prefixo de conta, agregação por banco/FR). Para Superávit (resultado financeiro por FR), expor 501 "a ser implementado" se a derivação ainda não estiver no motor. `outputs/contas.py` novo. | Alta | 10 | F0-00.B | A Fazer |
-| F0-00.E | Visões (Executivo, Comparar, Ranking, Execução) | `GET /api/compare?a=&b=` (wrap `compare_periods`), `/api/log?execucao_id=`, `/api/recommendations`. Telas Executivo (hero score + ações), Comparar (diff 2 colunas), Ranking (banner "fonte regional não integrada"), Execução (pipeline + log). | Alta | 10 | F0-00.B | A Fazer |
-| F0-00.F | Polish + cutover Panel | `GET /api/exports/excel`. Botão "Exportar PDF" disabled (defer F0-06). Renomear `app/web_app.py` → `app/web_app_legacy.py`. Atualizar README com novo "como rodar". Validação visual contra os 12 PNGs. a11y básica (focus ring, alt, contraste AA). Smoke test de 10 rotas + 2 drawers. PR único squash. | Alta | 6 | F0-00.C, F0-00.D, F0-00.E | A Fazer |
+| F0-00.C | Regras + Drawers | `GET /api/rules`, `/api/rules/:id`, `/api/heatmap`, `/api/rule-history/:id`, `/api/contas/:codigo`. Tela Regras (heatmap 35×6 + tabela). Drawer Regra (descrição, fórmula, ocorrências). Drawer Conta (saldos + classificadores PCASP). Estado global de drawer via Context. `outputs/aggregations.py` parte 2 (heatmap, rule_history). | Crítica | 14 | F0-00.B | **Concluído** (commit 3f964a3) |
+| F0-00.D | Caixa / Passivos / Superávit | `GET /api/caixa`, `/api/passivos`, `/api/superavit`. Telas equivalentes wired à MSC normalizada (filtragem por prefixo de conta, agregação por banco/FR). Para Superávit (resultado financeiro por FR), expor 501 "a ser implementado" se a derivação ainda não estiver no motor. `outputs/contas.py` novo. | Alta | 10 | F0-00.B | **Concluído** (commit 1fe127e) |
+| F0-00.E | Visões (Executivo, Comparar, Ranking, Execução) | `GET /api/compare?a=&b=` (wrap `compare_periods`), `/api/log?execucao_id=`, `/api/recommendations`. Telas Executivo (hero score + ações), Comparar (diff 2 colunas), Ranking (banner "fonte regional não integrada"), Execução (pipeline + log). | Alta | 10 | F0-00.B | **Concluído** (commit 26053d8) |
+| F0-00.F | Polish + cutover Panel | `GET /api/exports/excel`. Botão "Exportar PDF" disabled (defer F0-06). Renomear `app/web_app.py` → `app/web_app_legacy.py`. Atualizar README com novo "como rodar". Validação visual contra os 12 PNGs. a11y básica (focus ring, alt, contraste AA). Smoke test de 10 rotas + 2 drawers. PR único squash. | Alta | 6 | F0-00.C, F0-00.D, F0-00.E | **Concluído** |
 
 **Total estimado:** ~60 horas
 
