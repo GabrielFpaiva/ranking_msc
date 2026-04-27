@@ -25,13 +25,20 @@ def get_caixa(
     siconfi: str = Query(..., description="Código SICONFI", pattern=r"^[a-zA-Z0-9_-]+$"),
     competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> ContaListOut:
-    items = accounts_by_prefix(
-        absolute_snapshots_dir(),
-        siconfi,
-        competencia,
-        prefixes=["111"],
-        nat_saldo="D",
-    )
+    try:
+        items = accounts_by_prefix(
+            absolute_snapshots_dir(),
+            siconfi,
+            competencia,
+            prefixes=["111"],
+            nat_saldo="D",
+        )
+    except SnapshotNotFoundError as exc:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Snapshot não encontrado para {siconfi}/{competencia}.",
+        ) from exc
     total = sum(i.saldo_final for i in items)
     return ContaListOut(
         siconfi=siconfi,

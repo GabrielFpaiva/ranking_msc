@@ -31,10 +31,7 @@ PROJECT_ROOT: Path = _PROJECT_ROOT
 def get_settings() -> Settings:
     """Carrega o ``settings.yaml`` (ou retorna defaults)."""
     config_path = PROJECT_ROOT / "config" / "settings.yaml"
-    try:
-        return load_settings(config_path)
-    except Exception:  # noqa: BLE001
-        return Settings()
+    return load_settings(config_path)
 
 
 @lru_cache(maxsize=1)

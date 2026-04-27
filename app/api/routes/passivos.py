@@ -33,9 +33,16 @@ def get_passivos(
         ("Passivo Circulante", ["21"]),
         ("Passivo Não-Circulante", ["22"]),
     ):
-        items = accounts_by_prefix(
-            snapshots, siconfi, competencia, prefixes=prefixes, nat_saldo="C"
-        )
+        try:
+            items = accounts_by_prefix(
+                snapshots, siconfi, competencia, prefixes=prefixes, nat_saldo="C"
+            )
+        except SnapshotNotFoundError as exc:
+            from fastapi import HTTPException, status
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Snapshot não encontrado para {siconfi}/{competencia}.",
+            ) from exc
         total = sum(i.saldo_final for i in items)
         groups.append(
             ContaListGroupOut(

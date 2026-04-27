@@ -435,10 +435,7 @@ def accounts_by_prefix(
         Lista ordenada por conta_contabil.
     """
     base = snapshots_dir / siconfi
-    try:
-        df = read_snapshot(competencia, base_dir=base, label="msc_normalizado")
-    except SnapshotNotFoundError:
-        return []
+    df = read_snapshot(competencia, base_dir=base, label="msc_normalizado")
     if df.empty:
         return []
 
