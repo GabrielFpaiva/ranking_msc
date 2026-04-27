@@ -1,0 +1,182 @@
+/* =====================================================================
+   SAMID Design System — Colors & Type
+   ===================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ---------- Core palette ---------- */
+  --samid-midnight:    #0F1E3D;  /* sidebar, headers */
+  --samid-midnight-80: #27334F;  /* sidebar hover */
+  --samid-midnight-60: #4A5469;  /* sidebar inactive */
+  --samid-parchment:   #F6F4EE;  /* main background */
+  --samid-parchment-dk:#E6E3DA;  /* dividers, table borders */
+  --samid-paper:       #FFFFFF;  /* cards */
+  --samid-ink:         #1B1B1F;  /* primary text on light */
+  --samid-graphite:    #5A5C66;  /* secondary text */
+  --samid-slate:       #8A8D96;  /* tertiary text, placeholders */
+  --samid-gold:        #C9A449;  /* primary accent */
+  --samid-gold-dk:     #A8862E;  /* gold pressed/hover */
+  --samid-gold-lt:     #F3E6BA;  /* gold background tint */
+
+  /* ---------- Semantic / status ---------- */
+  --samid-erro:     #C02B2B;
+  --samid-erro-bg:  #FBEAEA;
+  --samid-alerta:   #D98B1C;
+  --samid-alerta-bg:#FBEFD9;
+  --samid-info:     #1E5AA8;
+  --samid-info-bg:  #E4EDF8;
+  --samid-ok:       #2F8F5C;
+  --samid-ok-bg:    #E1F1E7;
+
+  /* ---------- Score bands ---------- */
+  --samid-band-a: #2F8F5C;
+  --samid-band-b: #6BA642;
+  --samid-band-c: #D9B433;
+  --samid-band-d: #D98B1C;
+  --samid-band-e: #C02B2B;
+
+  /* ---------- Foreground aliases ---------- */
+  --fg-1: var(--samid-ink);
+  --fg-2: var(--samid-graphite);
+  --fg-3: var(--samid-slate);
+  --fg-invert: #FFFFFF;
+
+  /* ---------- Background aliases ---------- */
+  --bg-canvas:  var(--samid-parchment);
+  --bg-surface: var(--samid-paper);
+  --bg-sunken:  #EFECE3;
+  --bg-nav:     var(--samid-midnight);
+
+  /* ---------- Border ---------- */
+  --border-subtle: #EFECE3;
+  --border-default:#E6E3DA;
+  --border-strong: #D6D2C6;
+
+  /* ---------- Type ---------- */
+  --font-display: 'Inter Tight', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --fs-h1:    36px;
+  --fs-h2:    28px;
+  --fs-h3:    22px;
+  --fs-h4:    18px;
+  --fs-body:  16px;
+  --fs-small: 14px;
+  --fs-micro: 12px;
+
+  --lh-tight: 1.15;
+  --lh-snug:  1.35;
+  --lh-body:  1.5;
+
+  --fw-normal: 400;
+  --fw-med:    500;
+  --fw-semi:   600;
+  --fw-bold:   700;
+
+  /* ---------- Spacing (4pt grid) ---------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* ---------- Radii ---------- */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+
+  /* ---------- Shadows ---------- */
+  --shadow-card:   0 1px 3px rgba(15,30,61,.08), 0 1px 2px rgba(15,30,61,.04);
+  --shadow-raised: 0 8px 24px rgba(15,30,61,.12);
+  --shadow-modal:  0 24px 60px rgba(15,30,61,.24);
+  --shadow-focus:  0 0 0 3px rgba(201,164,73,.30);
+
+  /* ---------- Motion ---------- */
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+  --dur-fast: 120ms;
+  --dur-med:  180ms;
+  --dur-slow: 240ms;
+}
+
+/* =====================================================================
+   Base semantic rules
+   ===================================================================== */
+
+html, body {
+  background: var(--bg-canvas);
+  color: var(--fg-1);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-display);
+  font-weight: var(--fw-semi);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--s-3);
+  color: var(--fg-1);
+}
+
+h1 { font-size: var(--fs-h1); letter-spacing: -0.02em; font-weight: var(--fw-bold); }
+h2 { font-size: var(--fs-h2); letter-spacing: -0.015em; }
+h3 { font-size: var(--fs-h3); }
+h4 { font-size: var(--fs-h4); }
+
+p  { margin: 0 0 var(--s-3); color: var(--fg-1); }
+small { font-size: var(--fs-small); color: var(--fg-2); }
+
+code, pre, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semi);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+/* ---------- Score / severity pills ---------- */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 22px; padding: 0 10px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semi);
+  letter-spacing: 0.02em;
+}
+.pill--erro   { background: var(--samid-erro-bg);   color: var(--samid-erro); }
+.pill--alerta { background: var(--samid-alerta-bg); color: var(--samid-alerta); }
+.pill--info   { background: var(--samid-info-bg);   color: var(--samid-info); }
+.pill--ok     { background: var(--samid-ok-bg);     color: var(--samid-ok); }
+
+.dot { display:inline-block; width:8px; height:8px; border-radius:50%; }
+.dot--erro   { background: var(--samid-erro); }
+.dot--alerta { background: var(--samid-alerta); }
+.dot--info   { background: var(--samid-info); }
+.dot--ok     { background: var(--samid-ok); }
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--bg-surface);
+  border-radius: var(--r-lg);
+  padding: var(--s-5);
+  box-shadow: var(--shadow-card);
+}
