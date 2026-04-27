@@ -19,6 +19,8 @@ export function RuleDetailDrawer({ ruleId }: RuleDetailDrawerProps) {
 
   useEffect(() => {
     let cancelled = false;
+    setError(null);
+    setRule(null);
     api
       .rule(ruleId)
       .then((r) => {

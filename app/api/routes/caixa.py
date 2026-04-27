@@ -11,6 +11,7 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import absolute_snapshots_dir
 from app.api.schemas import ContaListGroupOut, ContaListOut, ContaResumoOut
+from ranking_msc.exceptions import SnapshotNotFoundError
 from ranking_msc.outputs.aggregations import accounts_by_prefix
 
 router = APIRouter(prefix="/api", tags=["contas"])
