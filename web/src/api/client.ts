@@ -3,7 +3,12 @@
 
 import type {
   Competencia,
+  ContaDetail,
+  Heatmap,
   PendenciasPage,
+  Rule,
+  RuleDetail,
+  RuleHistory,
   RunSummary,
   Score,
   ScoreHistory,
@@ -77,6 +82,29 @@ export const api = {
     limit?: number;
   }): Promise<PendenciasPage> =>
     fetch(`${BASE}/pendencias${qs(params)}`).then((r) => jsonOrThrow<PendenciasPage>(r)),
+
+  rules: (): Promise<Rule[]> =>
+    fetch(`${BASE}/rules`).then((r) => jsonOrThrow<Rule[]>(r)),
+
+  rule: (ruleId: string): Promise<RuleDetail> =>
+    fetch(`${BASE}/rules/${encodeURIComponent(ruleId)}`).then((r) => jsonOrThrow<RuleDetail>(r)),
+
+  heatmap: (siconfi: string, meses = 6): Promise<Heatmap> =>
+    fetch(`${BASE}/heatmap${qs({ siconfi, meses })}`).then((r) => jsonOrThrow<Heatmap>(r)),
+
+  ruleHistory: (siconfi: string, ruleId: string, meses = 6): Promise<RuleHistory> =>
+    fetch(
+      `${BASE}/rule-history/${encodeURIComponent(ruleId)}${qs({ siconfi, meses })}`,
+    ).then((r) => jsonOrThrow<RuleHistory>(r)),
+
+  conta: (
+    contaContabil: string,
+    siconfi: string,
+    competencia: string,
+  ): Promise<ContaDetail> =>
+    fetch(
+      `${BASE}/contas/${encodeURIComponent(contaContabil)}${qs({ siconfi, competencia })}`,
+    ).then((r) => jsonOrThrow<ContaDetail>(r)),
 };
 
 export { ApiError };

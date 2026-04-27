@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 
 import { App } from './App';
+import { DrawerProvider } from './store/drawer';
 import { MCRAProvider } from './store/mcra';
 import './styles/globals.css';
 
@@ -13,7 +14,9 @@ createRoot(rootElement).render(
   <StrictMode>
     <BrowserRouter>
       <MCRAProvider>
-        <App />
+        <DrawerProvider>
+          <App />
+        </DrawerProvider>
       </MCRAProvider>
     </BrowserRouter>
   </StrictMode>,

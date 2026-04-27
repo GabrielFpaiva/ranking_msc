@@ -120,3 +120,78 @@ class ErrorOut(BaseModel):
 
     detail: str
     code: str = "internal_error"
+
+
+# ---------------------------------------------------------------------------
+# Regras / Heatmap / Drawer Regra (fatia C)
+# ---------------------------------------------------------------------------
+
+
+class RuleOut(BaseModel):
+    """Item da listagem de regras (catálogo)."""
+
+    rule_id: str
+    rule_name: str
+    dimensao: str
+    is_scoring: bool
+
+
+class RuleDetailOut(BaseModel):
+    """Detalhe de uma regra para o Drawer Regra."""
+
+    rule_id: str
+    rule_name: str
+    dimensao: str
+    is_scoring: bool
+    descricao: str = Field(..., description="Resumo da docstring do módulo da regra")
+    formula: str | None = Field(None, description="Trecho de fórmula/regra (se houver)")
+
+
+class HeatmapCellOut(BaseModel):
+    regra_id: str
+    competencia: str
+    pendencias: int
+    severidade_max: Severidade | None = None
+
+
+class HeatmapRegraOut(BaseModel):
+    id: str
+    nome: str
+    dimensao: str
+
+
+class HeatmapOut(BaseModel):
+    siconfi: str
+    competencias: list[str]
+    regras: list[HeatmapRegraOut]
+    cells: list[HeatmapCellOut]
+
+
+class RuleHistoryOut(BaseModel):
+    siconfi: str
+    rule_id: str
+    cells: list[HeatmapCellOut]
+
+
+# ---------------------------------------------------------------------------
+# Drawer Conta
+# ---------------------------------------------------------------------------
+
+
+class ContaSaldosOut(BaseModel):
+    saldo_inicial_devedor: float
+    saldo_inicial_credor: float
+    movimento_devedor: float
+    movimento_credor: float
+    saldo_final_devedor: float
+    saldo_final_credor: float
+
+
+class ContaDetailOut(BaseModel):
+    conta_contabil: str
+    competencia: str
+    siconfi: str
+    saldos: ContaSaldosOut
+    classificadores: dict[str, str]
+    pcasp: dict[str, str] | None
+    pendencias_count: int

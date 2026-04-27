@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { DimTag } from '../components/DimTag';
 import { Sev } from '../components/Sev';
+import { useDrawer } from '../store/drawer';
 import { useMCRA } from '../store/mcra';
 import type { PendenciasPage, Severidade } from '../types';
 
@@ -10,6 +11,7 @@ const SEV_OPTIONS: (Severidade | '')[] = ['', 'ERRO', 'ALERTA', 'INFO'];
 
 export function Pendencias() {
   const { siconfi, competencia } = useMCRA();
+  const { openRule, openConta } = useDrawer();
   const [page, setPage] = useState<PendenciasPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -152,7 +154,7 @@ export function Pendencias() {
               <tbody>
                 {page.items.map((p, i) => (
                   <tr key={`${p.regra_id}-${p.conta_contabil}-${i}`}>
-                    <td>
+                    <td onClick={() => openRule(p.regra_id)}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <span className="mono" style={{ fontWeight: 600 }}>
                           {p.regra_id}
@@ -163,7 +165,9 @@ export function Pendencias() {
                     <td>
                       <Sev level={p.severidade} />
                     </td>
-                    <td className="mono">{p.conta_contabil}</td>
+                    <td className="mono" onClick={() => p.conta_contabil && openConta(p.conta_contabil)}>
+                      {p.conta_contabil}
+                    </td>
                     <td>{p.descricao}</td>
                     <td className="mono">{p.valor_esperado ?? '—'}</td>
                     <td className="mono">{p.valor_encontrado ?? '—'}</td>

@@ -82,3 +82,64 @@ export interface ScoreHistory {
   siconfi: string;
   points: ScoreHistoryPoint[];
 }
+
+// ---------- Regras / Heatmap / Drawer Regra (fatia C) ----------
+
+export interface Rule {
+  rule_id: string;
+  rule_name: string;
+  dimensao: string;
+  is_scoring: boolean;
+}
+
+export interface RuleDetail extends Rule {
+  descricao: string;
+  formula: string | null;
+}
+
+export interface HeatmapCell {
+  regra_id: string;
+  competencia: string;
+  pendencias: number;
+  severidade_max: Severidade | null;
+}
+
+export interface HeatmapRegra {
+  id: string;
+  nome: string;
+  dimensao: string;
+}
+
+export interface Heatmap {
+  siconfi: string;
+  competencias: string[];
+  regras: HeatmapRegra[];
+  cells: HeatmapCell[];
+}
+
+export interface RuleHistory {
+  siconfi: string;
+  rule_id: string;
+  cells: HeatmapCell[];
+}
+
+// ---------- Drawer Conta ----------
+
+export interface ContaSaldos {
+  saldo_inicial_devedor: number;
+  saldo_inicial_credor: number;
+  movimento_devedor: number;
+  movimento_credor: number;
+  saldo_final_devedor: number;
+  saldo_final_credor: number;
+}
+
+export interface ContaDetail {
+  conta_contabil: string;
+  competencia: string;
+  siconfi: string;
+  saldos: ContaSaldos;
+  classificadores: Record<string, string>;
+  pcasp: Record<string, string> | null;
+  pendencias_count: number;
+}

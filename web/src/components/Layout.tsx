@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 
+import { DrawerHost } from './DrawerHost';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 
@@ -13,6 +14,7 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+      <DrawerHost />
     </div>
   );
 }

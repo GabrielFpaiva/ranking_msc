@@ -6,11 +6,13 @@ import { ScoreBadge } from '../components/ScoreBadge';
 import { Sev } from '../components/Sev';
 import { UploadDrop } from '../components/UploadDrop';
 import { ScoreChart } from '../components/charts/ScoreChart';
+import { useDrawer } from '../store/drawer';
 import { useMCRA } from '../store/mcra';
 import type { RunSummary, ScoreHistory } from '../types';
 
 export function Home() {
   const { siconfi, competencia, lastRun, setLastRun } = useMCRA();
+  const { openRule } = useDrawer();
   const [history, setHistory] = useState<ScoreHistory | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [run, setRun] = useState<RunSummary | null>(lastRun);
@@ -139,7 +141,16 @@ export function Home() {
                     ? 'samid-bar-alerta'
                     : 'samid-bar-info';
               return (
-                <div key={r.regra_id} className="samid-bar-row">
+                <div
+                  key={r.regra_id}
+                  className="samid-bar-row"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openRule(r.regra_id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') openRule(r.regra_id);
+                  }}
+                >
                   <div className="samid-bar-rid">{r.regra_id}</div>
                   <div className="samid-bar-nome">{r.regra_nome}</div>
                   <DimTag name={r.dimensao} />

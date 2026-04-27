@@ -19,7 +19,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import PROJECT_ROOT, get_logger, get_settings
 from app.api.routes import competencias as competencias_routes
+from app.api.routes import contas as contas_routes
 from app.api.routes import pendencias as pendencias_routes
+from app.api.routes import rules as rules_routes
 from app.api.routes import run as run_routes
 from app.api.routes import score as score_routes
 
@@ -33,6 +35,8 @@ app.include_router(run_routes.router)
 app.include_router(competencias_routes.router)
 app.include_router(score_routes.router)
 app.include_router(pendencias_routes.router)
+app.include_router(rules_routes.router)
+app.include_router(contas_routes.router)
 
 # CORS: liberado para dev (Vite no :5173). Em prod o front é servido pelo
 # próprio FastAPI então same-origin elimina a necessidade.
