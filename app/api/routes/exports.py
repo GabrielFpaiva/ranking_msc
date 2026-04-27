@@ -25,15 +25,16 @@ router = APIRouter(prefix="/api", tags=["exports"])
     response_class=FileResponse,
 )
 def download_excel(
+    siconfi: str = Query(..., description="Código SICONFI do ente"),
     competencia: str = Query(..., description="Competência (YYYY-MM)"),
 ) -> FileResponse:
-    """Retorna o Excel de pendências para a competência indicada.
+    """Retorna o Excel de pendências para o ente/competência indicados.
 
     O arquivo é gerado pelo ``POST /api/run`` e fica em
-    ``data/reports/pendencias_<competencia>.xlsx``.
+    ``data/reports/pendencias_<siconfi>_<competencia>.xlsx``.
     """
     reports = absolute_reports_dir()
-    filename = f"pendencias_{competencia}.xlsx"
+    filename = f"pendencias_{siconfi}_{competencia}.xlsx"
     filepath: Path = reports / filename
 
     if not filepath.is_file():

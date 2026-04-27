@@ -74,7 +74,7 @@ export function Home() {
               </div>
               <div className="samid-export-btns">
                 <a
-                  href={`/api/exports/excel?competencia=${encodeURIComponent(run.competencia)}`}
+                  href={`/api/exports/excel?siconfi=${encodeURIComponent(run.siconfi)}&competencia=${encodeURIComponent(run.competencia)}`}
                   className="samid-btn samid-btn-primary"
                   download
                   id="btn-export-excel"

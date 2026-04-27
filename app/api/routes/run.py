@@ -110,7 +110,12 @@ async def run_pipeline(
             raw.competencia,
             base_dir=snap_base,
         )
-        export_issues_excel(result.pendencias, raw.competencia, output_dir=reports_dir)
+        export_issues_excel(
+            result.pendencias,
+            raw.competencia,
+            output_dir=reports_dir,
+            filename=f"pendencias_{raw.siconfi}_{raw.competencia}.xlsx",
+        )
         log_execucao(
             api_logger,
             execucao_id=ctx.execucao_id,

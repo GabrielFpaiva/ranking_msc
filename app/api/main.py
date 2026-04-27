@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import PROJECT_ROOT, get_logger, get_settings
@@ -88,16 +88,17 @@ def api_root() -> dict[str, str]:
 # o mesmo processo sirva API + SPA. Em dev o Vite serve o front no :5173.
 _WEB_DIST: Path = PROJECT_ROOT / "web" / "dist"
 if _WEB_DIST.is_dir():
+    _INDEX_HTML = (_WEB_DIST / "index.html").read_text(encoding="utf-8")
 
     @app.exception_handler(404)
-    async def _spa_fallback(_request: object, _exc: object) -> JSONResponse:
-        """SPA history fallback: rotas client-side caem em index.html."""
-        index = _WEB_DIST / "index.html"
-        if index.is_file():
-            return JSONResponse(
-                content={"redirect": "/"},
-                status_code=404,
-            )
-        return JSONResponse(content={"detail": "Not Found"}, status_code=404)
+    async def _spa_fallback(request: Request, _exc: object) -> HTMLResponse | JSONResponse:
+        """SPA history fallback: rotas client-side caem em index.html.
+
+        API routes (/api/*) get a proper JSON 404; all other paths serve the
+        SPA shell so that React Router can handle the route client-side.
+        """
+        if request.url.path.startswith("/api"):
+            return JSONResponse(content={"detail": "Not Found"}, status_code=404)
+        return HTMLResponse(content=_INDEX_HTML, status_code=200)
 
     app.mount("/", StaticFiles(directory=_WEB_DIST, html=True), name="web")
