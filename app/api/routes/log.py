@@ -22,6 +22,29 @@ from app.api.schemas import LogEntryOut, LogPageOut
 router = APIRouter(prefix="/api", tags=["log"])
 
 
+def reverse_readline(filename: Path, buf_size: int = 8192):
+    """A generator that returns the lines of a file in reverse order."""
+    with filename.open("rb") as fh:
+        fh.seek(0, 2)  # os.SEEK_END
+        segment = None
+        offset = 0
+        file_size = remaining_size = fh.tell()
+        while remaining_size > 0:
+            offset = min(file_size, offset + buf_size)
+            fh.seek(file_size - offset)
+            buffer = fh.read(min(remaining_size, buf_size))
+            remaining_size -= buf_size
+            lines = buffer.split(b'\n')
+            if segment is not None:
+                lines[-1] += segment
+            segment = lines[0]
+            for index in range(len(lines) - 1, 0, -1):
+                if lines[index]:
+                    yield lines[index].decode('utf-8', errors='replace')
+        if segment is not None and segment:
+            yield segment.decode('utf-8', errors='replace')
+
+
 @router.get(
     "/log",
     response_model=LogPageOut,
@@ -37,33 +60,38 @@ def get_log(
     if not log_path.is_file():
         return LogPageOut(total=0, items=[])
 
-    entries: deque[LogEntryOut] = deque(maxlen=limit)
-    total = 0
-    with log_path.open("r", encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                payload = json.loads(line)
-            except ValueError:
-                continue
-            if execucao_id and payload.get("execucao_id") != execucao_id:
-                continue
-            if level and payload.get("level") != level:
-                continue
-            total += 1
-            entries.append(
-                LogEntryOut(
-                    ts=str(payload.get("ts", "")),
-                    level=str(payload.get("level", "INFO")),
-                    msg=str(payload.get("msg", "")),
-                    execucao_id=payload.get("execucao_id"),
-                    competencia=payload.get("competencia"),
-                    modulo=payload.get("modulo"),
-                    regra_id=payload.get("regra_id"),
-                    siconfi=payload.get("siconfi"),
-                )
+    items = []
+    for line in reverse_readline(log_path):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except ValueError:
+            continue
+        if execucao_id and payload.get("execucao_id") != execucao_id:
+            continue
+        if level and payload.get("level") != level:
+            continue
+            
+        items.append(
+            LogEntryOut(
+                ts=str(payload.get("ts", "")),
+                level=str(payload.get("level", "INFO")),
+                msg=str(payload.get("msg", "")),
+                execucao_id=payload.get("execucao_id"),
+                competencia=payload.get("competencia"),
+                modulo=payload.get("modulo"),
+                regra_id=payload.get("regra_id"),
+                siconfi=payload.get("siconfi"),
             )
+        )
+        if len(items) >= limit:
+            break
 
-    return LogPageOut(total=total, items=list(entries))
+    # We read backwards, so the items are newest first. We can reverse them
+    # to maintain chronological order from top to bottom if desired, or leave it.
+    # Usually log viewers expect chronological, but tail often just returns the newest at the bottom.
+    items.reverse()
+
+    return LogPageOut(total=len(items), items=items)

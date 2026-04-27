@@ -68,6 +68,14 @@ async def run_pipeline(
         api_logger.warning("Falha ao ler CSV no /api/run: %s", exc)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
+    # Validate siconfi to prevent path traversal
+    import re
+    if not re.match(r"^[a-zA-Z0-9_-]+$", raw.siconfi):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Identificador siconfi inválido: {raw.siconfi}"
+        )
+
     try:
         df = normalize_ic(raw.df)
     except Exception as exc:  # noqa: BLE001
@@ -127,8 +135,10 @@ async def run_pipeline(
         )
     except Exception as exc:  # noqa: BLE001
         api_logger.error("Falha ao persistir resultados: %s", exc, exc_info=True)
-        # Persistência falhou, mas o resultado em memória é válido — entregamos
-        # o resumo mesmo assim, com aviso no log. Front exibirá o score normal.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Falha ao persistir os resultados (snapshots/relatórios).",
+        ) from exc
 
     top = top_violated_rules(result.pendencias, limit=8)
 
