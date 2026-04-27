@@ -25,8 +25,8 @@ router = APIRouter(prefix="/api", tags=["pendencias"])
     summary="Lista paginada de pendências de uma competência",
 )
 def list_pendencias(
-    siconfi: str = Query(..., description="Código SICONFI do ente"),
-    competencia: str = Query(..., description="YYYY-MM"),
+    siconfi: str = Query(..., description="Código SICONFI do ente", pattern=r"^[a-zA-Z0-9_-]+$"),
+    competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
     regra_id: str | None = Query(None, description="Filtra por uma regra (ex: R054)"),
     severidade: str | None = Query(None, description="ERRO | ALERTA | INFO"),
     conta_prefix: str | None = Query(

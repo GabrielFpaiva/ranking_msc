@@ -31,8 +31,8 @@ router = APIRouter(prefix="/api", tags=["score"])
     summary="Score recalculado de uma competência específica",
 )
 def get_score(
-    siconfi: str = Query(..., description="Código SICONFI do ente"),
-    competencia: str = Query(..., description="YYYY-MM"),
+    siconfi: str = Query(..., description="Código SICONFI do ente", pattern=r"^[a-zA-Z0-9_-]+$"),
+    competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> ScoreOut:
     """Lê snapshot e devolve score com breakdown por dimensão."""
     base = absolute_snapshots_dir() / siconfi
@@ -76,7 +76,7 @@ def get_score(
     summary="Linha do tempo de scores por competência",
 )
 def get_score_history(
-    siconfi: str = Query(..., description="Código SICONFI do ente"),
+    siconfi: str = Query(..., description="Código SICONFI do ente", pattern=r"^[a-zA-Z0-9_-]+$"),
     meses: int = Query(6, ge=1, le=24, description="Quantidade de pontos (mais recentes)"),
 ) -> ScoreHistoryOut:
     """Usa compare_periods para retornar até ``meses`` pontos mais recentes."""

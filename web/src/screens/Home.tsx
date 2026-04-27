@@ -23,7 +23,10 @@ export function Home() {
     api
       .scoreHistory(siconfi, 6)
       .then((data) => {
-        if (!cancelled) setHistory(data);
+        if (!cancelled) {
+          setHistory(data);
+          setHistoryError(null);
+        }
       })
       .catch((err: Error) => {
         if (!cancelled) setHistoryError(err.message);

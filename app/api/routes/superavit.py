@@ -40,8 +40,8 @@ router = APIRouter(prefix="/api", tags=["contas"])
     },
 )
 def get_superavit(
-    siconfi: str = Query(..., description="Código SICONFI"),
-    competencia: str = Query(..., description="YYYY-MM"),
+    siconfi: str = Query(..., description="Código SICONFI", pattern=r"^[a-zA-Z0-9_-]+$"),
+    competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> dict[str, str]:
     """Retorna 501 com referência à task que vai entregar a lógica."""
     _ = (siconfi, competencia)  # mantém assinatura estável para quando F0-04 chegar

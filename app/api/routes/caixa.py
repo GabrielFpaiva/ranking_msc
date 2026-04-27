@@ -22,8 +22,8 @@ router = APIRouter(prefix="/api", tags=["contas"])
     summary="Disponibilidades — Ativo Circulante 1.1.1.x",
 )
 def get_caixa(
-    siconfi: str = Query(..., description="Código SICONFI"),
-    competencia: str = Query(..., description="YYYY-MM"),
+    siconfi: str = Query(..., description="Código SICONFI", pattern=r"^[a-zA-Z0-9_-]+$"),
+    competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> ContaListOut:
     items = accounts_by_prefix(
         absolute_snapshots_dir(),

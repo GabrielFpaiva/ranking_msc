@@ -30,8 +30,8 @@ logger = logging.getLogger("ranking_msc")
 )
 def get_conta(
     conta_contabil: str,
-    siconfi: str = Query(..., description="Código SICONFI"),
-    competencia: str = Query(..., description="YYYY-MM"),
+    siconfi: str = Query(..., description="Código SICONFI", pattern=r"^[a-zA-Z0-9_-]+$"),
+    competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> ContaDetailOut:
     """Lê msc_normalizado snapshot, agrega saldos e devolve para o Drawer."""
     settings = get_settings()

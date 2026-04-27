@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api", tags=["compare"])
     summary="Diff de score + dimensões entre 2 competências",
 )
 def get_compare(
-    siconfi: str = Query(..., description="Código SICONFI"),
+    siconfi: str = Query(..., description="Código SICONFI", pattern=r"^[a-zA-Z0-9_-]+$"),
     a: str = Query(..., description="Competência A (YYYY-MM)"),
     b: str = Query(..., description="Competência B (YYYY-MM)"),
 ) -> CompareOut:

@@ -28,8 +28,8 @@ router = APIRouter(prefix="/api", tags=["recommendations"])
     summary="Ações recomendadas para a Visão Executiva",
 )
 def get_recommendations(
-    siconfi: str = Query(..., description="Código SICONFI"),
-    competencia: str = Query(..., description="YYYY-MM"),
+    siconfi: str = Query(..., description="Código SICONFI", pattern=r"^[a-zA-Z0-9_-]+$"),
+    competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> RecommendationsOut:
     base = absolute_snapshots_dir() / siconfi
     try:

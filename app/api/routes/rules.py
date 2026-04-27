@@ -80,7 +80,7 @@ def get_rule(rule_id: str) -> RuleDetailOut:
     summary="Matriz regras × competências (últimos N meses)",
 )
 def get_heatmap(
-    siconfi: str = Query(..., description="Código SICONFI do ente"),
+    siconfi: str = Query(..., description="Código SICONFI do ente", pattern=r"^[a-zA-Z0-9_-]+$"),
     meses: int = Query(6, ge=1, le=24),
 ) -> HeatmapOut:
     """Heatmap completo da tela Regras."""
@@ -108,7 +108,7 @@ def get_heatmap(
 )
 def get_rule_history(
     rule_id: str,
-    siconfi: str = Query(..., description="Código SICONFI do ente"),
+    siconfi: str = Query(..., description="Código SICONFI do ente", pattern=r"^[a-zA-Z0-9_-]+$"),
     meses: int = Query(6, ge=1, le=24),
 ) -> RuleHistoryOut:
     if rule_id not in RULE_REGISTRY:

@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api", tags=["competencias"])
     summary="Lista competências (mês/ente) com snapshot disponível",
 )
 def list_competencias(
-    siconfi: str | None = Query(None, description="Filtra por código SICONFI"),
+    siconfi: str | None = Query(None, description="Filtra por código SICONFI", pattern=r"^[a-zA-Z0-9_-]+$"),
 ) -> list[CompetenciaOut]:
     """Varre ``data/snapshots/`` e devolve a lista ordenada por competência desc."""
     base_dir = absolute_snapshots_dir()

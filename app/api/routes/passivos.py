@@ -23,8 +23,8 @@ router = APIRouter(prefix="/api", tags=["contas"])
     summary="Obrigações — Passivo Circulante (2.1) e Não-Circulante (2.2)",
 )
 def get_passivos(
-    siconfi: str = Query(..., description="Código SICONFI"),
-    competencia: str = Query(..., description="YYYY-MM"),
+    siconfi: str = Query(..., description="Código SICONFI", pattern=r"^[a-zA-Z0-9_-]+$"),
+    competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> ContaListOut:
     snapshots = absolute_snapshots_dir()
 
