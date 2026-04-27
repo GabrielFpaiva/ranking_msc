@@ -221,3 +221,62 @@ class ContaListOut(BaseModel):
     siconfi: str
     competencia: str
     groups: list[ContaListGroupOut]
+
+
+# ---------------------------------------------------------------------------
+# Visões — Executivo, Comparar, Execução, Ranking (fatia E)
+# ---------------------------------------------------------------------------
+
+
+class RecommendationOut(BaseModel):
+    """Ação recomendada derivada heuristicamente do estado atual."""
+
+    titulo: str
+    descricao: str
+    severidade: Severidade = "ALERTA"
+    referencia: str | None = Field(None, description="ID de regra ou dimensão associada")
+
+
+class RecommendationsOut(BaseModel):
+    siconfi: str
+    competencia: str
+    items: list[RecommendationOut]
+
+
+class CompareDimensionOut(BaseModel):
+    dimension: str
+    score_a: float
+    score_b: float
+    delta: float
+
+
+class CompareSideOut(BaseModel):
+    competencia: str
+    pontuacao: float
+    banda: Banda
+    total_pendencias: int
+
+
+class CompareOut(BaseModel):
+    siconfi: str
+    a: CompareSideOut
+    b: CompareSideOut
+    delta_score: float
+    delta_pendencias: int
+    dimensions: list[CompareDimensionOut]
+
+
+class LogEntryOut(BaseModel):
+    ts: str
+    level: str
+    msg: str
+    execucao_id: str | None = None
+    competencia: str | None = None
+    modulo: str | None = None
+    regra_id: str | None = None
+    siconfi: str | None = None
+
+
+class LogPageOut(BaseModel):
+    total: int
+    items: list[LogEntryOut]

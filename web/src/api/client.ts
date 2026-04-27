@@ -2,11 +2,14 @@
 // Em dev usa o proxy do Vite (/api → :8000). Em prod é same-origin.
 
 import type {
+  Compare,
   Competencia,
   ContaDetail,
   ContaList,
   Heatmap,
+  LogPage,
   PendenciasPage,
+  Recommendations,
   Rule,
   RuleDetail,
   RuleHistory,
@@ -119,6 +122,23 @@ export const api = {
 
   superavit: (siconfi: string, competencia: string): Promise<Response> =>
     fetch(`${BASE}/superavit${qs({ siconfi, competencia })}`),
+
+  recommendations: (siconfi: string, competencia: string): Promise<Recommendations> =>
+    fetch(`${BASE}/recommendations${qs({ siconfi, competencia })}`).then((r) =>
+      jsonOrThrow<Recommendations>(r),
+    ),
+
+  compare: (siconfi: string, a: string, b: string): Promise<Compare> =>
+    fetch(`${BASE}/compare${qs({ siconfi, a, b })}`).then((r) => jsonOrThrow<Compare>(r)),
+
+  log: (params: {
+    execucao_id?: string;
+    level?: string;
+    limit?: number;
+  } = {}): Promise<LogPage> =>
+    fetch(`${BASE}/log${qs(params)}`).then((r) => jsonOrThrow<LogPage>(r)),
+
+  ranking: (): Promise<Response> => fetch(`${BASE}/ranking`),
 };
 
 export { ApiError };

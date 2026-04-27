@@ -483,3 +483,107 @@ def accounts_by_prefix(
             )
         )
     return sorted(out, key=lambda r: r.conta_contabil)
+
+
+# ---------------------------------------------------------------------------
+# Recomendações heurísticas (Executivo)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Recommendation:
+    titulo: str
+    descricao: str
+    severidade: str
+    referencia: str | None
+
+
+def derive_recommendations(
+    pendencias: pd.DataFrame,
+    *,
+    score_atual: float | None = None,
+    score_anterior: float | None = None,
+    pior_dimensao: str | None = None,
+    pior_dimensao_score: float | None = None,
+) -> list[Recommendation]:
+    """Deriva recomendações de ação a partir das pendências e tendência de score.
+
+    Heurísticas (todas opcionais — só dispara o que faz sentido):
+
+    1. Top 3 regras com ERRO → recomenda investigar cada uma.
+    2. Score caindo vs mês anterior → recomenda revisar mudanças.
+    3. Dimensão com score < 0.7 → recomenda reforçar processos.
+
+    Args:
+        pendencias: DataFrame de pendências da competência atual.
+        score_atual / score_anterior: pontuações para detectar tendência.
+        pior_dimensao / pior_dimensao_score: dimensão crítica.
+
+    Returns:
+        Lista ordenada por severidade descendente (ERRO antes de ALERTA).
+    """
+    items: list[Recommendation] = []
+
+    # 1. Top regras com ERRO
+    if not pendencias.empty:
+        erros = pendencias[pendencias["severidade"] == "ERRO"]
+        if not erros.empty:
+            top = (
+                erros.groupby(["regra_id", "regra_nome"], as_index=False)
+                .size()
+                .sort_values("size", ascending=False)
+                .head(3)
+            )
+            for _, row in top.iterrows():
+                items.append(
+                    Recommendation(
+                        titulo=f"Investigar {row['regra_id']} — {row['regra_nome']}",
+                        descricao=(
+                            f"{int(row['size'])} pendência(s) ERRO em {row['regra_id']}. "
+                            f"Priorizar correção antes do envio ao SICONFI."
+                        ),
+                        severidade="ERRO",
+                        referencia=str(row["regra_id"]),
+                    )
+                )
+
+    # 2. Tendência negativa
+    if (
+        score_atual is not None
+        and score_anterior is not None
+        and score_atual < score_anterior - 1.0
+    ):
+        delta = score_atual - score_anterior
+        items.append(
+            Recommendation(
+                titulo="Revisar mudanças do mês",
+                descricao=(
+                    f"Score caiu {delta:.2f} pontos vs mês anterior "
+                    f"({score_anterior:.2f} → {score_atual:.2f}). "
+                    f"Validar lançamentos do período e parametrizações de IC."
+                ),
+                severidade="ALERTA",
+                referencia=None,
+            )
+        )
+
+    # 3. Dimensão fraca
+    if (
+        pior_dimensao
+        and pior_dimensao_score is not None
+        and pior_dimensao_score < 0.7
+    ):
+        items.append(
+            Recommendation(
+                titulo=f"Reforçar dimensão {pior_dimensao}",
+                descricao=(
+                    f"Conformidade da dimensão {pior_dimensao} em "
+                    f"{pior_dimensao_score * 100:.0f}%. Capacitação ou checklist "
+                    f"adicional pode acelerar a recuperação."
+                ),
+                severidade="ALERTA",
+                referencia=pior_dimensao,
+            )
+        )
+
+    return items

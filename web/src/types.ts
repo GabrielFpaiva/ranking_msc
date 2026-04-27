@@ -166,3 +166,57 @@ export interface ContaList {
   competencia: string;
   groups: ContaListGroup[];
 }
+
+// ---------- Visões / Executivo / Comparar / Log (fatia E) ----------
+
+export interface Recommendation {
+  titulo: string;
+  descricao: string;
+  severidade: Severidade;
+  referencia: string | null;
+}
+
+export interface Recommendations {
+  siconfi: string;
+  competencia: string;
+  items: Recommendation[];
+}
+
+export interface CompareDimension {
+  dimension: string;
+  score_a: number;
+  score_b: number;
+  delta: number;
+}
+
+export interface CompareSide {
+  competencia: string;
+  pontuacao: number;
+  banda: Banda;
+  total_pendencias: number;
+}
+
+export interface Compare {
+  siconfi: string;
+  a: CompareSide;
+  b: CompareSide;
+  delta_score: number;
+  delta_pendencias: number;
+  dimensions: CompareDimension[];
+}
+
+export interface LogEntry {
+  ts: string;
+  level: string;
+  msg: string;
+  execucao_id: string | null;
+  competencia: string | null;
+  modulo: string | null;
+  regra_id: string | null;
+  siconfi: string | null;
+}
+
+export interface LogPage {
+  total: number;
+  items: LogEntry[];
+}
