@@ -195,3 +195,29 @@ class ContaDetailOut(BaseModel):
     classificadores: dict[str, str]
     pcasp: dict[str, str] | None
     pendencias_count: int
+
+
+# ---------------------------------------------------------------------------
+# Listagens (fatia D — Caixa, Passivos)
+# ---------------------------------------------------------------------------
+
+
+class ContaResumoOut(BaseModel):
+    conta_contabil: str
+    saldo_inicial: float
+    saldo_final: float
+    movimento_liquido: float
+    fr: str | None = None
+
+
+class ContaListGroupOut(BaseModel):
+    label: str
+    prefixes: list[str]
+    total_saldo_final: float
+    items: list[ContaResumoOut]
+
+
+class ContaListOut(BaseModel):
+    siconfi: str
+    competencia: str
+    groups: list[ContaListGroupOut]

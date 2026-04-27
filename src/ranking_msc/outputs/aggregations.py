@@ -389,3 +389,97 @@ def aggregate_conta(
         pcasp=pcasp_record,
         pendencias_count=pendencias_count,
     )
+
+
+# ---------------------------------------------------------------------------
+# Listagens por prefixo de conta (Caixa, Passivos)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ContaResumo:
+    """Resumo de uma conta para listagens (Caixa, Passivos)."""
+
+    conta_contabil: str
+    saldo_inicial: float          # devedor − credor (positivo = saldo devedor líquido)
+    saldo_final: float            # devedor − credor
+    movimento_liquido: float      # mov_devedor − mov_credor
+    fr: str | None                # fonte de recurso (se informada)
+
+
+def accounts_by_prefix(
+    snapshots_dir: Path,
+    siconfi: str,
+    competencia: str,
+    prefixes: list[str],
+    *,
+    nat_saldo: str | None = None,
+) -> list[ContaResumo]:
+    """Lista contas cuja ``conta_contabil`` começa com algum dos prefixos.
+
+    Agrega saldos somando todas as linhas (linhas distintas existem por IC),
+    devolvendo um único registro por conta com os saldos consolidados.
+
+    Args:
+        snapshots_dir: raiz dos snapshots.
+        siconfi: ente.
+        competencia: YYYY-MM.
+        prefixes: lista de prefixos (ex: ``["111"]`` para Caixa,
+            ``["21"]`` para Passivo Circulante).
+        nat_saldo: se ``"D"`` (devedora) ou ``"C"`` (credora), inverte o sinal
+            de ``saldo_*`` quando a natureza for credora — útil para Passivos
+            (que naturalmente têm saldo credor) aparecerem com valores positivos.
+            Se None, mantém devedor−credor.
+
+    Returns:
+        Lista ordenada por conta_contabil.
+    """
+    base = snapshots_dir / siconfi
+    try:
+        df = read_snapshot(competencia, base_dir=base, label="msc_normalizado")
+    except SnapshotNotFoundError:
+        return []
+    if df.empty:
+        return []
+
+    contas_str = df["conta_contabil"].astype(str)
+    mask = pd.Series(False, index=df.index)
+    for p in prefixes:
+        mask = mask | contas_str.str.startswith(p)
+    sub = df[mask]
+    if sub.empty:
+        return []
+
+    grouped = sub.groupby("conta_contabil", as_index=False).agg(
+        sid=("saldo_inicial_debito", "sum"),
+        sic=("saldo_inicial_credito", "sum"),
+        md=("movimento_debito", "sum"),
+        mc=("movimento_credito", "sum"),
+        sfd=("saldo_final_debito", "sum"),
+        sfc=("saldo_final_credito", "sum"),
+    )
+
+    # FR como representativo da primeira linha (uma conta pode ter múltiplas FRs;
+    # a tela trata isso como informação resumida)
+    fr_by_conta: dict[str, str | None] = {}
+    if "fr" in sub.columns:
+        for conta, sub_grp in sub.groupby("conta_contabil"):
+            frs = [
+                str(v) for v in sub_grp["fr"].unique() if str(v) and str(v).lower() != "nan"
+            ]
+            fr_by_conta[str(conta)] = ", ".join(frs) if frs else None
+
+    out: list[ContaResumo] = []
+    sign = -1.0 if nat_saldo == "C" else 1.0
+    for _, row in grouped.iterrows():
+        conta = str(row["conta_contabil"])
+        out.append(
+            ContaResumo(
+                conta_contabil=conta,
+                saldo_inicial=sign * (float(row["sid"]) - float(row["sic"])),
+                saldo_final=sign * (float(row["sfd"]) - float(row["sfc"])),
+                movimento_liquido=sign * (float(row["md"]) - float(row["mc"])),
+                fr=fr_by_conta.get(conta),
+            )
+        )
+    return sorted(out, key=lambda r: r.conta_contabil)

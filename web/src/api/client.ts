@@ -4,6 +4,7 @@
 import type {
   Competencia,
   ContaDetail,
+  ContaList,
   Heatmap,
   PendenciasPage,
   Rule,
@@ -105,6 +106,19 @@ export const api = {
     fetch(
       `${BASE}/contas/${encodeURIComponent(contaContabil)}${qs({ siconfi, competencia })}`,
     ).then((r) => jsonOrThrow<ContaDetail>(r)),
+
+  caixa: (siconfi: string, competencia: string): Promise<ContaList> =>
+    fetch(`${BASE}/caixa${qs({ siconfi, competencia })}`).then((r) =>
+      jsonOrThrow<ContaList>(r),
+    ),
+
+  passivos: (siconfi: string, competencia: string): Promise<ContaList> =>
+    fetch(`${BASE}/passivos${qs({ siconfi, competencia })}`).then((r) =>
+      jsonOrThrow<ContaList>(r),
+    ),
+
+  superavit: (siconfi: string, competencia: string): Promise<Response> =>
+    fetch(`${BASE}/superavit${qs({ siconfi, competencia })}`),
 };
 
 export { ApiError };

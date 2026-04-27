@@ -8,10 +8,10 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.api import deps as api_deps
 from app.api.main import app
+from fastapi.testclient import TestClient
+
 from tests.conftest import _build_msc_csv_bytes  # type: ignore[attr-defined]
 
 

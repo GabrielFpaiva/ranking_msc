@@ -1,0 +1,56 @@
+"""
+app.api.routes.caixa
+~~~~~~~~~~~~~~~~~~~~
+
+GET /api/caixa — disponibilidades (Ativo Circulante 1.1.1.x).
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Query
+
+from app.api.deps import absolute_snapshots_dir
+from app.api.schemas import ContaListGroupOut, ContaListOut, ContaResumoOut
+from ranking_msc.outputs.aggregations import accounts_by_prefix
+
+router = APIRouter(prefix="/api", tags=["contas"])
+
+
+@router.get(
+    "/caixa",
+    response_model=ContaListOut,
+    summary="Disponibilidades — Ativo Circulante 1.1.1.x",
+)
+def get_caixa(
+    siconfi: str = Query(..., description="Código SICONFI"),
+    competencia: str = Query(..., description="YYYY-MM"),
+) -> ContaListOut:
+    items = accounts_by_prefix(
+        absolute_snapshots_dir(),
+        siconfi,
+        competencia,
+        prefixes=["111"],
+        nat_saldo="D",
+    )
+    total = sum(i.saldo_final for i in items)
+    return ContaListOut(
+        siconfi=siconfi,
+        competencia=competencia,
+        groups=[
+            ContaListGroupOut(
+                label="Caixa e Equivalentes",
+                prefixes=["1.1.1.x"],
+                total_saldo_final=total,
+                items=[
+                    ContaResumoOut(
+                        conta_contabil=i.conta_contabil,
+                        saldo_inicial=i.saldo_inicial,
+                        saldo_final=i.saldo_final,
+                        movimento_liquido=i.movimento_liquido,
+                        fr=i.fr,
+                    )
+                    for i in items
+                ],
+            )
+        ],
+    )

@@ -143,3 +143,26 @@ export interface ContaDetail {
   pcasp: Record<string, string> | null;
   pendencias_count: number;
 }
+
+// ---------- Caixa / Passivos (fatia D) ----------
+
+export interface ContaResumo {
+  conta_contabil: string;
+  saldo_inicial: number;
+  saldo_final: number;
+  movimento_liquido: number;
+  fr: string | null;
+}
+
+export interface ContaListGroup {
+  label: string;
+  prefixes: string[];
+  total_saldo_final: number;
+  items: ContaResumo[];
+}
+
+export interface ContaList {
+  siconfi: string;
+  competencia: string;
+  groups: ContaListGroup[];
+}
