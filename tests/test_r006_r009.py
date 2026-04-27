@@ -213,6 +213,42 @@ class TestR008:
         result = R008().execute(raw.df, ctx)
         assert len(result) == 0
 
+    def test_csv_comma_delimited_surfaces_r008(self, settings: Settings) -> None:
+        """CSV with comma delimiter → R008 in pre_pivot_issues (not InputFormatError).
+
+        Regression: previously the reader would parse with ';', causing all
+        critical columns to appear missing and raising InputFormatError before
+        R008 could reach the rule engine.
+        """
+        header = (
+            "CONTA,IC1,TIPO1,IC2,TIPO2,IC3,TIPO3,IC4,TIPO4,IC5,TIPO5,IC6,TIPO6"
+            ",Valor,Tipo_valor,Natureza_valor"
+        )
+        rows = [
+            "111110200,10131,PO,1,FP,1500,FR,,,,,,,1000.00,beginning_balance,D",
+            "111110200,10131,PO,1,FP,1500,FR,,,,,,,500.00,beginning_balance,C",
+            "111110200,10131,PO,1,FP,1500,FR,,,,,,,200.00,ending_balance,D",
+            "111110200,10131,PO,1,FP,1500,FR,,,,,,,100.00,ending_balance,C",
+        ]
+        # Metadata line still uses ';' (as it always does)
+        content = "\r".join(["2507507EX;2024-01", header] + rows)
+        csv_bytes = content.encode("ascii")
+
+        raw = read_msc_csv(io.BytesIO(csv_bytes))
+        r008_issues = [i for i in raw.pre_pivot_issues if i.get("regra") == "R008"]
+        assert len(r008_issues) == 1
+        assert r008_issues[0]["valor_encontrado"] == ","
+
+        # The DataFrame should still be usable (re-parsed with ',')
+        assert len(raw.df) > 0
+        assert "conta_contabil" in raw.df.columns
+
+        # R008 rule should produce ERRO from the pre_pivot_issues
+        ctx = _ctx(settings, pre_pivot_issues=raw.pre_pivot_issues)
+        result = R008().execute(raw.df, ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ERRO"
+
 
 # ---------------------------------------------------------------------------
 # R009 — Exatamente 6 pares IC/TIPO (12 colunas)

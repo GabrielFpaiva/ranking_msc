@@ -151,7 +151,21 @@ def read_msc_csv(
     )
 
     csv_text = "\n".join(lines[1:])
-    df = _parse_csv(csv_text, separator, source)
+    actual_sep = separator
+    if r008_issues:
+        # Wrong delimiter detected — re-parse with the detected separator so
+        # the pipeline can continue.  R008 will surface as a proper rule
+        # result instead of _validate_columns raising InputFormatError on
+        # missing critical columns.
+        detected = str(r008_issues[0].get("valor_encontrado", ","))
+        logger.warning(
+            "Separador esperado '%s' não encontrado; re-parsing com '%s'. Fonte: %s",
+            separator, detected, source,
+            extra={"siconfi": siconfi, "competencia": competencia, "modulo": "reader_msc"},
+        )
+        actual_sep = detected
+
+    df = _parse_csv(csv_text, actual_sep, source)
     r001_r009_issues = _validate_columns(df, source)
     df, pivot_issues = _pivot_values(df, competencia, siconfi)
     pre_pivot_issues = metadata_issues + r008_issues + r001_r009_issues + pivot_issues
