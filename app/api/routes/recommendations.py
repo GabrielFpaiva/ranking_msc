@@ -41,9 +41,8 @@ def get_recommendations(
         ) from exc
 
     settings = get_settings()
-    rule_ids = read_scoring_metadata(competencia, base_dir=base) or list(
-        settings.rules.enabled
-    )
+    meta = read_scoring_metadata(competencia, base_dir=base)
+    rule_ids = meta if meta is not None else list(settings.rules.enabled)
     score_atual = calculate_score(pendencias, rule_ids)
 
     # Score anterior — pega o último ponto antes da competência atual

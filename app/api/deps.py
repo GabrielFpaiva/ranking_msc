@@ -41,7 +41,7 @@ def get_settings() -> Settings:
 def get_logger() -> logging.Logger:
     """Configura e retorna o logger padrão do ranking_msc."""
     settings = get_settings()
-    return setup_logging(log_dir=settings.paths.logs_dir)
+    return setup_logging(log_dir=PROJECT_ROOT / settings.paths.logs_dir)
 
 
 def absolute_snapshots_dir() -> Path:

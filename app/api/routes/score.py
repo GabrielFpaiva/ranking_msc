@@ -44,9 +44,8 @@ def get_score(
             detail=f"Snapshot não encontrado para {siconfi}/{competencia}.",
         ) from exc
 
-    rule_ids = read_scoring_metadata(competencia, base_dir=base) or list(
-        get_settings().rules.enabled
-    )
+    meta = read_scoring_metadata(competencia, base_dir=base)
+    rule_ids = meta if meta is not None else list(get_settings().rules.enabled)
     score_result = calculate_score(pendencias, rule_ids)
 
     return ScoreOut(
