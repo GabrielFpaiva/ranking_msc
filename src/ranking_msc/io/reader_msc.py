@@ -142,10 +142,16 @@ def read_msc_csv(
         )
 
     effective_sep, r008_issues = _detect_effective_separator(lines[0], lines[1], separator)
-    # Metadata separator may differ from body separator: if the metadata line
-    # already matches the semicolon pattern, parse it with ";"; otherwise use
-    # whatever effective_sep was detected (e.g. "," for fully comma-delimited files).
-    meta_sep = ";" if _METADATA_RE.match(lines[0].strip()) else effective_sep
+    # Metadata separator is determined by what the metadata line itself contains,
+    # independently of the body separator. Try semicolon first (expected format);
+    # fall back to comma if the line only matches the comma pattern.
+    _meta = lines[0].strip()
+    if _METADATA_RE.match(_meta):
+        meta_sep = ";"
+    elif _METADATA_COMMA_RE.match(_meta):
+        meta_sep = ","
+    else:
+        meta_sep = separator
     competencia, siconfi = _extract_metadata(lines[0], meta_sep)
     metadata_issues = _validate_metadata(siconfi, competencia)
     logger.info(
@@ -349,9 +355,15 @@ def _detect_effective_separator(
     if expected_sep != ";":
         return expected_sep, []
 
+    # Header is authoritative for the body separator.
+    header_issues = _detect_separator_issue(header_line, expected_sep)
+    if header_issues:
+        return ",", header_issues
+
+    # Header is clean; check metadata as secondary R008 source.
     meta = metadata_line.strip()
     if not _METADATA_RE.match(meta) and _METADATA_COMMA_RE.match(meta):
-        return ",", [{
+        return expected_sep, [{
             "regra": "R008",
             "conta_contabil": "",
             "campo": "separador",
@@ -359,9 +371,6 @@ def _detect_effective_separator(
             "competencia": "",
         }]
 
-    issues = _detect_separator_issue(header_line, expected_sep)
-    if issues:
-        return ",", issues
     return expected_sep, []
 
 

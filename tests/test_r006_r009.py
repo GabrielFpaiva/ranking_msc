@@ -267,6 +267,22 @@ class TestR008:
         assert len(r008) == 1
         assert r008[0]["valor_encontrado"] == ","
 
+    def test_metadata_comma_body_semicolon_retorna_r008_sem_abort(self) -> None:
+        """Metadata com ',' mas body com ';' → R008 emitido, parse do body com ';'."""
+        lines = [
+            "2507507EX,2024-01",
+            "CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6"
+            ";Valor;Tipo_valor;Natureza_valor",
+            "111110200;10131;PO;1;FP;1500;FR;;;;;;;1000.00;beginning_balance;D",
+            "111110200;10131;PO;1;FP;1500;FR;;;;;;;500.00;beginning_balance;C",
+        ]
+        csv_bytes = "\r".join(lines).encode("ascii")
+        raw = read_msc_csv(io.BytesIO(csv_bytes))
+        r008 = [i for i in raw.pre_pivot_issues if i.get("regra") == "R008"]
+        assert len(r008) == 1
+        assert r008[0]["valor_encontrado"] == ","
+        assert len(raw.df) > 0
+
     def test_metadata_invalido_com_virgula_retorna_r008_e_r006(self) -> None:
         """Metadata 'invalido,2024-01' → R008 + R006; não levanta InputFormatError."""
         header = (
@@ -284,10 +300,10 @@ class TestR008:
         assert "R008" in regras
         assert "R006" in regras
 
-    def test_detect_effective_separator_metadata_comma(self) -> None:
-        """_detect_effective_separator detecta vírgula na metadata e retorna R008."""
+    def test_detect_effective_separator_metadata_comma_header_semicolon(self) -> None:
+        """Metadata com ',' mas header com ';' → body sep permanece ';', R008 emitido."""
         sep, issues = _detect_effective_separator("2507507EX,2024-01", "CONTA;IC1", ";")
-        assert sep == ","
+        assert sep == ";"
         assert len(issues) == 1
         assert issues[0]["regra"] == "R008"
 
