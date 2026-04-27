@@ -65,9 +65,16 @@ export function Executivo() {
     return <p className="samid-muted">Carregando visão executiva...</p>;
   }
 
-  const last = history?.points[history.points.length - 1];
-  const prev = history && history.points.length >= 2 ? history.points[history.points.length - 2] : null;
-  const delta = last && prev ? last.pontuacao - prev.pontuacao : null;
+  // Delta é sempre relativo à competência ativa exibida no header — não aos
+  // dois pontos mais novos do histórico. Quando o usuário processa/backfilla
+  // um mês antigo depois de já existirem snapshots mais novos, "últimos dois"
+  // mostraria delta de outra competência, contradizendo o score em tela.
+  const prev =
+    history?.points
+      .filter((p) => p.competencia < competencia)
+      .sort((a, b) => a.competencia.localeCompare(b.competencia))
+      .at(-1) ?? null;
+  const delta = prev ? score.pontuacao - prev.pontuacao : null;
 
   return (
     <div className="samid-stack">

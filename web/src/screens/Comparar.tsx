@@ -15,6 +15,7 @@ export function Comparar() {
   useEffect(() => {
     if (!siconfi) return;
     let cancelled = false;
+    setError(null);
     api
       .competencias(siconfi)
       .then((items) => {
@@ -35,14 +36,18 @@ export function Comparar() {
   }, [siconfi, competencia]);
 
   useEffect(() => {
+    let cancelled = false;
+    setError(null);
     if (!siconfi || !a || !b || a === b) {
       setDiff(null);
       return;
     }
-    let cancelled = false;
     api
       .compare(siconfi, a, b)
-      .then((d) => !cancelled && setDiff(d))
+      .then((d) => {
+        if (cancelled) return;
+        setDiff(d);
+      })
       .catch((err: Error) => !cancelled && setError(err.message));
     return () => {
       cancelled = true;
