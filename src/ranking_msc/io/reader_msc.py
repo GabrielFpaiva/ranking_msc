@@ -141,9 +141,13 @@ def read_msc_csv(
             f"Fonte: {source}"
         )
 
-    competencia, siconfi = _extract_metadata(lines[0])
+    effective_sep, r008_issues = _detect_effective_separator(lines[0], lines[1], separator)
+    # Metadata separator may differ from body separator: if the metadata line
+    # already matches the semicolon pattern, parse it with ";"; otherwise use
+    # whatever effective_sep was detected (e.g. "," for fully comma-delimited files).
+    meta_sep = ";" if _METADATA_RE.match(lines[0].strip()) else effective_sep
+    competencia, siconfi = _extract_metadata(lines[0], meta_sep)
     metadata_issues = _validate_metadata(siconfi, competencia)
-    r008_issues = _detect_separator_issue(lines[1], separator)
     logger.info(
         "Lendo CSV MSC: siconfi=%s, competência=%s, fonte=%s",
         siconfi, competencia, source,
@@ -151,21 +155,7 @@ def read_msc_csv(
     )
 
     csv_text = "\n".join(lines[1:])
-    actual_sep = separator
-    if r008_issues:
-        # Wrong delimiter detected — re-parse with the detected separator so
-        # the pipeline can continue.  R008 will surface as a proper rule
-        # result instead of _validate_columns raising InputFormatError on
-        # missing critical columns.
-        detected = str(r008_issues[0].get("valor_encontrado", ","))
-        logger.warning(
-            "Separador esperado '%s' não encontrado; re-parsing com '%s'. Fonte: %s",
-            separator, detected, source,
-            extra={"siconfi": siconfi, "competencia": competencia, "modulo": "reader_msc"},
-        )
-        actual_sep = detected
-
-    df = _parse_csv(csv_text, actual_sep, source)
+    df = _parse_csv(csv_text, effective_sep, source)
     r001_r009_issues = _validate_columns(df, source)
     df, pivot_issues = _pivot_values(df, competencia, siconfi)
     pre_pivot_issues = metadata_issues + r008_issues + r001_r009_issues + pivot_issues
@@ -229,10 +219,11 @@ def _read_and_decode(file: str | Path | io.BytesIO, encoding: str) -> str:
 
 
 _METADATA_RE = re.compile(r"^(.+);(\d{4}-\d{2})$")
+_METADATA_COMMA_RE = re.compile(r"^([^,]+),(\d{4}-\d{2})$")
 _SICONFI_RE = re.compile(r"^\d{7}EX$")
 
 
-def _extract_metadata(first_line: str) -> tuple[str, str]:
+def _extract_metadata(first_line: str, sep: str = ";") -> tuple[str, str]:
     """Extrai competência e siconfi a partir da primeira linha do CSV.
 
     Formato esperado: ``<SICONFI>;<YYYY-MM>``
@@ -240,6 +231,7 @@ def _extract_metadata(first_line: str) -> tuple[str, str]:
 
     Args:
         first_line: primeira linha do arquivo (metadata).
+        sep: separador usado na linha (padrão ``";"``).
 
     Returns:
         Tupla ``(competencia, siconfi)``.
@@ -248,7 +240,8 @@ def _extract_metadata(first_line: str) -> tuple[str, str]:
         InputFormatError: se a linha não seguir o formato esperado.
     """
     line = first_line.strip()
-    match = _METADATA_RE.match(line)
+    pattern = _METADATA_RE if sep == ";" else _METADATA_COMMA_RE
+    match = pattern.match(line)
     if not match:
         raise InputFormatError(
             f"Linha de metadata com formato inesperado: '{line}'. "
@@ -331,6 +324,45 @@ def _detect_separator_issue(header_line: str, expected_sep: str) -> list[dict[st
             "competencia": "",
         }]
     return []
+
+
+def _detect_effective_separator(
+    metadata_line: str, header_line: str, expected_sep: str
+) -> tuple[str, list[dict[str, object]]]:
+    """Detecta o separador efetivo verificando metadata e header; emite R008 se necessário.
+
+    Verifica primeiro a linha de metadata (linha 1): se não bate com o padrão de
+    ponto-e-vírgula mas bate com vírgula, o arquivo inteiro usa vírgula e R008 é
+    emitido imediatamente. Caso contrário, delega a checagem ao header (linha 2).
+
+    Essa função garante que arquivos com separador errado na metadata não abortem
+    o pipeline com InputFormatError antes de R008 ser registrado.
+
+    Args:
+        metadata_line: primeira linha do arquivo (metadata).
+        header_line: segunda linha do arquivo (cabeçalho das colunas).
+        expected_sep: separador esperado (padrão ";").
+
+    Returns:
+        Tupla ``(sep_efetivo, r008_issues)``.
+    """
+    if expected_sep != ";":
+        return expected_sep, []
+
+    meta = metadata_line.strip()
+    if not _METADATA_RE.match(meta) and _METADATA_COMMA_RE.match(meta):
+        return ",", [{
+            "regra": "R008",
+            "conta_contabil": "",
+            "campo": "separador",
+            "valor_encontrado": ",",
+            "competencia": "",
+        }]
+
+    issues = _detect_separator_issue(header_line, expected_sep)
+    if issues:
+        return ",", issues
+    return expected_sep, []
 
 
 def _parse_csv(csv_text: str, separator: str, source: str) -> pd.DataFrame:

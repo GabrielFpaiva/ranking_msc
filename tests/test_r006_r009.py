@@ -15,7 +15,11 @@ import pandas as pd
 
 from ranking_msc.config.settings import Settings
 from ranking_msc.engine.executor import EngineContext
-from ranking_msc.io.reader_msc import _detect_separator_issue, read_msc_csv
+from ranking_msc.io.reader_msc import (
+    _detect_effective_separator,
+    _detect_separator_issue,
+    read_msc_csv,
+)
 from ranking_msc.rules.r006 import R006
 from ranking_msc.rules.r007 import R007
 from ranking_msc.rules.r008 import R008
@@ -222,7 +226,7 @@ class TestR008:
         """
         header = (
             "CONTA,IC1,TIPO1,IC2,TIPO2,IC3,TIPO3,IC4,TIPO4,IC5,TIPO5,IC6,TIPO6"
-            ",Valor,Tipo_valor,Natureza_valor"
+            + ",Valor,Tipo_valor,Natureza_valor"
         )
         rows = [
             "111110200,10131,PO,1,FP,1500,FR,,,,,,,1000.00,beginning_balance,D",
@@ -230,7 +234,6 @@ class TestR008:
             "111110200,10131,PO,1,FP,1500,FR,,,,,,,200.00,ending_balance,D",
             "111110200,10131,PO,1,FP,1500,FR,,,,,,,100.00,ending_balance,C",
         ]
-        # Metadata line still uses ';' (as it always does)
         content = "\r".join(["2507507EX;2024-01", header] + rows)
         csv_bytes = content.encode("ascii")
 
@@ -238,16 +241,68 @@ class TestR008:
         r008_issues = [i for i in raw.pre_pivot_issues if i.get("regra") == "R008"]
         assert len(r008_issues) == 1
         assert r008_issues[0]["valor_encontrado"] == ","
-
-        # The DataFrame should still be usable (re-parsed with ',')
         assert len(raw.df) > 0
         assert "conta_contabil" in raw.df.columns
 
-        # R008 rule should produce ERRO from the pre_pivot_issues
         ctx = _ctx(settings, pre_pivot_issues=raw.pre_pivot_issues)
         result = R008().execute(raw.df, ctx)
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ERRO"
+
+    def test_metadata_comma_delimiter_retorna_r008_sem_abort(self) -> None:
+        """Metadata com ',' (ex: '2507507EX,2024-01') → R008 em pre_pivot_issues, sem abort."""
+        header = (
+            "CONTA,IC1,TIPO1,IC2,TIPO2,IC3,TIPO3,IC4,TIPO4,IC5,TIPO5,IC6,TIPO6"
+            + ",Valor,Tipo_valor,Natureza_valor"
+        )
+        lines = [
+            "2507507EX,2024-01",
+            header,
+            "111110200,10131,PO,,,,,,,,,,,,1000.00,beginning_balance,D",
+            "111110200,10131,PO,,,,,,,,,,,,500.00,beginning_balance,C",
+        ]
+        csv_bytes = "\r".join(lines).encode("ascii")
+        raw = read_msc_csv(io.BytesIO(csv_bytes))
+        r008 = [i for i in raw.pre_pivot_issues if i.get("regra") == "R008"]
+        assert len(r008) == 1
+        assert r008[0]["valor_encontrado"] == ","
+
+    def test_metadata_invalido_com_virgula_retorna_r008_e_r006(self) -> None:
+        """Metadata 'invalido,2024-01' → R008 + R006; não levanta InputFormatError."""
+        header = (
+            "CONTA,IC1,TIPO1,IC2,TIPO2,IC3,TIPO3,IC4,TIPO4,IC5,TIPO5,IC6,TIPO6"
+            + ",Valor,Tipo_valor,Natureza_valor"
+        )
+        lines = [
+            "invalido,2024-01",
+            header,
+            "111110200,10131,PO,,,,,,,,,,,,1000.00,beginning_balance,D",
+        ]
+        csv_bytes = "\r".join(lines).encode("ascii")
+        raw = read_msc_csv(io.BytesIO(csv_bytes))
+        regras = {i["regra"] for i in raw.pre_pivot_issues}
+        assert "R008" in regras
+        assert "R006" in regras
+
+    def test_detect_effective_separator_metadata_comma(self) -> None:
+        """_detect_effective_separator detecta vírgula na metadata e retorna R008."""
+        sep, issues = _detect_effective_separator("2507507EX,2024-01", "CONTA;IC1", ";")
+        assert sep == ","
+        assert len(issues) == 1
+        assert issues[0]["regra"] == "R008"
+
+    def test_detect_effective_separator_header_comma_retorna_sep_virgula(self) -> None:
+        """Metadata com ';' mas header com ',' → effective_sep=',' e R008."""
+        sep, issues = _detect_effective_separator("2507507EX;2024-01", "CONTA,IC1", ";")
+        assert sep == ","
+        assert len(issues) == 1
+        assert issues[0]["regra"] == "R008"
+
+    def test_detect_effective_separator_ambos_corretos(self) -> None:
+        """_detect_effective_separator sem desvio → sem issues."""
+        sep, issues = _detect_effective_separator("2507507EX;2024-01", "CONTA;IC1", ";")
+        assert sep == ";"
+        assert issues == []
 
 
 # ---------------------------------------------------------------------------
