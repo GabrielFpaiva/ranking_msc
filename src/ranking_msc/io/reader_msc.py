@@ -141,7 +141,19 @@ def read_msc_csv(
             f"Fonte: {source}"
         )
 
-    effective_sep, r008_issues = _detect_effective_separator(lines[0], lines[1], separator)
+    effective_sep, r008_issues = _detect_effective_separator(
+        lines[0], lines[1], separator, data_lines=lines[2:]
+    )
+
+    # Quando o separador efetivo do corpo difere do separador do header (ex: header
+    # usa vírgula mas dados usam ";"), normalizar o header para usar o separador do
+    # corpo antes de passar para pd.read_csv.  Isso garante parse correto enquanto
+    # R008 já foi emitido acima.
+    header_line = lines[1]
+    header_sep_in_use = "," if (header_line.count(",") > header_line.count(";")) else ";"
+    if header_sep_in_use != effective_sep:
+        header_line = header_line.replace(header_sep_in_use, effective_sep)
+
     # Metadata separator is determined by what the metadata line itself contains,
     # independently of the body separator. Try semicolon first (expected format);
     # fall back to comma if the line only matches the comma pattern.
@@ -160,7 +172,7 @@ def read_msc_csv(
         extra={"siconfi": siconfi, "competencia": competencia, "modulo": "reader_msc"},
     )
 
-    csv_text = "\n".join(lines[1:])
+    csv_text = "\n".join([header_line] + lines[2:])
     df = _parse_csv(csv_text, effective_sep, source)
     r001_r009_issues = _validate_columns(df, source)
     df, pivot_issues = _pivot_values(df, competencia, siconfi)
@@ -235,6 +247,11 @@ def _extract_metadata(first_line: str, sep: str = ";") -> tuple[str, str]:
     Formato esperado: ``<SICONFI>;<YYYY-MM>``
     Exemplo: ``2507507EX;2025-11`` → (``"2025-11"``, ``"2507507EX"``)
 
+    Nunca levanta exceção para entradas parcialmente legíveis: utiliza
+    extração por melhor esforço (``split``) quando os padrões conhecidos
+    não casam.  Reserva ``InputFormatError`` somente para linha em branco
+    — único caso em que nenhum dado pode ser recuperado.
+
     Args:
         first_line: primeira linha do arquivo (metadata).
         sep: separador usado na linha (padrão ``";"``).
@@ -243,19 +260,30 @@ def _extract_metadata(first_line: str, sep: str = ";") -> tuple[str, str]:
         Tupla ``(competencia, siconfi)``.
 
     Raises:
-        InputFormatError: se a linha não seguir o formato esperado.
+        InputFormatError: somente se a linha estiver completamente em branco.
     """
     line = first_line.strip()
+
+    if not line:
+        raise InputFormatError(
+            "Linha de metadata está em branco — não é possível extrair "
+            "siconfi nem competência."
+        )
+
+    # Tentativa 1: padrão canônico (ex: "2507507EX;2025-11" ou "2507507EX,2025-11")
     pattern = _METADATA_RE if sep == ";" else _METADATA_COMMA_RE
     match = pattern.match(line)
-    if not match:
-        raise InputFormatError(
-            f"Linha de metadata com formato inesperado: '{line}'. "
-            "Esperado: '<SICONFI>;<YYYY-MM>' (ex: '2507507EX;2025-11')."
-        )
-    siconfi = match.group(1)
-    competencia = match.group(2)
-    return competencia, siconfi
+    if match:
+        return match.group(2), match.group(1)
+
+    # Tentativa 2: melhor esforço via split — extrai o que for possível e
+    # deixa _validate_metadata emitir R006/R007 para valores inválidos.
+    if sep in line:
+        left, right = line.split(sep, 1)
+        return right.strip(), left.strip()
+
+    # Linha sem separador algum: siconfi não reconhecível, competência vazia.
+    return "", line
 
 
 def _validate_metadata(siconfi: str, competencia: str) -> list[dict[str, object]]:
@@ -304,6 +332,37 @@ def _validate_metadata(siconfi: str, competencia: str) -> list[dict[str, object]
     return issues
 
 
+def _infer_sep_from_rows(data_lines: list[str] | None, fallback: str) -> str:
+    """Infere o separador efetivo amostrado das primeiras linhas de dados.
+
+    Compara a contagem de ``;`` vs ``,`` em até 3 linhas não-vazias.  Retorna
+    o separador com maior contagem total.  Quando não há linhas disponíveis ou
+    os contadores são iguais, retorna ``fallback``.
+
+    Args:
+        data_lines: linhas de dados (linha 3 em diante do arquivo MSC).
+        fallback: separador a retornar quando a inferência é inconclusiva.
+
+    Returns:
+        Separador inferido (``";"`` ou ``","``) ou ``fallback``.
+    """
+    if not data_lines:
+        return fallback
+
+    sample = [ln for ln in data_lines if ln.strip()][:3]
+    if not sample:
+        return fallback
+
+    total_semi = sum(ln.count(";") for ln in sample)
+    total_comma = sum(ln.count(",") for ln in sample)
+
+    if total_semi > total_comma:
+        return ";"
+    if total_comma > total_semi:
+        return ","
+    return fallback
+
+
 def _detect_separator_issue(header_line: str, expected_sep: str) -> list[dict[str, object]]:
     """Detecta uso de separador incorreto na linha de cabeçalho (R008).
 
@@ -333,21 +392,27 @@ def _detect_separator_issue(header_line: str, expected_sep: str) -> list[dict[st
 
 
 def _detect_effective_separator(
-    metadata_line: str, header_line: str, expected_sep: str
+    metadata_line: str,
+    header_line: str,
+    expected_sep: str,
+    data_lines: list[str] | None = None,
 ) -> tuple[str, list[dict[str, object]]]:
-    """Detecta o separador efetivo verificando metadata e header; emite R008 se necessário.
+    """Detecta o separador efetivo verificando metadata, header e linhas de dados.
 
-    Verifica primeiro a linha de metadata (linha 1): se não bate com o padrão de
-    ponto-e-vírgula mas bate com vírgula, o arquivo inteiro usa vírgula e R008 é
-    emitido imediatamente. Caso contrário, delega a checagem ao header (linha 2).
+    Emite R008 quando o header usa vírgula em vez de ponto-e-vírgula.  Antes
+    de confirmar o separador efetivo como vírgula, amostra as primeiras linhas
+    de dados via ``_infer_sep_from_rows``: se os dados ainda usam ``;``, o
+    corpo continua sendo lido com ``;`` (cabeçalho malformado, dados corretos).
 
-    Essa função garante que arquivos com separador errado na metadata não abortem
-    o pipeline com InputFormatError antes de R008 ser registrado.
+    Essa abordagem impede que arquivos cujo header usa vírgula mas cujos dados
+    usam ``;`` sejam parseados com separador errado, resultando em DataFrame
+    vazio silencioso.
 
     Args:
         metadata_line: primeira linha do arquivo (metadata).
         header_line: segunda linha do arquivo (cabeçalho das colunas).
-        expected_sep: separador esperado (padrão ";").
+        expected_sep: separador esperado (padrão ``";"``).
+        data_lines: linhas de dados (linha 3+) para inferência de separador.
 
     Returns:
         Tupla ``(sep_efetivo, r008_issues)``.
@@ -355,12 +420,16 @@ def _detect_effective_separator(
     if expected_sep != ";":
         return expected_sep, []
 
-    # Header is authoritative for the body separator.
+    # Header é a fonte primária para detecção de separador incorreto.
     header_issues = _detect_separator_issue(header_line, expected_sep)
     if header_issues:
-        return ",", header_issues
+        # Antes de forçar vírgula, verificar o que as linhas de dados usam.
+        # Se os dados usam ";", o corpo deve ser lido com ";" mesmo que o
+        # header esteja malformado — R008 ainda é emitido.
+        body_sep = _infer_sep_from_rows(data_lines, fallback=",")
+        return body_sep, header_issues
 
-    # Header is clean; check metadata as secondary R008 source.
+    # Header limpo; verificar metadata como fonte secundária de R008.
     meta = metadata_line.strip()
     if not _METADATA_RE.match(meta) and _METADATA_COMMA_RE.match(meta):
         return expected_sep, [{
