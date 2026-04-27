@@ -529,3 +529,75 @@ class TestP2MetadataParcial:
         regras = {i["regra"] for i in result.pre_pivot_issues}
         assert "R006" in regras, "R006 deve ser emitido para siconfi vazio"
         assert "R007" in regras, "R007 deve ser emitido para competencia inválida"
+
+
+# ---------------------------------------------------------------------------
+# Sanitização de path traversal
+# ---------------------------------------------------------------------------
+
+
+class TestPathTraversalSanitization:
+    """Testes de sanitização de path traversal em metadados."""
+
+    def test_competencia_path_traversal_emite_r007_com_valor_original(
+        self, tmp_path: Path,
+    ) -> None:
+        """Competência com path traversal → R007 com valor original, RawMSC sanitizado.
+
+        Entrada: ``../../outside`` como competência.
+        Esperado:
+        - R007 em pre_pivot_issues com ``valor_encontrado="../../outside"``.
+        - ``RawMSC.competencia == "0000-00"`` (valor sanitizado, seguro para I/O).
+        - Pipeline não aborta.
+        """
+        content = (
+            b"2507507EX;../../outside\r"
+            b"CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6;Valor;Tipo_valor;Natureza_valor\r"
+            b"111110200;10131;PO;1;FP;1500;FR;;;;;;;;1000.00;beginning_balance;D"
+        )
+        path = tmp_path / "path_traversal.csv"
+        path.write_bytes(content)
+
+        result = read_msc_csv(path)
+
+        # R007 deve conter o valor ORIGINAL (não sanitizado)
+        r007_issues = [i for i in result.pre_pivot_issues if i["regra"] == "R007"]
+        assert len(r007_issues) >= 1, "R007 deve ser emitido para competencia inválida"
+        assert r007_issues[0]["valor_encontrado"] == "../../outside", (
+            "valor_encontrado deve ser o valor original (pre-sanitização)"
+        )
+
+        # RawMSC deve conter o valor SANITIZADO
+        assert result.competencia == "0000-00", (
+            f"competencia do RawMSC deve ser '0000-00', foi '{result.competencia}'"
+        )
+        assert len(result.df) > 0, "DataFrame não pode ser vazio"
+
+    def test_siconfi_com_caracteres_invalidos_sanitizado_no_rawmsc(
+        self, tmp_path: Path,
+    ) -> None:
+        """SICONFI com caracteres não-alfanuméricos é sanitizado antes de RawMSC.
+
+        Entrada: ``MAU;SICONFI`` como siconfi (não casa com padrão ``\\d{7}EX``).
+        Esperado:
+        - R006 emitido com valor original.
+        - ``RawMSC.siconfi`` não contém ``;`` nem outros caracteres inseguros.
+        """
+        content = (
+            b"MAU;SICONFI;2025-11\r"
+            b"CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6;Valor;Tipo_valor;Natureza_valor\r"
+            b"111110200;10131;PO;1;FP;1500;FR;;;;;;;;1000.00;beginning_balance;D"
+        )
+        path = tmp_path / "siconfi_invalido.csv"
+        path.write_bytes(content)
+
+        result = read_msc_csv(path)
+
+        # R006 deve ter sido emitido
+        r006_issues = [i for i in result.pre_pivot_issues if i["regra"] == "R006"]
+        assert len(r006_issues) >= 1, "R006 deve ser emitido para siconfi inválido"
+
+        # siconfi sanitizado não deve conter caracteres perigosos para caminhos
+        assert ";" not in result.siconfi
+        assert "/" not in result.siconfi
+        assert ".." not in result.siconfi

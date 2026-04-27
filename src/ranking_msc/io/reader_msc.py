@@ -166,6 +166,8 @@ def read_msc_csv(
         meta_sep = separator
     competencia, siconfi = _extract_metadata(lines[0], meta_sep)
     metadata_issues = _validate_metadata(siconfi, competencia)
+    # Sanitizar antes de usar em caminhos — R006/R007 já capturaram os valores originais.
+    siconfi, competencia = _sanitize_for_paths(siconfi, competencia)
     logger.info(
         "Lendo CSV MSC: siconfi=%s, competência=%s, fonte=%s",
         siconfi, competencia, source,
@@ -239,6 +241,8 @@ def _read_and_decode(file: str | Path | io.BytesIO, encoding: str) -> str:
 _METADATA_RE = re.compile(r"^(.+);(\d{4}-\d{2})$")
 _METADATA_COMMA_RE = re.compile(r"^([^,]+),(\d{4}-\d{2})$")
 _SICONFI_RE = re.compile(r"^\d{7}EX$")
+_COMPETENCIA_SAFE_RE = re.compile(r"^\d{4}-\d{2}$")
+_PATH_UNSAFE_RE = re.compile(r"[^A-Za-z0-9\-_]")
 
 
 def _extract_metadata(first_line: str, sep: str = ";") -> tuple[str, str]:
@@ -361,6 +365,29 @@ def _infer_sep_from_rows(data_lines: list[str] | None, fallback: str) -> str:
     if total_comma > total_semi:
         return ","
     return fallback
+
+
+def _sanitize_for_paths(siconfi: str, competencia: str) -> tuple[str, str]:
+    """Sanitiza metadados para uso seguro em caminhos de filesystem.
+
+    Impede path traversal (ex: ``../../``) em valores inválidos produzidos pela
+    extração por melhor esforço. As violações R006/R007 já foram emitidas com
+    os valores originais por ``_validate_metadata``; aqui apenas tornamos os
+    valores seguros para I/O de snapshots e relatórios.
+
+    Args:
+        siconfi: código SICONFI extraído (pode ser inválido).
+        competencia: período extraído (pode ser inválido ou conter ``/..``).
+
+    Returns:
+        Tupla ``(siconfi_seguro, competencia_segura)``.
+        ``competencia`` é substituída por ``"0000-00"`` se não respeitar
+        o formato ``YYYY-MM``; ``siconfi`` tem caracteres não-alfanuméricos
+        substituídos por ``_``.
+    """
+    safe_comp = competencia if _COMPETENCIA_SAFE_RE.match(competencia) else "0000-00"
+    safe_sico = _PATH_UNSAFE_RE.sub("_", siconfi) if siconfi else "_"
+    return safe_sico, safe_comp
 
 
 def _detect_separator_issue(header_line: str, expected_sep: str) -> list[dict[str, object]]:
