@@ -7,9 +7,8 @@ expõe os endpoints básicos antes que rotas de negócio sejam adicionadas.
 
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
-
 from app.api.main import app
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 

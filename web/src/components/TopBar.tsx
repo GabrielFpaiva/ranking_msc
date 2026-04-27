@@ -1,5 +1,7 @@
 import { useLocation } from 'react-router-dom';
 
+import { useMCRA } from '../store/mcra';
+
 const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
   '/inicio': { breadcrumb: 'Análise', title: 'Início' },
   '/execucao': { breadcrumb: 'Análise', title: 'Execução' },
@@ -15,6 +17,7 @@ const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
 
 export function TopBar() {
   const { pathname } = useLocation();
+  const { competencia, siconfi } = useMCRA();
   const { breadcrumb, title } = ROUTE_TITLES[pathname] ?? {
     breadcrumb: 'MCRA',
     title: 'PMJP',
@@ -28,8 +31,10 @@ export function TopBar() {
       </div>
       <div className="samid-topbar-actions">
         <div className="samid-competencia">
-          <div className="samid-competencia-lbl">COMPETÊNCIA</div>
-          <div className="samid-competencia-val">2025-11</div>
+          <div className="samid-competencia-lbl">
+            {siconfi ? `ENTE ${siconfi}` : 'COMPETÊNCIA'}
+          </div>
+          <div className="samid-competencia-val">{competencia ?? '—'}</div>
         </div>
         <button className="samid-btn samid-btn-ghost" type="button">
           Reprocessar

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 
 import { App } from './App';
+import { MCRAProvider } from './store/mcra';
 import './styles/globals.css';
 
 const rootElement = document.getElementById('root');
@@ -11,7 +12,9 @@ if (!rootElement) throw new Error('Root container #root not found in index.html'
 createRoot(rootElement).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <MCRAProvider>
+        <App />
+      </MCRAProvider>
     </BrowserRouter>
   </StrictMode>,
 );

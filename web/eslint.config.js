@@ -16,6 +16,9 @@ export default [
         document: 'readonly',
         console: 'readonly',
         fetch: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        Headers: 'readonly',
         FormData: 'readonly',
         File: 'readonly',
         Blob: 'readonly',
@@ -29,6 +32,8 @@ export default [
         MouseEvent: 'readonly',
         DragEvent: 'readonly',
         Event: 'readonly',
+        encodeURIComponent: 'readonly',
+        decodeURIComponent: 'readonly',
       },
     },
     plugins: {

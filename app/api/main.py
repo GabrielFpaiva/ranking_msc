@@ -18,12 +18,21 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import PROJECT_ROOT, get_logger, get_settings
+from app.api.routes import competencias as competencias_routes
+from app.api.routes import pendencias as pendencias_routes
+from app.api.routes import run as run_routes
+from app.api.routes import score as score_routes
 
 app = FastAPI(
     title="MCRA PMJP API",
     description="API que expõe o motor ranking_msc para o frontend MCRA.",
     version="0.1.0",
 )
+
+app.include_router(run_routes.router)
+app.include_router(competencias_routes.router)
+app.include_router(score_routes.router)
+app.include_router(pendencias_routes.router)
 
 # CORS: liberado para dev (Vite no :5173). Em prod o front é servido pelo
 # próprio FastAPI então same-origin elimina a necessidade.
