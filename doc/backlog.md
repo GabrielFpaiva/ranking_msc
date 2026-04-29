@@ -1,14 +1,14 @@
 # Backlog Consolidado — Ranking MSC
 
-> **Atualizado:** 2026-04-27
-> **Estado atual:** 35 regras implementadas · 621 testes · Fase 0 concluída
+> **Atualizado:** 2026-04-29
+> **Estado atual:** 39 regras implementadas · 626 testes · Fase 4 em andamento
 
 ---
 
 ## Visão Geral
 
 O projeto contém **78 regras** no catálogo total (67 originais + 11 SIGEF/JPA).
-Destas, **35 estão implementadas** e habilitadas. Restam **43 regras** a implementar.
+Destas, **39 estão implementadas** e habilitadas. Restam **39 regras** a implementar.
 
 O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estável.
 
@@ -18,13 +18,13 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 |---|---|---|---|
 | Fase 2 | Infraestrutura + 5 regras piloto + Pipeline | ✅ Concluída | 190 testes |
 | Fase 3 | Catálogo expandido → 35 regras | ✅ Concluída | 471 testes |
-| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-01→F4-06 concluídos) | 621 testes |
+| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-01→F4-08 concluídos) | 626 testes |
 | Fase 0 | Frontend MCRA (React+FastAPI replacing Panel) | ✅ Concluída | 8 commits |
-| Fase 5 | Produção (auth, deploy, validação final) | 📋 Backlog | — |
+| Fase 5 | Produção (export, auth, deploy, docs, entrega) | 📋 Backlog | — |
 
 ---
 
-## Regras Implementadas (35/78)
+## Regras Implementadas (39/78)
 
 | Regra | Dimensão | Nome | Sev. | Fase |
 |---|---|---|---|---|
@@ -33,6 +33,10 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | R003 | Estrutura | Tipo_valor válido | ERRO | F2 ✅ |
 | R004 | Estrutura | Natureza_valor válida | ERRO | F2 ✅ |
 | R005 | Estrutura | Valor numérico válido | ERRO | F3 ✅ |
+| R006 | Estrutura | Código SICONFI válido | ERRO | F4 ✅ |
+| R007 | Estrutura | Período válido | ERRO | F4 ✅ |
+| R008 | Estrutura | Separador de campo correto | ERRO | F4 ✅ |
+| R009 | Estrutura | Sem colunas extras não previstas | ALERTA | F4 ✅ |
 | R010 | PCASP | Conta existe no PCASP Estendido 2026 | ERRO | F2 ✅ |
 | R011 | PCASP | Conta é de último nível | ALERTA | F3 ✅ |
 | R012 | PCASP | Conta está Ativa no PCASP | ALERTA | F3 ✅ |
@@ -66,18 +70,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ---
 
-## Regras Pendentes (43/78)
-
-### Estrutura (6 regras) — Task F4-07
-
-| Regra | Nome | Sev. | Descrição |
-|---|---|---|---|
-| R006 | Código SICONFI válido | ERRO | SICONFI ≠ vazio e ≥ 7 dígitos |
-| R007 | Período válido | ERRO | Período entre 01 e 13 |
-| R008 | Separador de campo correto | ERRO | CSV com separador `;` conforme leiaute |
-| R009 | Sem colunas extras não previstas | ALERTA | Apenas colunas do leiaute MSC |
-| R0010 | Cabeçalho na primeira linha | ERRO | Primeira linha é header, não dados |
-| R0011 | Valor não-negativo | ERRO | Campo Valor ≥ 0 (escala R$ 1,00) |
+## Regras Pendentes (39/78)
 
 ### IC Completude (4 regras) — Task F4-11
 
@@ -129,6 +122,13 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | R071 | Valores com > 2 decimais | INFO | Valores devem estar em R$ 1,00 (sem centavos parciais) |
 | R072 | Contas com registros atípicos | INFO | Contagem de registros outlier para uma conta |
 | R073 | Valores outliers extremos | INFO | Valores muito acima/abaixo do esperado para a conta |
+
+### Estrutura residual (2 regras) — Sem task (gap pós F4-07)
+
+| Regra | Nome | Sev. | Descrição |
+|---|---|---|---|
+| R0010 | Cabeçalho na primeira linha | ERRO | Primeira linha é header, não dados |
+| R0011 | Valor não-negativo | ERRO | Campo Valor ≥ 0 (escala R$ 1,00) |
 
 ### SIGEF — Saldo Invertido (3 regras) — Task F4-16
 
@@ -202,8 +202,8 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F4-04 | Batch — processar múltiplos CSVs | 8 | — | ✅ |
 | F4-05 | `compare_periods.py` (evolução temporal) | 8 | F4-02 | ✅ |
 | F4-06 | Relatório consolidado multi-competência | 8 | F4-05 | ✅ |
-| F4-07 | Regras Estrutura R006–R0011 (6 regras) | 6 | — | ❌ A Fazer |
-| F4-08 | Benchmark de performance (>100k linhas) | 6 | F4-04 | ❌ A Fazer |
+| F4-07 | Regras Estrutura R006–R009 (4 regras) | 6 | — | ✅ PR #63 |
+| F4-08 | Benchmark de performance (>100k linhas) | 6 | F4-04 | ✅ PR #64 |
 | F4-09 | Otimizar regras com operações vetorizadas | 8 | F4-08 | ❌ A Fazer |
 | F4-10 | Encoding robusto (UTF-8/Latin-1/CP1252 auto) | 6 | — | ❌ A Fazer |
 | F4-11 | Regras IC completude R033, R034, R038, R082 | 5 | R020 | ❌ A Fazer |
@@ -217,18 +217,32 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F4-19 | Extrair helpers CLI compartilhados | 3 | F4-04 | ❌ A Fazer |
 | F4-20 | Documentação Fase 4 + handoff Fase 5 | 4 | tudo | ❌ A Fazer |
 
-### Fase 0 — Tasks Pós-Frontend (pendentes do plan)
+### Fase 5 — Produção + Entrega 📋 Backlog
 
-| ID | Descrição | Prioridade | Status |
+> Os itens originais F5-01 a F5-06 do Excel (Dashboard Panel) foram absorvidos pela
+> Fase 0 (React+FastAPI). A Fase 5 agora foca em produção, entrega e fechamento.
+
+| ID | Descrição | Horas | Dep. | Status | Origem |
+|---|---|---|---|---|---|
+| F5-01 | CI completo — adicionar lint+build TS no GitHub Action | 2 | — | ❌ A Fazer | F0-01 |
+| F5-02 | Cutover Panel — remover `web_app_legacy.py` + deps | 1 | — | ❌ A Fazer | F0-05 |
+| F5-03 | Exportar PDF — Visão Executiva HTML→PDF | 6 | — | ❌ A Fazer | F0-06 / F5-06(xlsx) |
+| F5-04 | Autenticação multiusuário (JWT + namespacing) | 8 | — | ❌ A Fazer | F0-07 |
+| F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ❌ A Fazer | F0-08 / F5-07(xlsx) |
+| F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ❌ A Fazer | F5-08(xlsx) |
+| F5-07 | Manual do usuário + guia de operação | 6 | — | ❌ A Fazer | F5-09(xlsx) |
+| F5-08 | Documentar settings.yaml + variáveis de ambiente prod | 2 | F5-05 | ❌ A Fazer | Novo |
+| F5-09 | Buffer: correção de bugs e ajustes finais | 4 | — | 🟡 Parcial | F5-10(xlsx) |
+| F5-10 | Treinamento / demo para equipe contábil | 4 | F5-07 | ❌ A Fazer | F5-11(xlsx) |
+| F5-11 | Entrega final + handoff operacional | 2 | tudo | ❌ A Fazer | F5-12(xlsx) |
+
+### Nice-to-have (sem fase atribuída)
+
+| ID | Descrição | Horas | Status |
 |---|---|---|---|
-| F0-01 | Lint + build TS no CI (GitHub Action) | Alta | ❌ A Fazer |
-| F0-02 | Recommendations engine (heurísticas avançadas) | Média | ❌ A Fazer |
-| F0-03 | Ranking Regional — fonte de dados (dataset de outros entes) | Baixa | ❌ A Fazer |
-| F0-04 | Superávit financeiro por FR (derivação contábil) | Média | ❌ A Fazer |
-| F0-05 | Panel cutover definitivo (remover `web_app_legacy.py` + deps) | Alta | ❌ Bloqueado (esperar 1-2 sprints) |
-| F0-06 | Exportar PDF (HTML→PDF para Visão Executiva) | Alta | ❌ A Fazer |
-| F0-07 | Autenticação multiusuário (JWT + namespacing) | Alta | ❌ A Fazer |
-| F0-08 | Deploy (Docker multi-stage + nginx + compose) | Alta | ❌ A Fazer |
+| F0-02 | Recommendations engine (heurísticas avançadas) | 6 | ❌ A Fazer |
+| F0-03 | Ranking Regional — fonte de dados (dataset de outros entes) | 10 | ❌ A Fazer |
+| F0-04 | Superávit financeiro por FR (derivação contábil) | 6 | ❌ A Fazer |
 
 ---
 
@@ -236,7 +250,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 | Categoria | Implementadas | Total | Faltam | Task |
 |---|:---:|:---:|:---:|---|
-| Estrutura | 6 | 12 | 6 | F4-07 |
+| Estrutura | 10 | 12 | 2 | — (gap residual R0010, R0011) |
 | PCASP | 5 | 5 | 0 | — |
 | IC | 9 | 14 | 5 | F4-11 (+1 em F4-12) |
 | PO | 1 | 2 | 1 | F4-12 |
@@ -251,7 +265,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | SIGEF Saldo | 0 | 3 | 3 | F4-16 |
 | SIGEF IC | 0 | 5 | 5 | F4-17 |
 | SIGEF Temporal | 0 | 3 | 3 | F4-18 |
-| **Total** | **35** | **78** | **43** | |
+| **Total** | **39** | **78** | **39** | |
 
 ---
 
@@ -259,40 +273,44 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ### 🔴 Prioridade 1 — Cobertura de Regras (Motor)
 
-1. **F4-07** — Estrutura R006–R0011 (bloqueadores, simples) — ~6h
-2. **F4-11** — IC completude R033–R034, R038, R082 — ~5h
-3. **F4-13** — Fechamento por classe R035–R037 — ~4h
-4. **F4-14** — Superávit R061–R062 + Interconta R053 — ~4h
-5. **F4-12** — Domínio complementar (9 regras) — ~10h
+1. **F4-11** — IC completude R033–R034, R038, R082 — ~5h
+2. **F4-13** — Fechamento por classe R035–R037 — ~4h
+3. **F4-14** — Superávit R061–R062 + Interconta R053 — ~4h
+4. **F4-12** — Domínio complementar (9 regras) — ~10h
 
 ### 🟡 Prioridade 2 — Qualidade + SIGEF
 
-6. **F4-15** — Completude + Qualidade (7 regras) — ~8h
-7. **F4-16** — SIGEF saldo invertido R086–R088 — ~4h
-8. **F4-17** — SIGEF IC detalhamento R089–R093 — ~5h
-9. **F4-18** — SIGEF temporal/completude R083–R085 — ~5h
+5. **F4-15** — Completude + Qualidade (7 regras) — ~8h
+6. **F4-16** — SIGEF saldo invertido R086–R088 — ~4h
+7. **F4-17** — SIGEF IC detalhamento R089–R093 — ~5h
+8. **F4-18** — SIGEF temporal/completude R083–R085 — ~5h
 
 ### 🟢 Prioridade 3 — Infra + Polish
 
-10. **F4-08** — Benchmark de performance — ~6h
-11. **F4-09** — Otimização vetorizada — ~8h
-12. **F4-10** — Encoding robusto — ~6h
-13. **F0-01** — CI lint+build — ~2h
-14. **F4-19** — Extrair helpers CLI — ~3h
+9. **F4-09** — Otimização vetorizada — ~8h
+10. **F4-10** — Encoding robusto — ~6h
+11. **F4-19** — Extrair helpers CLI — ~3h
+12. **F5-01** — CI completo (front+back) — ~2h
+13. **F5-02** — Cutover Panel — ~1h
 
-### 🔵 Prioridade 4 — Produção
+### 🔵 Prioridade 4 — Produção (Fase 5)
 
-15. **F0-06** — Exportar PDF — ~6h
-16. **F0-07** — Autenticação multiusuário — ~8h
-17. **F0-08** — Deploy Docker — ~8h
-18. **F0-05** — Panel cutover definitivo — ~2h
+14. **F5-03** — Exportar PDF — ~6h
+15. **F5-04** — Autenticação multiusuário — ~8h
+16. **F5-05** — Deploy Docker — ~8h
+17. **F5-06** — Testes E2E — ~4h
+18. **F5-07** — Manual do usuário — ~6h
+19. **F5-08** — Docs settings prod — ~2h
+20. **F5-09** — Bug fixes buffer — ~4h
 
-### ⚪ Prioridade 5 — Nice-to-have
+### ⚪ Prioridade 5 — Entrega + Nice-to-have
 
-19. **F0-02** — Recommendations engine avançado — ~6h
-20. **F0-03** — Ranking Regional (fonte de dados) — ~10h
-21. **F0-04** — Superávit financeiro por FR — ~6h
-22. **F4-20** — Documentação final — ~4h
+21. **F5-10** — Treinamento equipe contábil — ~4h
+22. **F5-11** — Entrega final + handoff — ~2h
+23. **F4-20** — Documentação final — ~4h
+24. **F0-02** — Recommendations engine — ~6h
+25. **F0-03** — Ranking Regional — ~10h
+26. **F0-04** — Superávit por FR — ~6h
 
 ---
 
@@ -300,13 +318,32 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 | Métrica | Valor |
 |---|---|
-| Regras implementadas | 35 / 78 (44.9%) |
-| Testes passando | 621 |
+| Regras implementadas | 39 / 78 (50.0%) |
+| Testes coletados | 626 (7 com erro de coleta) |
 | Cobertura de categorias | 12/15 com ≥1 regra |
 | Frontend telas | 10/10 navegáveis |
 | Endpoints API | 19 |
 | Lint (ruff + mypy + tsc + eslint) | ✅ Limpo |
 | Vite build | ✅ Passando |
+
+---
+
+## Rastreabilidade — Fase 5 Excel Original vs. Atual
+
+| ID Excel | Descrição Excel Original | Mapeamento Atual |
+|---|---|---|
+| F5-01 | Setup Dashboard Panel | ✅ Absorvido pela Fase 0 (React+FastAPI) |
+| F5-02 | Upload CSV via dashboard | ✅ Absorvido pela Fase 0 |
+| F5-03 | Aba Score e ranking visual | ✅ Absorvido pela Fase 0 |
+| F5-04 | Pendências com filtros interativos | ✅ Absorvido pela Fase 0 |
+| F5-05 | Evolução temporal | ✅ Absorvido pela Fase 0 |
+| F5-06 | Export do relatório | 🟡 Excel OK, PDF pendente → F5-03 novo |
+| F5-07 | Deploy local Docker | ❌ Pendente → F5-05 novo |
+| F5-08 | Testes E2E deploy | ❌ Pendente → F5-06 novo |
+| F5-09 | Manual do usuário | ❌ Pendente → F5-07 novo |
+| F5-10 | Buffer bugs/ajustes | 🟡 Parcial → F5-09 novo |
+| F5-11 | Treinamento/demo | ❌ Pendente → F5-10 novo |
+| F5-12 | Entrega final + handoff | ❌ Pendente → F5-11 novo |
 
 ---
 
