@@ -20,6 +20,7 @@ Validações de conteúdo (domínios, PCASP, etc.) ficam nas regras.
 
 from __future__ import annotations
 
+import datetime
 import io
 import logging
 import re
@@ -87,8 +88,10 @@ class RawMSC:
         siconfi: código SICONFI do ente (ex: "2507507EX").
         df: DataFrame com colunas de RAW_MSC_COLUMNS (valores já pivotados).
         source: caminho ou nome do arquivo de origem.
-        pre_pivot_issues: violações de Tipo_valor/Natureza_valor detectadas
-            antes do pivot (usadas pelas regras R003 e R004).
+        pre_pivot_issues: violações estruturais detectadas antes do pivot —
+            inclui erros de Tipo_valor/Natureza_valor (R003, R004), código
+            Siconfi inválido (R006), período inválido (R007), separador
+            incorreto (R008) e contagem de colunas IC/TIPO (R009).
     """
 
     competencia: str
@@ -138,18 +141,45 @@ def read_msc_csv(
             f"Fonte: {source}"
         )
 
-    competencia, siconfi = _extract_metadata(lines[0])
+    effective_sep, r008_issues = _detect_effective_separator(
+        lines[0], lines[1], separator, data_lines=lines[2:]
+    )
+
+    # Quando o separador efetivo do corpo difere do separador do header (ex: header
+    # usa vírgula mas dados usam ";"), normalizar o header para usar o separador do
+    # corpo antes de passar para pd.read_csv.  Isso garante parse correto enquanto
+    # R008 já foi emitido acima.
+    header_line = lines[1]
+    header_sep_in_use = "," if (header_line.count(",") > header_line.count(";")) else ";"
+    if header_sep_in_use != effective_sep:
+        header_line = header_line.replace(header_sep_in_use, effective_sep)
+
+    # Metadata separator is inferred from delimiter presence, independent of
+    # period format validity.  A malformed period (e.g. "2024/01") must not
+    # push parsing onto the wrong delimiter — that would corrupt siconfi /
+    # competencia extraction and produce a false R006 instead of R007.
+    _meta = lines[0].strip()
+    if ";" in _meta:
+        meta_sep = ";"
+    elif "," in _meta:
+        meta_sep = ","
+    else:
+        meta_sep = separator
+    competencia, siconfi = _extract_metadata(lines[0], meta_sep)
+    metadata_issues = _validate_metadata(siconfi, competencia)
+    # Sanitizar antes de usar em caminhos — R006/R007 já capturaram os valores originais.
+    siconfi, competencia = _sanitize_for_paths(siconfi, competencia)
     logger.info(
         "Lendo CSV MSC: siconfi=%s, competência=%s, fonte=%s",
         siconfi, competencia, source,
         extra={"siconfi": siconfi, "competencia": competencia, "modulo": "reader_msc"},
     )
 
-    csv_text = "\n".join(lines[1:])
-    df = _parse_csv(csv_text, separator, source)
-    r001_issues = _validate_columns(df, source)
+    csv_text = "\n".join([header_line] + lines[2:])
+    df = _parse_csv(csv_text, effective_sep, source)
+    r001_r009_issues = _validate_columns(df, source)
     df, pivot_issues = _pivot_values(df, competencia, siconfi)
-    pre_pivot_issues = r001_issues + pivot_issues
+    pre_pivot_issues = metadata_issues + r008_issues + r001_r009_issues + pivot_issues
 
     logger.info(
         "CSV MSC lido com sucesso: %d linhas pivotadas. Fonte: %s",
@@ -210,33 +240,239 @@ def _read_and_decode(file: str | Path | io.BytesIO, encoding: str) -> str:
 
 
 _METADATA_RE = re.compile(r"^(.+);(\d{4}-\d{2})$")
+_METADATA_COMMA_RE = re.compile(r"^([^,]+),(\d{4}-\d{2})$")
+_SICONFI_RE = re.compile(r"^\d{7}EX$")
+_COMPETENCIA_SAFE_RE = re.compile(r"^\d{4}-\d{2}$")
+_PATH_UNSAFE_RE = re.compile(r"[^A-Za-z0-9\-_]")
 
 
-def _extract_metadata(first_line: str) -> tuple[str, str]:
+def _extract_metadata(first_line: str, sep: str = ";") -> tuple[str, str]:
     """Extrai competência e siconfi a partir da primeira linha do CSV.
 
     Formato esperado: ``<SICONFI>;<YYYY-MM>``
     Exemplo: ``2507507EX;2025-11`` → (``"2025-11"``, ``"2507507EX"``)
 
+    Nunca levanta exceção para entradas parcialmente legíveis: utiliza
+    extração por melhor esforço (``split``) quando os padrões conhecidos
+    não casam.  Reserva ``InputFormatError`` somente para linha em branco
+    — único caso em que nenhum dado pode ser recuperado.
+
     Args:
         first_line: primeira linha do arquivo (metadata).
+        sep: separador usado na linha (padrão ``";"``).
 
     Returns:
         Tupla ``(competencia, siconfi)``.
 
     Raises:
-        InputFormatError: se a linha não seguir o formato esperado.
+        InputFormatError: somente se a linha estiver completamente em branco.
     """
     line = first_line.strip()
-    match = _METADATA_RE.match(line)
-    if not match:
+
+    if not line:
         raise InputFormatError(
-            f"Linha de metadata com formato inesperado: '{line}'. "
-            "Esperado: '<SICONFI>;<YYYY-MM>' (ex: '2507507EX;2025-11')."
+            "Linha de metadata está em branco — não é possível extrair "
+            "siconfi nem competência."
         )
-    siconfi = match.group(1)
-    competencia = match.group(2)
-    return competencia, siconfi
+
+    # Tentativa 1: padrão canônico (ex: "2507507EX;2025-11" ou "2507507EX,2025-11")
+    pattern = _METADATA_RE if sep == ";" else _METADATA_COMMA_RE
+    match = pattern.match(line)
+    if match:
+        return match.group(2), match.group(1)
+
+    # Tentativa 2: melhor esforço via split — extrai o que for possível e
+    # deixa _validate_metadata emitir R006/R007 para valores inválidos.
+    if sep in line:
+        left, right = line.split(sep, 1)
+        return right.strip(), left.strip()
+
+    # Linha sem separador algum: siconfi não reconhecível, competência vazia.
+    return "", line
+
+
+def _validate_metadata(siconfi: str, competencia: str) -> list[dict[str, object]]:
+    """Valida código Siconfi (R006) e período (R007) extraídos da linha de metadata.
+
+    Args:
+        siconfi: código SICONFI extraído da primeira linha.
+        competencia: período no formato YYYY-MM extraído da primeira linha.
+
+    Returns:
+        Lista de issues R006 e/ou R007 (pode ser vazia).
+    """
+    issues: list[dict[str, object]] = []
+
+    if not _SICONFI_RE.match(siconfi):
+        issues.append({
+            "regra": "R006",
+            "conta_contabil": "",
+            "campo": "siconfi",
+            "valor_encontrado": siconfi,
+            "competencia": competencia,
+        })
+
+    if not _COMPETENCIA_SAFE_RE.match(competencia):
+        # Formato inválido (ex: "2024-1", "02024-01") → emitir imediatamente.
+        issues.append({
+            "regra": "R007",
+            "conta_contabil": "",
+            "campo": "competencia",
+            "valor_encontrado": competencia,
+            "competencia": competencia,
+        })
+    else:
+        # Formato garantido YYYY-MM — parse direto sem try/except.
+        ano_int = int(competencia[:4])
+        mes_int = int(competencia[5:])
+        ano_corrente = datetime.date.today().year
+        if not (1 <= mes_int <= 13) or not (2020 <= ano_int <= ano_corrente + 1):
+            issues.append({
+                "regra": "R007",
+                "conta_contabil": "",
+                "campo": "competencia",
+                "valor_encontrado": competencia,
+                "competencia": competencia,
+            })
+
+    return issues
+
+
+def _infer_sep_from_rows(data_lines: list[str] | None, fallback: str) -> str:
+    """Infere o separador efetivo amostrado das primeiras linhas de dados.
+
+    Compara a contagem de ``;`` vs ``,`` em até 3 linhas não-vazias.  Retorna
+    o separador com maior contagem total.  Quando não há linhas disponíveis ou
+    os contadores são iguais, retorna ``fallback``.
+
+    Args:
+        data_lines: linhas de dados (linha 3 em diante do arquivo MSC).
+        fallback: separador a retornar quando a inferência é inconclusiva.
+
+    Returns:
+        Separador inferido (``";"`` ou ``","``) ou ``fallback``.
+    """
+    if not data_lines:
+        return fallback
+
+    sample = [ln for ln in data_lines if ln.strip()][:3]
+    if not sample:
+        return fallback
+
+    total_semi = sum(ln.count(";") for ln in sample)
+    total_comma = sum(ln.count(",") for ln in sample)
+
+    if total_semi > total_comma:
+        return ";"
+    if total_comma > total_semi:
+        return ","
+    return fallback
+
+
+def _sanitize_for_paths(siconfi: str, competencia: str) -> tuple[str, str]:
+    """Sanitiza metadados para uso seguro em caminhos de filesystem.
+
+    Impede path traversal (ex: ``../../``) em valores inválidos produzidos pela
+    extração por melhor esforço. As violações R006/R007 já foram emitidas com
+    os valores originais por ``_validate_metadata``; aqui apenas tornamos os
+    valores seguros para I/O de snapshots e relatórios.
+
+    Args:
+        siconfi: código SICONFI extraído (pode ser inválido).
+        competencia: período extraído (pode ser inválido ou conter ``/..``).
+
+    Returns:
+        Tupla ``(siconfi_seguro, competencia_segura)``.
+        ``competencia`` é substituída por ``"0000-00"`` se não respeitar
+        o formato ``YYYY-MM``; ``siconfi`` tem caracteres não-alfanuméricos
+        substituídos por ``_``.
+    """
+    safe_comp = competencia if _COMPETENCIA_SAFE_RE.match(competencia) else "0000-00"
+    safe_sico = _PATH_UNSAFE_RE.sub("_", siconfi) if siconfi else "_"
+    return safe_sico, safe_comp
+
+
+def _detect_separator_issue(header_line: str, expected_sep: str) -> list[dict[str, object]]:
+    """Detecta uso de separador incorreto na linha de cabeçalho (R008).
+
+    Compara contagem de ponto-e-vírgula vs vírgula no header. Se o header
+    não tem nenhum ";" mas tem "," → separador incorreto.
+
+    Args:
+        header_line: segunda linha do arquivo CSV (cabeçalho das colunas).
+        expected_sep: separador esperado (padrão ";").
+
+    Returns:
+        Lista com um issue R008 se vírgula for detectada em vez de ";".
+    """
+    if expected_sep != ";":
+        return []
+    semi_count = header_line.count(";")
+    comma_count = header_line.count(",")
+    if semi_count == 0 and comma_count > 0:
+        return [{
+            "regra": "R008",
+            "conta_contabil": "",
+            "campo": "separador",
+            "valor_encontrado": ",",
+            "competencia": "",
+        }]
+    return []
+
+
+def _detect_effective_separator(
+    metadata_line: str,
+    header_line: str,
+    expected_sep: str,
+    data_lines: list[str] | None = None,
+) -> tuple[str, list[dict[str, object]]]:
+    """Detecta o separador efetivo verificando metadata, header e linhas de dados.
+
+    Emite R008 quando o header usa vírgula em vez de ponto-e-vírgula.  Antes
+    de confirmar o separador efetivo como vírgula, amostra as primeiras linhas
+    de dados via ``_infer_sep_from_rows``: se os dados ainda usam ``;``, o
+    corpo continua sendo lido com ``;`` (cabeçalho malformado, dados corretos).
+
+    Essa abordagem impede que arquivos cujo header usa vírgula mas cujos dados
+    usam ``;`` sejam parseados com separador errado, resultando em DataFrame
+    vazio silencioso.
+
+    Args:
+        metadata_line: primeira linha do arquivo (metadata).
+        header_line: segunda linha do arquivo (cabeçalho das colunas).
+        expected_sep: separador esperado (padrão ``";"``).
+        data_lines: linhas de dados (linha 3+) para inferência de separador.
+
+    Returns:
+        Tupla ``(sep_efetivo, r008_issues)``.
+    """
+    if expected_sep != ";":
+        return expected_sep, []
+
+    # Header é a fonte primária para detecção de separador incorreto.
+    header_issues = _detect_separator_issue(header_line, expected_sep)
+    if header_issues:
+        # Antes de forçar vírgula, verificar o que as linhas de dados usam.
+        # Se os dados usam ";", o corpo deve ser lido com ";" mesmo que o
+        # header esteja malformado — R008 ainda é emitido.
+        body_sep = _infer_sep_from_rows(data_lines, fallback=",")
+        return body_sep, header_issues
+
+    # Header limpo; verificar metadata como fonte secundária de R008.
+    # Trigger por presença do delimitador, independente da validade do período:
+    # linhas como "2507507EX,2024/01" devem emitir R008 mesmo com data malformada,
+    # para que o diagnóstico de delimitador seja consistente com o caso de período válido.
+    meta = metadata_line.strip()
+    if ";" not in meta and "," in meta:
+        return expected_sep, [{
+            "regra": "R008",
+            "conta_contabil": "",
+            "campo": "separador",
+            "valor_encontrado": ",",
+            "competencia": "",
+        }]
+
+    return expected_sep, []
 
 
 def _parse_csv(csv_text: str, separator: str, source: str) -> pd.DataFrame:
@@ -288,6 +524,15 @@ def _validate_columns(df: pd.DataFrame, source: str) -> list[dict[str, object]]:
         }
         for col in missing
     ]
+
+    ic_tipo_cols = [c for c in df.columns if c.startswith("IC") or c.startswith("TIPO")]
+    if len(ic_tipo_cols) != 12:
+        issues.append({
+            "regra": "R009",
+            "conta_contabil": "",
+            "campo": "colunas_ic_tipo",
+            "valor_encontrado": str(len(ic_tipo_cols)),
+        })
 
     critical_missing = {col for col in missing if col in _CRITICAL_CSV_COLUMNS}
     if critical_missing:
