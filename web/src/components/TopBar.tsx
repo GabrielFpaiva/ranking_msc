@@ -36,7 +36,12 @@ export function TopBar() {
           </div>
           <div className="samid-competencia-val">{competencia ?? '—'}</div>
         </div>
-        <button className="samid-btn samid-btn-ghost" type="button">
+        <button
+          className="samid-btn samid-btn-ghost"
+          type="button"
+          disabled
+          title="Reprocessar — a ser implementado"
+        >
           Reprocessar
         </button>
         <button className="samid-btn samid-btn-ghost" type="button">
