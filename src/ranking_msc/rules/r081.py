@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ranking_msc.rules.base import Rule, ic_esta_informada, register_rule
+from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -66,20 +66,20 @@ class R081(Rule):
         """
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
-        issues: list[dict[str, object]] = []
+        dfs_violacoes: list[pd.DataFrame] = []
 
         for col, digitos_esperados in IC_DIGITOS.items():
             if col not in df.columns:
                 continue
 
-            # Filtrar primeiro, depois copiar apenas o slice reduzido
-            mask_informada = df[col].apply(ic_esta_informada)
+            # Mask vetorizada — substitui .apply(ic_esta_informada)
+            mask_informada = ic_mask_informada(df[col])
             df_com_ic = df.loc[mask_informada, ["conta_contabil", col]].copy()
 
             if df_com_ic.empty:
                 continue
 
-            # Vetorizar a validação de formato; iterrows() apenas sobre violações
+            # Vetorizar a validação de formato
             df_com_ic[col] = df_com_ic[col].astype(str).str.strip()
             mask_invalido = ~(
                 (df_com_ic[col].str.len() == digitos_esperados)
@@ -87,28 +87,40 @@ class R081(Rule):
             )
             violacoes = df_com_ic[mask_invalido]
 
-            for _, row in violacoes.iterrows():
-                val = str(row[col])
-                conta = str(row["conta_contabil"])
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"IC '{col.upper()}' com valor '{val}' inválido para conta '{conta}': "
-                        f"esperado {digitos_esperados} dígito(s) numérico(s), "
-                        f"encontrado {len(val)}."
-                    ),
-                    "valor_esperado": f"{digitos_esperados} dígito(s) numérico(s)",
-                    "valor_encontrado": val,
-                    "competencia": context.competencia,
-                })
+            if violacoes.empty:
+                continue
 
-        if issues:
-            logger.warning(
-                "R081: %d IC(s) com formato inválido. competência=%s",
-                len(issues),
-                context.competencia,
-                extra=_extra,
-            )
+            # Construção vetorizada de issues — substitui iterrows()
+            col_upper = col.upper()
+            conta_s = violacoes["conta_contabil"].astype(str)
+            val_s = violacoes[col].astype(str)
+            len_s = val_s.str.len().astype(str)
 
-        return self.build_issues(issues)
+            issue_df = pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": conta_s.values,
+                "descricao": (
+                    "IC '" + col_upper + "' com valor '" + val_s
+                    + "' inválido para conta '" + conta_s
+                    + "': esperado " + str(digitos_esperados)
+                    + " dígito(s) numérico(s), encontrado " + len_s + "."
+                ).values,
+                "valor_esperado": f"{digitos_esperados} dígito(s) numérico(s)",
+                "valor_encontrado": val_s.values,
+                "competencia": context.competencia,
+            })
+            dfs_violacoes.append(issue_df)
+
+        if not dfs_violacoes:
+            return self.build_issues([])
+
+        all_issues = pd.concat(dfs_violacoes, ignore_index=True)
+
+        logger.warning(
+            "R081: %d IC(s) com formato inválido. competência=%s",
+            len(all_issues),
+            context.competencia,
+            extra=_extra,
+        )
+
+        return self.build_issues(all_issues.to_dict("records"))

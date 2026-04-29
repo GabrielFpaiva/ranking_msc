@@ -65,19 +65,14 @@ class R010(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "ERRO",
-                "conta_contabil": row["conta_contabil"],
-                "descricao": (
-                    f"Conta '{row['conta_contabil']}' não encontrada "
-                    "no PCASP Estendido 2026."
-                ),
-                "valor_esperado": "Conta existente no PCASP",
-                "valor_encontrado": str(row["conta_contabil"]),
-                "competencia": context.competencia,
-            }
-            for _, row in contas_invalidas.iterrows()
-        ]
+        conta_s = contas_invalidas["conta_contabil"].astype(str)
+        issues_df = pd.DataFrame({
+            "severidade": "ERRO",
+            "conta_contabil": conta_s.values,
+            "descricao": ("Conta '" + conta_s + "' não encontrada no PCASP Estendido 2026.").values,
+            "valor_esperado": "Conta existente no PCASP",
+            "valor_encontrado": conta_s.values,
+            "competencia": context.competencia,
+        })
 
-        return self.build_issues(issues)
+        return self.build_issues(issues_df.to_dict("records"))

@@ -85,21 +85,19 @@ class R069(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "ALERTA",
-                "conta_contabil": str(row["conta_contabil"]),
-                "descricao": (
-                    f"Conta de resultado '{row['conta_contabil']}' com saldo final "
-                    f"não-zero no encerramento: SF_D={row['saldo_final_debito']:.2f}, "
-                    f"SF_C={row['saldo_final_credito']:.2f} "
-                    f"(líquido={row['_sf_liq']:.2f})."
-                ),
-                "valor_esperado": "0.00",
-                "valor_encontrado": f"{row['_sf_liq']:.2f}",
-                "competencia": context.competencia,
-            }
-            for _, row in violacoes.iterrows()
-        ]
+        conta_s = violacoes["conta_contabil"].astype(str)
+        sf_d_s = violacoes["saldo_final_debito"].map(lambda x: f"{x:.2f}")
+        sf_c_s = violacoes["saldo_final_credito"].map(lambda x: f"{x:.2f}")
+        sf_liq_s = violacoes["_sf_liq"].map(lambda x: f"{x:.2f}")
 
-        return self.build_issues(issues)
+        issues_df = pd.DataFrame({
+            "severidade": "ALERTA",
+            "conta_contabil": conta_s.values,
+            "descricao": ("Conta de resultado '" + conta_s + "' com saldo final não-zero no encerramento: SF_D=" + 
+                          sf_d_s + ", SF_C=" + sf_c_s + " (líquido=" + sf_liq_s + ").").values,
+            "valor_esperado": "0.00",
+            "valor_encontrado": sf_liq_s.values,
+            "competencia": context.competencia,
+        })
+
+        return self.build_issues(issues_df.to_dict("records"))

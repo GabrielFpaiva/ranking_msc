@@ -205,21 +205,20 @@ class R054(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "ALERTA",
-                "conta_contabil": str(row["conta_contabil"]),
-                "descricao": (
-                    f"Conta '{row['conta_contabil']}': SI do mês {context.competencia} "
-                    f"({row['_si_liq']:.2f}) ≠ SF do mês {prev_comp} "
-                    f"({row['_sf_liq']:.2f}). "
-                    f"Diferença: {row['_diff']:.2f}."
-                ),
-                "valor_esperado": f"{row['_sf_liq']:.2f}",
-                "valor_encontrado": f"{row['_si_liq']:.2f}",
-                "competencia": context.competencia,
-            }
-            for _, row in violacoes.iterrows()
-        ]
+        conta_s = violacoes["conta_contabil"].astype(str)
+        si_liq_s = violacoes["_si_liq"].map(lambda x: f"{x:.2f}")
+        sf_liq_s = violacoes["_sf_liq"].map(lambda x: f"{x:.2f}")
+        diff_s = violacoes["_diff"].map(lambda x: f"{x:.2f}")
 
-        return self.build_issues(issues)
+        issues_df = pd.DataFrame({
+            "severidade": "ALERTA",
+            "conta_contabil": conta_s.values,
+            "descricao": ("Conta '" + conta_s + "': SI do mês " + context.competencia + 
+                          " (" + si_liq_s + ") ≠ SF do mês " + prev_comp + 
+                          " (" + sf_liq_s + "). Diferença: " + diff_s + ".").values,
+            "valor_esperado": sf_liq_s.values,
+            "valor_encontrado": si_liq_s.values,
+            "competencia": context.competencia,
+        })
+
+        return self.build_issues(issues_df.to_dict("records"))

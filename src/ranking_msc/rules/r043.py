@@ -99,19 +99,14 @@ class R043(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "INFO",
-                "conta_contabil": str(row["conta_contabil"]),
-                "descricao": (
-                    f"Conta '{row['conta_contabil']}' está totalmente zerada "
-                    f"(SI=0, Mov=0, SF=0)."
-                ),
-                "valor_esperado": "ao menos um valor ≠ 0",
-                "valor_encontrado": "0",
-                "competencia": context.competencia,
-            }
-            for _, row in violacoes.iterrows()
-        ]
+        conta_s = violacoes["conta_contabil"].astype(str)
+        issues_df = pd.DataFrame({
+            "severidade": "INFO",
+            "conta_contabil": conta_s.values,
+            "descricao": ("Conta '" + conta_s + "' está totalmente zerada (SI=0, Mov=0, SF=0).").values,
+            "valor_esperado": "ao menos um valor ≠ 0",
+            "valor_encontrado": "0",
+            "competencia": context.competencia,
+        })
 
-        return self.build_issues(issues)
+        return self.build_issues(issues_df.to_dict("records"))

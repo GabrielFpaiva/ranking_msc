@@ -85,21 +85,19 @@ class R055(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "ALERTA",
-                "conta_contabil": str(row["conta_contabil"]),
-                "descricao": (
-                    f"Conta de resultado '{row['conta_contabil']}' com saldo inicial "
-                    f"não-zero em janeiro: SI_D={row['saldo_inicial_debito']:.2f}, "
-                    f"SI_C={row['saldo_inicial_credito']:.2f} "
-                    f"(líquido={row['_si_liq']:.2f})."
-                ),
-                "valor_esperado": "0.00",
-                "valor_encontrado": f"{row['_si_liq']:.2f}",
-                "competencia": context.competencia,
-            }
-            for _, row in violacoes.iterrows()
-        ]
+        conta_s = violacoes["conta_contabil"].astype(str)
+        si_d_s = violacoes["saldo_inicial_debito"].map(lambda x: f"{x:.2f}")
+        si_c_s = violacoes["saldo_inicial_credito"].map(lambda x: f"{x:.2f}")
+        si_liq_s = violacoes["_si_liq"].map(lambda x: f"{x:.2f}")
 
-        return self.build_issues(issues)
+        issues_df = pd.DataFrame({
+            "severidade": "ALERTA",
+            "conta_contabil": conta_s.values,
+            "descricao": ("Conta de resultado '" + conta_s + "' com saldo inicial não-zero em janeiro: SI_D=" + 
+                          si_d_s + ", SI_C=" + si_c_s + " (líquido=" + si_liq_s + ").").values,
+            "valor_esperado": "0.00",
+            "valor_encontrado": si_liq_s.values,
+            "competencia": context.competencia,
+        })
+
+        return self.build_issues(issues_df.to_dict("records"))

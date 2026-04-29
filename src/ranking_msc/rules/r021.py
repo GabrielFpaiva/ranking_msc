@@ -55,45 +55,45 @@ class R021(Rule):
         if df_com_po.empty:
             return self.build_issues([])
 
-        issues: list[dict[str, object]] = []
+        # Remover duplicatas para validação
+        df_unica = df_com_po.drop_duplicates(subset=["conta_contabil", "po"]).copy()
+        df_unica["po_raw"] = df_unica["po"].astype(str).str.strip()
 
-        for _, row in df_com_po.drop_duplicates().iterrows():
-            po_valor = str(row["po"])
-            conta = str(row["conta_contabil"])
+        mask_len = df_unica["po_raw"].str.len() != 5
+        mask_tabela = (~mask_len) & (~df_unica["po_raw"].isin(codigos_validos))
 
-            if len(po_valor) != 5:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"PO '{po_valor}' fora do formato: "
-                        f"esperado 5 dígitos, encontrado {len(po_valor)}."
-                    ),
-                    "valor_esperado": "5 dígitos",
-                    "valor_encontrado": po_valor,
-                    "competencia": context.competencia,
-                })
-                continue
+        dfs_issues = []
 
-            if po_valor not in codigos_validos:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"PO '{po_valor}' não encontrado na tabela oficial "
-                        "de Poder/Órgão."
-                    ),
-                    "valor_esperado": "Código PO existente na tabela",
-                    "valor_encontrado": po_valor,
-                    "competencia": context.competencia,
-                })
+        if mask_len.any():
+            viol = df_unica[mask_len]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "PO '" + viol["po_raw"] + "' fora do formato: esperado 5 dígitos, encontrado " + viol["po_raw"].str.len().astype(str) + ".",
+                "valor_esperado": "5 dígitos",
+                "valor_encontrado": viol["po_raw"],
+                "competencia": context.competencia,
+            }))
 
-        if issues:
+        if mask_tabela.any():
+            viol = df_unica[mask_tabela]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "PO '" + viol["po_raw"] + "' não encontrado na tabela oficial de Poder/Órgão.",
+                "valor_esperado": "Código PO existente na tabela",
+                "valor_encontrado": viol["po_raw"],
+                "competencia": context.competencia,
+            }))
+
+        if dfs_issues:
+            issues_df = pd.concat(dfs_issues, ignore_index=True)
             logger.warning(
                 "R021: %d pendência(s) de PO inválido. competência=%s",
-                len(issues),
+                len(issues_df),
                 context.competencia,
                 extra=_extra,
             )
+            return self.build_issues(issues_df.to_dict("records"))
 
-        return self.build_issues(issues)
+        return self.build_issues([])

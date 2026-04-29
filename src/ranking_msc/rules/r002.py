@@ -62,16 +62,13 @@ class R002(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "ERRO",
-                "conta_contabil": "",
-                "descricao": "Linha com campo CONTA vazio ou nulo. O campo CONTA é obrigatório.",
-                "valor_esperado": "código de conta PCASP (9 dígitos numéricos)",
-                "valor_encontrado": str(row["conta_contabil"]),
-                "competencia": context.competencia,
-            }
-            for _, row in linhas_vazias.iterrows()
-        ]
-
-        return self.build_issues(issues)
+        conta_s = linhas_vazias["conta_contabil"].astype(str)
+        issues_df = pd.DataFrame({
+            "severidade": "ERRO",
+            "conta_contabil": "",
+            "descricao": "Linha com campo CONTA vazio ou nulo. O campo CONTA é obrigatório.",
+            "valor_esperado": "código de conta PCASP (9 dígitos numéricos)",
+            "valor_encontrado": conta_s.values,
+            "competencia": context.competencia,
+        })
+        return self.build_issues(issues_df.to_dict("records"))

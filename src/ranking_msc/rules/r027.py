@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ranking_msc.io.ref_loader import load_tabela_nd
-from ranking_msc.rules.base import Rule, ic_esta_informada, register_rule
+from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -65,65 +65,62 @@ class R027(Rule):
         )
 
         df_com_nd = df[["conta_contabil", "nd"]].copy()
-        df_com_nd = df_com_nd[df_com_nd["nd"].apply(ic_esta_informada)]
+        df_com_nd = df_com_nd[ic_mask_informada(df_com_nd["nd"])]
 
         if df_com_nd.empty:
             return self.build_issues([])
 
-        issues: list[dict[str, object]] = []
+        df_unica = df_com_nd.drop_duplicates(subset=["conta_contabil", "nd"]).copy()
+        df_unica["nd_raw"] = df_unica["nd"].astype(str).str.strip()
+        df_unica["nd_val"] = df_unica["nd_raw"].str.zfill(8)
 
-        for _, row in df_com_nd.drop_duplicates().iterrows():
-            conta = str(row["conta_contabil"])
-            nd_raw = str(row["nd"]).strip()
-            nd_val = nd_raw.zfill(8)
+        mask_len = df_unica["nd_raw"].str.len() != 8
+        mask_digit = (~mask_len) & (~df_unica["nd_raw"].str.isdigit())
+        mask_tabela = (~mask_len) & (~mask_digit) & (~df_unica["nd_val"].isin(codigos_validos))
 
-            if len(nd_raw) != 8:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"ND '{nd_raw}' inválida para conta '{conta}': "
-                        "deve ter exatamente 8 dígitos."
-                    ),
-                    "valor_esperado": "8 dígitos",
-                    "valor_encontrado": nd_raw,
-                    "competencia": context.competencia,
-                })
-                continue
+        dfs_issues = []
 
-            if not nd_raw.isdigit():
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"ND '{nd_raw}' inválida para conta '{conta}': "
-                        "deve conter apenas dígitos (0–9)."
-                    ),
-                    "valor_esperado": "apenas dígitos (0-9)",
-                    "valor_encontrado": nd_raw,
-                    "competencia": context.competencia,
-                })
-                continue
+        if mask_len.any():
+            viol = df_unica[mask_len]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "ND '" + viol["nd_raw"] + "' inválida para conta '" + viol["conta_contabil"].astype(str) + "': deve ter exatamente 8 dígitos.",
+                "valor_esperado": "8 dígitos",
+                "valor_encontrado": viol["nd_raw"],
+                "competencia": context.competencia,
+            }))
 
-            if nd_val not in codigos_validos:
-                issues.append({
-                    "severidade": "ALERTA",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"ND '{nd_val}' não encontrada na tabela ND 2026 "
-                        f"para conta '{conta}'."
-                    ),
-                    "valor_esperado": "código em tabela_nd.csv",
-                    "valor_encontrado": nd_val,
-                    "competencia": context.competencia,
-                })
+        if mask_digit.any():
+            viol = df_unica[mask_digit]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "ND '" + viol["nd_raw"] + "' inválida para conta '" + viol["conta_contabil"].astype(str) + "': deve conter apenas dígitos (0–9).",
+                "valor_esperado": "apenas dígitos (0-9)",
+                "valor_encontrado": viol["nd_raw"],
+                "competencia": context.competencia,
+            }))
 
-        if issues:
+        if mask_tabela.any():
+            viol = df_unica[mask_tabela]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ALERTA",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "ND '" + viol["nd_val"] + "' não encontrada na tabela ND 2026 para conta '" + viol["conta_contabil"].astype(str) + "'.",
+                "valor_esperado": "código em tabela_nd.csv",
+                "valor_encontrado": viol["nd_val"],
+                "competencia": context.competencia,
+            }))
+
+        if dfs_issues:
+            issues_df = pd.concat(dfs_issues, ignore_index=True)
             logger.warning(
                 "R027: %d pendência(s) de ND inválida. competência=%s",
-                len(issues),
+                len(issues_df),
                 context.competencia,
                 extra=_extra,
             )
+            return self.build_issues(issues_df.to_dict("records"))
 
-        return self.build_issues(issues)
+        return self.build_issues([])

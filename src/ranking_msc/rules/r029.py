@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ranking_msc.rules.base import Rule, ic_esta_informada, register_rule
+from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -54,7 +54,7 @@ class R029(Rule):
         ano_competencia = int(context.competencia.split("-")[0])
 
         df_com_ai = (
-            df[df["ai"].apply(ic_esta_informada)][["conta_contabil", "ai"]]
+            df[ic_mask_informada(df["ai"])][["conta_contabil", "ai"]]
             .copy()
             .assign(ai=lambda x: x["ai"].astype(str).str.strip())
             .drop_duplicates()
@@ -63,50 +63,46 @@ class R029(Rule):
         if df_com_ai.empty:
             return self.build_issues([])
 
-        issues: list[dict[str, object]] = []
+        df_unica = df_com_ai.copy()
+        mask_formato = (df_unica["ai"].str.len() != 4) | (~df_unica["ai"].str.isdigit())
+        
+        # Safe cast for valid years
+        df_validos = df_unica[~mask_formato].copy()
+        df_validos["ano"] = pd.to_numeric(df_validos["ai"], errors='coerce').fillna(0).astype(int)
+        mask_plausivel = (df_validos["ano"] < 2000) | (df_validos["ano"] > ano_competencia)
+        
+        dfs_issues = []
 
-        for _, row in df_com_ai.iterrows():
-            ai_val = row["ai"]
-            conta = str(row["conta_contabil"])
+        if mask_formato.any():
+            viol = df_unica[mask_formato]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "AI '" + viol["ai"] + "' fora do formato: esperado exatamente 4 dígitos numéricos, encontrado '" + viol["ai"] + "'. Conta: " + viol["conta_contabil"].astype(str) + ".",
+                "valor_esperado": "4 dígitos numéricos (ex: '2023')",
+                "valor_encontrado": viol["ai"],
+                "competencia": context.competencia,
+            }))
 
-            # Validação 1 — formato: exatamente 4 dígitos numéricos
-            if len(ai_val) != 4 or not ai_val.isdigit():
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"AI '{ai_val}' fora do formato: "
-                        f"esperado exatamente 4 dígitos numéricos, "
-                        f"encontrado '{ai_val}'. Conta: {conta}."
-                    ),
-                    "valor_esperado": "4 dígitos numéricos (ex: '2023')",
-                    "valor_encontrado": ai_val,
-                    "competencia": context.competencia,
-                })
-                continue  # formato errado → não verifica plausibilidade
+        if mask_plausivel.any():
+            viol = df_validos[mask_plausivel]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ALERTA",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "AI '" + viol["ai"] + "' implausível: esperado ano entre 2000 e " + str(ano_competencia) + ", encontrado " + viol["ano"].astype(str) + ".",
+                "valor_esperado": "2000 ≤ ano ≤ " + str(ano_competencia),
+                "valor_encontrado": viol["ai"],
+                "competencia": context.competencia,
+            }))
 
-            # Validação 2 — plausibilidade: 2000 <= ano <= ano_competencia
-            ano = int(ai_val)
-            if ano < 2000 or ano > ano_competencia:
-                issues.append({
-                    "severidade": "ALERTA",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"AI '{ai_val}' implausível: "
-                        f"esperado ano entre 2000 e {ano_competencia}, "
-                        f"encontrado {ano}."
-                    ),
-                    "valor_esperado": f"2000 ≤ ano ≤ {ano_competencia}",
-                    "valor_encontrado": ai_val,
-                    "competencia": context.competencia,
-                })
-
-        if issues:
+        if dfs_issues:
+            issues_df = pd.concat(dfs_issues, ignore_index=True)
             logger.warning(
                 "R029: %d pendência(s) de AI inválido. competência=%s",
-                len(issues),
+                len(issues_df),
                 context.competencia,
                 extra=_extra,
             )
+            return self.build_issues(issues_df.to_dict("records"))
 
-        return self.build_issues(issues)
+        return self.build_issues([])

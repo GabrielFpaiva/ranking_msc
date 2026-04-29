@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ranking_msc.io.ref_loader import load_tabela_fr
-from ranking_msc.rules.base import Rule, ic_esta_informada, register_rule
+from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -70,79 +70,79 @@ class R024(Rule):
         )
 
         df_com_fr = df[["conta_contabil", "fr"]].copy()
-        df_com_fr = df_com_fr[df_com_fr["fr"].apply(ic_esta_informada)]
+        df_com_fr = df_com_fr[ic_mask_informada(df_com_fr["fr"])]
 
         if df_com_fr.empty:
             return self.build_issues([])
 
-        issues: list[dict[str, object]] = []
+        # Remover duplicatas para validação
+        df_unica = df_com_fr.drop_duplicates(subset=["conta_contabil", "fr"]).copy()
+        df_unica["fr_raw"] = df_unica["fr"].astype(str).str.strip()
+        df_unica["fr_val"] = df_unica["fr_raw"].str.zfill(4)
 
-        for _, row in df_com_fr.drop_duplicates().iterrows():
-            fr_raw = str(row["fr"]).strip()
-            fr_val = fr_raw.zfill(4)
-            conta = str(row["conta_contabil"])
+        # 1. Comprimento != 4
+        mask_len = df_unica["fr_raw"].str.len() != 4
+        # 2. Não dígito (aplicado apenas onde len é válido para evitar falhas em cascata)
+        mask_digit = (~mask_len) & (~df_unica["fr_raw"].str.isdigit())
+        # 3. Prefixo inválido
+        mask_prefix = (~mask_len) & (~mask_digit) & (~df_unica["fr_val"].str[0].isin(_PREFIXOS_VALIDOS))
+        # 4. Tabela
+        mask_tabela = (~mask_len) & (~mask_digit) & (~mask_prefix) & (~df_unica["fr_val"].str[1:].isin(codigos_validos_fr))
 
-            if len(fr_raw) != 4:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"FR '{fr_raw}' inválido para conta '{conta}': "
-                        "deve ter exatamente 4 dígitos."
-                    ),
-                    "valor_esperado": "4 dígitos",
-                    "valor_encontrado": fr_raw,
-                    "competencia": context.competencia,
-                })
-                continue
+        dfs_issues = []
 
-            if not fr_raw.isdigit():
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"FR '{fr_raw}' inválido para conta '{conta}': "
-                        "deve conter apenas dígitos (0–9)."
-                    ),
-                    "valor_esperado": "apenas dígitos (0-9)",
-                    "valor_encontrado": fr_raw,
-                    "competencia": context.competencia,
-                })
-                continue
+        if mask_len.any():
+            viol = df_unica[mask_len]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "FR '" + viol["fr_raw"] + "' inválido para conta '" + viol["conta_contabil"].astype(str) + "': deve ter exatamente 4 dígitos.",
+                "valor_esperado": "4 dígitos",
+                "valor_encontrado": viol["fr_raw"],
+                "competencia": context.competencia,
+            }))
 
-            if fr_val[0] not in _PREFIXOS_VALIDOS:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"FR '{fr_val}': 1º dígito '{fr_val[0]}' inválido — "
-                        "esperado 1 (atual), 2 (anterior) ou 9 (condicionado)."
-                    ),
-                    "valor_esperado": "1, 2 ou 9",
-                    "valor_encontrado": fr_val[0],
-                    "competencia": context.competencia,
-                })
-                continue
+        if mask_digit.any():
+            viol = df_unica[mask_digit]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "FR '" + viol["fr_raw"] + "' inválido para conta '" + viol["conta_contabil"].astype(str) + "': deve conter apenas dígitos (0–9).",
+                "valor_esperado": "apenas dígitos (0-9)",
+                "valor_encontrado": viol["fr_raw"],
+                "competencia": context.competencia,
+            }))
 
-            if fr_val[1:] not in codigos_validos_fr:
-                issues.append({
-                    "severidade": "ALERTA",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"FR '{fr_val}': código-raiz '{fr_val[1:]}' "
-                        "não encontrado na tabela FR 2026."
-                    ),
-                    "valor_esperado": "Código-raiz FR existente na tabela",
-                    "valor_encontrado": fr_val[1:],
-                    "competencia": context.competencia,
-                })
+        if mask_prefix.any():
+            viol = df_unica[mask_prefix]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "FR '" + viol["fr_val"] + "': 1º dígito '" + viol["fr_val"].str[0] + "' inválido — esperado 1 (atual), 2 (anterior) ou 9 (condicionado).",
+                "valor_esperado": "1, 2 ou 9",
+                "valor_encontrado": viol["fr_val"].str[0],
+                "competencia": context.competencia,
+            }))
 
-        if issues:
+        if mask_tabela.any():
+            viol = df_unica[mask_tabela]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ALERTA",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "FR '" + viol["fr_val"] + "': código-raiz '" + viol["fr_val"].str[1:] + "' não encontrado na tabela FR 2026.",
+                "valor_esperado": "Código-raiz FR existente na tabela",
+                "valor_encontrado": viol["fr_val"].str[1:],
+                "competencia": context.competencia,
+            }))
+
+        if dfs_issues:
+            issues_df = pd.concat(dfs_issues, ignore_index=True)
             logger.warning(
                 "R024: %d pendência(s) de FR inválida. competência=%s",
-                len(issues),
+                len(issues_df),
                 context.competencia,
                 extra=_extra,
             )
+            return self.build_issues(issues_df.to_dict("records"))
 
-        return self.build_issues(issues)
+        return self.build_issues([])

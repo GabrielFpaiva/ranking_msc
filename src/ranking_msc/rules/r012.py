@@ -87,19 +87,15 @@ class R012(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "ALERTA",
-                "conta_contabil": row["conta_contabil"],
-                "descricao": (
-                    f"Conta '{row['conta_contabil']}' está inativa no PCASP "
-                    f"(status: '{row['status']}') — possível plano de contas desatualizado."
-                ),
-                "valor_esperado": "status == Ativa",
-                "valor_encontrado": str(row["status"]),
-                "competencia": context.competencia,
-            }
-            for _, row in inativas.iterrows()
-        ]
+        conta_s = inativas["conta_contabil"].astype(str)
+        status_s = inativas["status"].astype(str)
+        issues_df = pd.DataFrame({
+            "severidade": "ALERTA",
+            "conta_contabil": conta_s.values,
+            "descricao": ("Conta '" + conta_s + "' está inativa no PCASP (status: '" + status_s + "') — possível plano de contas desatualizado.").values,
+            "valor_esperado": "status == Ativa",
+            "valor_encontrado": status_s.values,
+            "competencia": context.competencia,
+        })
 
-        return self.build_issues(issues)
+        return self.build_issues(issues_df.to_dict("records"))

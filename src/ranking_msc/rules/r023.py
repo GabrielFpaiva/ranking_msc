@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ranking_msc.io.ref_loader import DC_DOMAIN
-from ranking_msc.rules.base import Rule, ic_esta_informada, register_rule
+from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -52,37 +52,37 @@ class R023(Rule):
             return self.build_issues([])
 
         df_com_dc = df[["conta_contabil", "dc"]].copy()
-        df_com_dc = df_com_dc[df_com_dc["dc"].apply(ic_esta_informada)]
+        df_com_dc = df_com_dc[ic_mask_informada(df_com_dc["dc"])]
         df_com_dc["dc"] = df_com_dc["dc"].astype(str).str.strip()
 
         if df_com_dc.empty:
             return self.build_issues([])
 
-        issues: list[dict[str, object]] = []
+        df_invalidos = df_com_dc[~df_com_dc["dc"].isin(DC_DOMAIN)].drop_duplicates().copy()
 
-        for _, row in df_com_dc.drop_duplicates().iterrows():
-            dc_valor = str(row["dc"])
-            conta = str(row["conta_contabil"])
+        if df_invalidos.empty:
+            return self.build_issues([])
 
-            if dc_valor not in DC_DOMAIN:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"DC '{dc_valor}' inválido para conta '{conta}': "
-                        "esperado '1' (não compõe DC)."
-                    ),
-                    "valor_esperado": "1",
-                    "valor_encontrado": dc_valor,
-                    "competencia": context.competencia,
-                })
+        conta_s = df_invalidos["conta_contabil"].astype(str)
+        dc_s = df_invalidos["dc"].astype(str)
 
-        if issues:
-            logger.warning(
-                "R023: %d pendência(s) de DC inválido. competência=%s",
-                len(issues),
-                context.competencia,
-                extra=_extra,
-            )
+        issues_df = pd.DataFrame({
+            "severidade": "ERRO",
+            "conta_contabil": conta_s.values,
+            "descricao": (
+                "DC '" + dc_s + "' inválido para conta '" + conta_s + "': "
+                "esperado '1' (não compõe DC)."
+            ).values,
+            "valor_esperado": "1",
+            "valor_encontrado": dc_s.values,
+            "competencia": context.competencia,
+        })
 
-        return self.build_issues(issues)
+        logger.warning(
+            "R023: %d pendência(s) de DC inválido. competência=%s",
+            len(issues_df),
+            context.competencia,
+            extra=_extra,
+        )
+
+        return self.build_issues(issues_df.to_dict("records"))
