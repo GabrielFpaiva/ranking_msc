@@ -1,6 +1,6 @@
 # Ranking MSC — Motor de Validação Contábil
 
-Aplicação web interna para validação da Matriz de Saldos Contábeis (MSC) conforme regras do Ranking SICONFI. Desenvolvida em Python com Panel + Plotly para uso na intranet da prefeitura.
+Aplicação web interna para validação da Matriz de Saldos Contábeis (MSC) conforme regras do Ranking SICONFI. Motor Python + interface React/TypeScript (SPA) + FastAPI, para uso na intranet da prefeitura.
 
 ---
 
@@ -19,42 +19,15 @@ O Ranking MSC recebe o CSV mensal da MSC, aplica regras de validação e produz:
 ### Arquitetura
 
 ```
-                    ┌────────────────────────┐
-                    │   app/web_app.py        │  ← Interface Panel (navegador)
-                    │   Upload CSV + Abas     │
-                    └──────────┬─────────────┘
-                               │
-                    ┌──────────▼─────────────┐
-                    │  io/reader_msc.py       │  ← Leitura e parse do CSV
-                    └──────────┬─────────────┘
-                               │
-                    ┌──────────▼─────────────┐
-                    │  transform/             │  ← Normalização IC → PO, FP, DC, FS, FR, CO, NR, ND, AI
-                    │  ic_normalize.py        │
-                    └──────────┬─────────────┘
-                               │
-                    ┌──────────▼─────────────┐
-                    │  engine/executor.py     │  ← Motor: carrega regras, executa, consolida
-                    │  EngineContext          │
-                    │  EngineResult           │
-                    └──────────┬─────────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-     ┌────────▼───────┐  ┌────▼─────┐  ┌───────▼────────┐
-     │ rules/base.py  │  │ rules/   │  │ rules/         │
-     │ Rule (ABC)     │  │ r082.py  │  │ r083.py …      │
-     │ RULE_REGISTRY  │  └──────────┘  └────────────────┘
-     └────────────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-     ┌────────▼───────┐  ┌────▼─────┐  ┌───────▼────────┐
-     │ outputs/       │  │ outputs/ │  │ outputs/       │
-     │ snapshot.py    │  │ reports  │  │ logs.py        │
-     │ (Parquet)      │  │ (Excel)  │  │ (JSON Lines)   │
-     └────────────────┘  └──────────┘  └────────────────┘
+┌────────────────┐   HTTP/JSON    ┌──────────────────────┐
+│  React SPA     │ ─────────────► │  FastAPI (app/api)   │
+│  (web/)        │                │  ↓ chama direto      │
+│  build → dist  │ ◄───────────── │  src/ranking_msc/*   │
+└────────────────┘                └──────────────────────┘
 ```
+
+Em **dev**: Vite (`localhost:5173`) + uvicorn (`localhost:8000`) com proxy.
+Em **prod**: `uvicorn app.api.main:app` serve `/api/*` + `web/dist/` estático.
 
 ### Fluxo de dados
 
@@ -71,6 +44,7 @@ O Ranking MSC recebe o CSV mensal da MSC, aplica regras de validação e produz:
 ### Pré-requisitos
 
 - Python 3.11+
+- Node.js 18+ e npm
 - (Recomendado) ambiente virtual
 
 ### Setup local
@@ -79,7 +53,7 @@ O Ranking MSC recebe o CSV mensal da MSC, aplica regras de validação e produz:
 # Clonar e entrar no repositório
 cd ranking_msc
 
-# Criar ambiente virtual
+# Criar ambiente virtual Python
 python -m venv .venv
 source .venv/bin/activate        # Linux/Mac
 # .venv\Scripts\activate         # Windows
@@ -89,29 +63,50 @@ pip install -e ".[dev]"
 
 # Copiar config de exemplo
 cp config/settings.yaml.example config/settings.yaml
-# (Edite settings.yaml conforme necessário)
 
 # Criar diretórios de dados
 mkdir -p data/{snapshots,reports,logs}
+
+# Instalar dependências do frontend
+cd web && npm install && cd ..
 ```
 
-### Rodar a aplicação (desenvolvimento)
+### Rodar em desenvolvimento (frontend + backend)
+
+**Terminal 1 — Backend FastAPI:**
 
 ```bash
-panel serve app/web_app.py --show --autoreload
+source .venv/bin/activate
+uvicorn app.api.main:app --reload --port 8000
 ```
 
-Acesse `http://localhost:5006/web_app` no navegador.
-
-### Rodar no servidor (produção, multiusuário)
+**Terminal 2 — Frontend React (Vite):**
 
 ```bash
-panel serve app/web_app.py \
-    --address 0.0.0.0 \
-    --port 5006 \
-    --allow-websocket-origin="servidor.prefeitura.local" \
-    --num-procs 2 \
-    --static-dirs assets=./assets
+cd web
+npm run dev
+```
+
+Acesse `http://localhost:5173` no navegador. O Vite faz proxy de `/api/*` para o backend na porta 8000.
+
+### Rodar em produção
+
+```bash
+# Build do frontend
+cd web && npm run build && cd ..
+
+# Servidor (front + API unificados)
+uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+```
+
+O FastAPI serve `web/dist/` como estático em `/` e as rotas em `/api/*`.
+
+### Rodar com Panel (legado)
+
+> **Nota:** O Panel está preservado como `app/web_app_legacy.py` por 1-2 sprints para validação.
+
+```bash
+panel serve app/web_app_legacy.py --show --autoreload
 ```
 
 ### Rodar testes
@@ -125,8 +120,15 @@ pytest --cov=ranking_msc  # com cobertura
 ### Lint e type check
 
 ```bash
-ruff check src/ tests/
-mypy src/
+# Python
+ruff check src/ tests/ app/
+mypy src/ app/api/
+
+# TypeScript / Frontend
+cd web
+npx tsc --noEmit
+npx eslint src/
+npm run build
 ```
 
 ---
@@ -136,7 +138,20 @@ mypy src/
 ```
 ranking_msc/
 ├── app/
-│   └── web_app.py              # Aplicação Panel (ponto de entrada web)
+│   ├── api/                    # FastAPI (ponto de entrada web)
+│   │   ├── main.py             # App FastAPI, rotas, CORS, static mount
+│   │   ├── deps.py             # Dependências (settings, logger, paths)
+│   │   ├── schemas.py          # Modelos Pydantic (contrato JSON)
+│   │   └── routes/             # Módulos de rota (run, score, rules, etc.)
+│   └── web_app_legacy.py       # Interface Panel (legado, preservado)
+├── web/                        # Frontend React + TypeScript + Vite
+│   ├── src/
+│   │   ├── api/client.ts       # Wrapper fetch → FastAPI
+│   │   ├── screens/            # 10 telas (Home, Executivo, Regras, etc.)
+│   │   ├── components/         # Componentes reutilizáveis (ScoreBadge, Sev, etc.)
+│   │   ├── store/              # Context providers (MCRA, Drawer)
+│   │   └── styles/             # CSS global + tokens
+│   └── package.json
 ├── config/
 │   ├── settings.yaml           # Config real (NÃO versionado)
 │   └── settings.yaml.example   # Template de config
@@ -145,60 +160,27 @@ ranking_msc/
 │       ├── __init__.py
 │       ├── schemas.py           # Constantes de colunas dos DataFrames
 │       ├── exceptions.py        # Exceções customizadas
-│       ├── config/
-│       │   └── settings.py      # Loader de YAML → dataclasses
+│       ├── config/settings.py   # Loader de YAML → dataclasses
 │       ├── engine/
-│       │   └── executor.py      # Motor principal (EngineContext, EngineResult)
-│       ├── rules/
-│       │   ├── base.py          # Classe base Rule + RULE_REGISTRY
-│       │   ├── r003.py          # Tipo_valor válido
-│       │   ├── r004.py          # Natureza_valor válida
-│       │   ├── r010.py          # Conta existe no PCASP
-│       │   ├── r021.py          # PO válido
-│       │   └── r030.py          # Fechamento patrimonial D=C
+│       │   ├── executor.py      # Motor principal (EngineContext, EngineResult)
+│       │   ├── score_engine.py  # Cálculo de score por dimensão/banda
+│       │   └── compare_periods.py  # Diff de score entre competências
+│       ├── rules/               # Uma regra por arquivo (R003..R054)
 │       ├── io/
 │       │   ├── reader_msc.py    # Leitura do CSV MSC
-│       │   └── ref_loader.py    # Carregamento de tabelas de referência (PCASP, domínios)
+│       │   └── ref_loader.py    # Carregamento de tabelas de referência
 │       ├── transform/
-│       │   └── ic_normalize.py  # Normalização IC → PO, FP, DC, FS, FR, CO, NR, ND, AI
+│       │   └── ic_normalize.py  # Normalização IC → 9 atributos
 │       └── outputs/
 │           ├── snapshot.py      # Escrita Parquet atômica
-│           ├── reports.py       # Exportação Excel (abas: Resumo + Pendências)
+│           ├── reports.py       # Exportação Excel
+│           ├── aggregations.py  # Agregações para a API (heatmap, ranking, recomendações)
 │           └── logs.py          # Logging JSON Lines
-├── tests/
-│   ├── conftest.py              # Fixtures compartilhadas
-│   ├── test_smoke.py            # Smoke tests
-│   ├── test_reader.py           # io/reader_msc.py
-│   ├── test_normalize.py        # transform/ic_normalize.py
-│   ├── test_ref_loader.py       # io/ref_loader.py
-│   ├── test_engine.py           # engine/executor.py
-│   ├── test_rules.py            # regras genéricas
-│   ├── test_r003_r004.py        # R003, R004
-│   ├── test_r010.py             # R010
-│   ├── test_r021.py             # R021
-│   ├── test_r030.py             # R030
-│   ├── test_mapeamento_ic_tipo.py
-│   ├── test_snapshot.py         # outputs/snapshot.py
-│   ├── test_reports.py          # outputs/reports.py
-│   ├── test_logs.py             # outputs/logs.py
-│   ├── test_integration.py      # Pipeline ponta a ponta
-│   └── test_run_pipeline.py     # scripts/run_pipeline.py
+├── tests/                       # ~50 arquivos de teste
+├── ref/                         # Tabelas de referência (PCASP, domínios)
+├── data/                        # Outputs gerados (gitignored)
 ├── doc/
-│   └── fase3_plan.md            # Handoff e roadmap da Fase 3
-├── data/
-│   ├── snapshots/               # Parquet por competência (gitignored)
-│   ├── reports/                 # Excel gerados (gitignored)
-│   └── logs/                    # Logs JSON Lines (gitignored)
-├── ref/                         # Tabelas de referência (PCASP, domínios, amostras)
-│   ├── layout_msc.md            # Especificação do CSV MSC
-│   ├── mapeamento_ic_tipo.csv   # Combinações IC/TIPO válidas
-│   ├── regras_piloto.md         # Documentação das 5 regras piloto
-│   ├── regras_catalogo.md       # Catálogo completo de regras
-│   ├── resultados_piloto.md     # Resultados das execuções com dados reais
-│   ├── pcasp.csv                # PCASP Estendido 2026
-│   └── tabela_po/fr/co/fs/nd/nr.csv  # Tabelas de domínio por atributo
-├── scripts/
-│   └── run_pipeline.py          # CLI de execução do pipeline
+│   └── fase0_plan.md            # Plano do frontend MCRA
 ├── pyproject.toml
 ├── README.md
 └── .gitignore
@@ -230,25 +212,12 @@ class R099(Rule):
     dimensao = "Fechamento"  # ou "PCASP", "Temporal", "Domínio"…
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
-        # Sua lógica aqui — filtre, compare, valide.
         issues = []
-
-        # Exemplo: encontrou problema na conta 1.1.1
-        # issues.append({
-        #     "severidade": "ERRO",
-        #     "conta_contabil": "1.1.1.0.0.00.00",
-        #     "descricao": "Saldo inconsistente",
-        #     "valor_esperado": "0.00",
-        #     "valor_encontrado": "150.00",
-        #     "competencia": context.competencia,
-        # })
-
+        # Sua lógica aqui
         return self.build_issues(issues)
 ```
 
 ### Passo 2: Importar no `__init__` das regras
-
-Adicione em `src/ranking_msc/rules/__init__.py`:
 
 ```python
 from ranking_msc.rules.r099 import R099  # noqa: F401
@@ -259,10 +228,8 @@ from ranking_msc.rules.r099 import R099  # noqa: F401
 ```yaml
 rules:
   enabled:
-    - "R099"   # ← adicionar aqui
+    - "R099"
 ```
-
-Pronto. O executor já carregará a regra automaticamente.
 
 ---
 
@@ -271,48 +238,56 @@ Pronto. O executor já carregará a regra automaticamente.
 | O quê | Onde |
 |---|---|
 | Tabelas de referência (PCASP, domínios) | `ref/` |
-| Snapshots Parquet | `data/snapshots/<YYYY-MM>/` |
+| Snapshots Parquet | `data/snapshots/<SICONFI>/<YYYY-MM>/` |
 | Relatórios Excel | `data/reports/` |
 | Logs de execução | `data/logs/ranking_msc.jsonl` |
 | Config da aplicação | `config/settings.yaml` |
 
 ---
 
-## Fase 2 — Concluída ✅
+## Endpoints da API
 
-Todas as entregas da Fase 2 estão prontas. O pipeline roda de ponta a ponta com dados reais.
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/api/run` | Executa o pipeline sobre um CSV MSC |
+| GET | `/api/competencias` | Lista competências disponíveis |
+| GET | `/api/score` | Score de uma competência |
+| GET | `/api/score-history` | Histórico de score (6 meses) |
+| GET | `/api/pendencias` | Pendências paginadas com filtros |
+| GET | `/api/rules` | Catálogo de regras |
+| GET | `/api/rules/:id` | Detalhe de uma regra |
+| GET | `/api/heatmap` | Heatmap regras × competências |
+| GET | `/api/rule-history/:id` | Histórico de uma regra |
+| GET | `/api/contas/:codigo` | Detalhe de uma conta contábil |
+| GET | `/api/caixa` | Listagem de contas de caixa |
+| GET | `/api/passivos` | Listagem de passivos |
+| GET | `/api/superavit` | Superávit financeiro (501 — F0-04) |
+| GET | `/api/compare` | Diff de score entre 2 competências |
+| GET | `/api/recommendations` | Ações recomendadas (Executivo) |
+| GET | `/api/log` | Tail do log JSONL |
+| GET | `/api/ranking` | Ranking Regional (501 — F0-03) |
+| GET | `/api/exports/excel` | Download do relatório Excel |
+| GET | `/api/health` | Healthcheck |
 
-- [x] Estrutura de repositório e `pyproject.toml`
-- [x] Settings YAML com loader e validação
-- [x] Exceções customizadas e schemas de colunas
-- [x] Classe base `Rule` com registro automático
-- [x] Engine com `EngineContext` e `EngineResult`
-- [x] `read_msc_csv()` — leitura e parse do CSV MSC real
-- [x] `normalize_ic()` — 9 tipos IC (PO, FP, DC, FS, FR, CO, NR, ND, AI) conforme STN 642/2026
-- [x] `ref_loader.py` — PCASP + tabelas de domínio com cache
-- [x] Regras piloto: R003, R004, R010, R021, R030
-- [x] Outputs: snapshot Parquet atômico, Excel (Resumo + Pendências), log JSON Lines
-- [x] Scripts CLI (`run_pipeline.py`)
-- [x] 190 testes passando (pytest), ruff e mypy limpos
-- [x] Execução validada com CSVs reais (2025-11 e 2025-12 — SICONFI 2507507EX)
+---
 
-**Próximo:** ver [`doc/fase3_plan.md`](doc/fase3_plan.md) para o roadmap da Fase 3.
-
-### Comandos rápidos
+## Comandos rápidos
 
 ```bash
-# Rodar pipeline completo via CLI
+# Backend (dev)
+uvicorn app.api.main:app --reload --port 8000
+
+# Frontend (dev)
+cd web && npm run dev
+
+# Pipeline completo via CLI
 python scripts/run_pipeline.py --csv ref/amostras/msc_2025-11.csv
 
-# Rodar app local
-panel serve app/web_app.py --show --autoreload
-
-# Rodar testes
+# Testes
 pytest
 
-# Lint
-ruff check src/ tests/
-
-# Type check
-mypy src/
+# Lint + type check
+ruff check src/ tests/ app/
+mypy src/ app/api/
+cd web && npx tsc --noEmit && npx eslint src/
 ```

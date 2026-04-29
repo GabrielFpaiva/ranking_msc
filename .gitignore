@@ -42,6 +42,14 @@ config/settings.yaml
 # Git worktrees
 .worktrees/
 
+# Frontend (web/)
+web/node_modules/
+web/dist/
+web/.vite/
+web/.tsc-node/
+web/coverage/
+web/*.tsbuildinfo
+
 # OS
 .DS_Store
 Thumbs.db
