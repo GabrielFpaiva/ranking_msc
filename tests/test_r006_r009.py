@@ -320,6 +320,38 @@ class TestR008:
         assert "R008" in regras
         assert "R006" in regras
 
+    def test_metadata_virgula_periodo_malformado_emite_r008_e_r007(self) -> None:
+        """Metadata '2507507EX,2024/01' → R008 + R007; nunca R006 (siconfi válido).
+
+        Regressão: antes, o regex _METADATA_COMMA_RE exigia data YYYY-MM válida,
+        então o delimitador era inferido como ';' (fallback), o que misparseava
+        a linha como siconfi inválido (R006 falso) e perdia o período real.
+        """
+        header = (
+            "CONTA,IC1,TIPO1,IC2,TIPO2,IC3,TIPO3,IC4,TIPO4,IC5,TIPO5,IC6,TIPO6"
+            + ",Valor,Tipo_valor,Natureza_valor"
+        )
+        lines = [
+            "2507507EX,2024/01",
+            header,
+            "111110200,10131,PO,,,,,,,,,,,,1000.00,beginning_balance,D",
+        ]
+        csv_bytes = "\r".join(lines).encode("ascii")
+        raw = read_msc_csv(io.BytesIO(csv_bytes))
+        regras = {i["regra"] for i in raw.pre_pivot_issues}
+        assert "R008" in regras
+        assert "R007" in regras
+        assert "R006" not in regras
+        r007 = next(i for i in raw.pre_pivot_issues if i["regra"] == "R007")
+        assert r007["valor_encontrado"] == "2024/01"
+
+    def test_detect_effective_separator_metadata_comma_periodo_malformado(self) -> None:
+        """Metadata com ',' e período malformado → R008 emitido (presença do delimitador)."""
+        sep, issues = _detect_effective_separator("2507507EX,2024/01", "CONTA;IC1", ";")
+        assert sep == ";"
+        assert len(issues) == 1
+        assert issues[0]["regra"] == "R008"
+
     def test_detect_effective_separator_metadata_comma_header_semicolon(self) -> None:
         """Metadata com ',' mas header com ';' → body sep permanece ';', R008 emitido."""
         sep, issues = _detect_effective_separator("2507507EX,2024-01", "CONTA;IC1", ";")

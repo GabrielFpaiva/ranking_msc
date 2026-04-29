@@ -154,13 +154,14 @@ def read_msc_csv(
     if header_sep_in_use != effective_sep:
         header_line = header_line.replace(header_sep_in_use, effective_sep)
 
-    # Metadata separator is determined by what the metadata line itself contains,
-    # independently of the body separator. Try semicolon first (expected format);
-    # fall back to comma if the line only matches the comma pattern.
+    # Metadata separator is inferred from delimiter presence, independent of
+    # period format validity.  A malformed period (e.g. "2024/01") must not
+    # push parsing onto the wrong delimiter — that would corrupt siconfi /
+    # competencia extraction and produce a false R006 instead of R007.
     _meta = lines[0].strip()
-    if _METADATA_RE.match(_meta):
+    if ";" in _meta:
         meta_sep = ";"
-    elif _METADATA_COMMA_RE.match(_meta):
+    elif "," in _meta:
         meta_sep = ","
     else:
         meta_sep = separator
@@ -458,8 +459,11 @@ def _detect_effective_separator(
         return body_sep, header_issues
 
     # Header limpo; verificar metadata como fonte secundária de R008.
+    # Trigger por presença do delimitador, independente da validade do período:
+    # linhas como "2507507EX,2024/01" devem emitir R008 mesmo com data malformada,
+    # para que o diagnóstico de delimitador seja consistente com o caso de período válido.
     meta = metadata_line.strip()
-    if not _METADATA_RE.match(meta) and _METADATA_COMMA_RE.match(meta):
+    if ";" not in meta and "," in meta:
         return expected_sep, [{
             "regra": "R008",
             "conta_contabil": "",
