@@ -11,7 +11,6 @@ Filtros opcionais: ``execucao_id``, ``level``. Sempre retorna as últimas N linh
 from __future__ import annotations
 
 import json
-from collections import deque
 from pathlib import Path
 
 from fastapi import APIRouter, Query
@@ -73,7 +72,7 @@ def get_log(
             continue
         if level and payload.get("level") != level:
             continue
-            
+
         items.append(
             LogEntryOut(
                 ts=str(payload.get("ts", "")),
@@ -89,9 +88,8 @@ def get_log(
         if len(items) >= limit:
             break
 
-    # We read backwards, so the items are newest first. We can reverse them
-    # to maintain chronological order from top to bottom if desired, or leave it.
-    # Usually log viewers expect chronological, but tail often just returns the newest at the bottom.
+    # Lemos do fim para o começo (mais recentes primeiro); inverter para
+    # devolver em ordem cronológica.
     items.reverse()
 
     return LogPageOut(total=len(items), items=items)

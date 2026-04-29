@@ -1,6 +1,6 @@
 # Fase 4 — Plano de Implementação
 
-**Status:** Em andamento (F4-01 a F4-06 concluídos)
+**Status:** Em andamento (F4-01 a F4-08 concluídos · 39/78 regras · 663 testes)
 **Depende de:** Fase 3 (concluída — 35 regras, 471 testes, pipeline completo)
 **Referência do backlog:** F4-01 a F4-20
 
@@ -40,8 +40,8 @@ comparação temporal e otimizações de performance.
 | F4-04 | Suporte a múltiplas competências (batch) | `run_batch.py`: diretório com N CSVs → snapshot + relatório por competência. | Alta | 8 | F3-12 | **Concluído** |
 | F4-05 | Comparação entre competências (evolução temporal) | Comparar scores entre meses para mostrar evolução da qualidade. | Alta | 8 | F4-02, F4-04 | **Concluído** (PeriodComparison; score_delta(); compare_periods(); CLI scripts/compare_periods.py; 22 testes) |
 | F4-06 | Relatório consolidado multi-competência | Excel com aba de evolução temporal + gráficos. | Alta | 8 | F4-05 | **Concluído** (export_consolidado_excel(); 12 colunas; LineChart; band coloring; 16 testes; PR #60) |
-| F4-07 | Regras de Estrutura — R006 a R0011 | 6 regras de formato do CSV: siconfi/período válidos, separador, colunas, cabeçalho, valores não-negativos. | Alta | 6 | — | A Fazer |
-| F4-08 | Testes de carga com CSVs grandes (>100k linhas) | Benchmark de performance com CSVs reais grandes. | Alta | 6 | F4-04 | A Fazer |
+| F4-07 | Regras de Estrutura — R006 a R009 | 4 regras de formato do CSV: siconfi/período válidos (R006/R007), separador (R008), colunas IC/TIPO (R009). | Alta | 6 | — | **Concluído** (PR #63 · 4 regras drain pre_pivot_issues · metadata sep inferido por presença de delimitador · YYYY-MM shape check · path traversal sanitize) |
+| F4-08 | Testes de carga com CSVs grandes (>100k linhas) | Benchmark de performance com CSVs reais grandes. | Alta | 6 | F4-04 | **Concluído** (PR #64 · módulo benchmark · baseline 100k/500k/1M · R081 mais lenta) |
 | F4-09 | Otimizar regras com operações vetorizadas | Refatorar regras para usar groupby/vectorized ao invés de loops. Melhoria ≥50%. | Alta | 8 | F4-08 | A Fazer |
 | F4-10 | Tratamento robusto de encoding e separadores | Suportar UTF-8/Latin-1/CP1252, separadores `,` `;` `\|` e detecção automática. | Média | 6 | — | A Fazer |
 | F4-11 | Regras IC completude — R033, R034, R038, R082 | R033: pares IC/TIPO · R034: PO obrigatório · R038: IC×conta do leiaute · R082: ordem de ICs. | Alta | 5 | R020 | A Fazer |
@@ -63,7 +63,7 @@ comparação temporal e otimizações de performance.
 
 | Categoria | Implementadas | Total | Faltam | Task |
 |---|:---:|:---:|:---:|---|
-| Estrutura | 5 | 11 | 6 | F4-07 |
+| Estrutura | 9 | 11 | 2 | — (gap residual pós F4-07) |
 | IC | 1 | 5 | 4 | F4-11 |
 | PO | 1 | 2 | 1 | F4-12 |
 | DC | 1 | 2 | 1 | F4-12 |
@@ -84,7 +84,7 @@ comparação temporal e otimizações de performance.
 | SIGEF saldo | 0 | 3 | 3 | F4-16 |
 | SIGEF IC detail | 0 | 5 | 5 | F4-17 |
 | SIGEF temporal | 0 | 3 | 3 | F4-18 |
-| **Total** | **35** | **78** | **43** | |
+| **Total** | **39** | **78** | **39** | |
 
 ---
 
