@@ -13,11 +13,13 @@ export function UploadDrop({ onFile, disabled }: UploadDropProps) {
   const [error, setError] = useState<string | null>(null);
 
   function pick() {
+    if (disabled || busy) return;
     inputRef.current?.click();
   }
 
   async function commit(selected: File | null) {
     if (!selected) return;
+    if (disabled || busy) return;
     setFile(selected);
     setBusy(true);
     setError(null);
