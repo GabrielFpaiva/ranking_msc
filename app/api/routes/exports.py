@@ -25,8 +25,16 @@ router = APIRouter(prefix="/api", tags=["exports"])
     response_class=FileResponse,
 )
 def download_excel(
-    siconfi: str = Query(..., description="Código SICONFI do ente", pattern=r"^[a-zA-Z0-9_-]+$"),
-    competencia: str = Query(..., description="Competência (YYYY-MM)", pattern=r"^[0-9]{4}-[0-9]{2}$"),
+    siconfi: str = Query(
+        ...,
+        description="Código SICONFI do ente",
+        pattern=r"^[a-zA-Z0-9_-]+$",
+    ),
+    competencia: str = Query(
+        ...,
+        description="Competência (YYYY-MM)",
+        pattern=r"^[0-9]{4}-[0-9]{2}$",
+    ),
 ) -> FileResponse:
     """Retorna o Excel de pendências para o ente/competência indicados.
 
