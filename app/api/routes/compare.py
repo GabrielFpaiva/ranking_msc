@@ -39,6 +39,7 @@ def get_compare(
         siconfi=siconfi,
         snapshots_dir=absolute_snapshots_dir(),
         settings=settings,
+        competencias=[a, b],
     )
 
     by_comp = {p.competencia: p for p in comparison.periods}
