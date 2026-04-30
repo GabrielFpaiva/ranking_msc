@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ranking_msc.io.ref_loader import load_tabela_fs
-from ranking_msc.rules.base import Rule, ic_esta_informada, register_rule
+from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -69,68 +69,64 @@ class R028(Rule):
         )
 
         df_com_fs = df[["conta_contabil", "fs"]].copy()
-        df_com_fs = df_com_fs[df_com_fs["fs"].apply(ic_esta_informada)]
+        df_com_fs = df_com_fs[ic_mask_informada(df_com_fs["fs"])]
 
         if df_com_fs.empty:
             return self.build_issues([])
 
-        issues: list[dict[str, object]] = []
+        df_unica = df_com_fs.drop_duplicates(subset=["conta_contabil", "fs"]).copy()
+        df_unica["fs_raw"] = df_unica["fs"].astype(str).str.strip()
+        df_unica["fs_val"] = df_unica["fs_raw"].str.zfill(5)
+        df_unica["funcao"] = df_unica["fs_val"].str[:2]
+        df_unica["subfuncao"] = df_unica["fs_val"].str[2:]
 
-        for _, row in df_com_fs.drop_duplicates().iterrows():
-            conta = str(row["conta_contabil"])
-            fs_raw = str(row["fs"]).strip()
-            fs_val = fs_raw.zfill(5)
+        mask_len = df_unica["fs_raw"].str.len() != 5
+        mask_funcao = (~mask_len) & (~df_unica["funcao"].isin(funcoes_validas))
+        mask_subfuncao = (~mask_len) & (~mask_funcao) & (~df_unica["subfuncao"].isin(subfuncoes_validas))
 
-            if len(fs_raw) != 5:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"FS '{fs_raw}' inválida para conta '{conta}': "
-                        "deve ter exatamente 5 dígitos."
-                    ),
-                    "valor_esperado": "5 dígitos",
-                    "valor_encontrado": fs_raw,
-                    "competencia": context.competencia,
-                })
-                continue
+        dfs_issues = []
 
-            funcao = fs_val[:2]
-            subfuncao = fs_val[2:]
+        if mask_len.any():
+            viol = df_unica[mask_len]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "FS '" + viol["fs_raw"] + "' inválida para conta '" + viol["conta_contabil"].astype(str) + "': deve ter exatamente 5 dígitos.",
+                "valor_esperado": "5 dígitos",
+                "valor_encontrado": viol["fs_raw"],
+                "competencia": context.competencia,
+            }))
 
-            if funcao not in funcoes_validas:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"FS '{fs_val}': função '{funcao}' não encontrada "
-                        f"na tabela FS 2026 para conta '{conta}'."
-                    ),
-                    "valor_esperado": "função em tabela_fs.csv",
-                    "valor_encontrado": funcao,
-                    "competencia": context.competencia,
-                })
-                continue
+        if mask_funcao.any():
+            viol = df_unica[mask_funcao]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "FS '" + viol["fs_val"] + "': função '" + viol["funcao"] + "' não encontrada na tabela FS 2026 para conta '" + viol["conta_contabil"].astype(str) + "'.",
+                "valor_esperado": "função em tabela_fs.csv",
+                "valor_encontrado": viol["funcao"],
+                "competencia": context.competencia,
+            }))
 
-            if subfuncao not in subfuncoes_validas:
-                issues.append({
-                    "severidade": "ALERTA",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"FS '{fs_val}': subfunção '{subfuncao}' não encontrada "
-                        f"na tabela FS 2026 para conta '{conta}'."
-                    ),
-                    "valor_esperado": "subfunção em tabela_fs.csv",
-                    "valor_encontrado": subfuncao,
-                    "competencia": context.competencia,
-                })
+        if mask_subfuncao.any():
+            viol = df_unica[mask_subfuncao]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ALERTA",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "FS '" + viol["fs_val"] + "': subfunção '" + viol["subfuncao"] + "' não encontrada na tabela FS 2026 para conta '" + viol["conta_contabil"].astype(str) + "'.",
+                "valor_esperado": "subfunção em tabela_fs.csv",
+                "valor_encontrado": viol["subfuncao"],
+                "competencia": context.competencia,
+            }))
 
-        if issues:
+        if dfs_issues:
+            issues_df = pd.concat(dfs_issues, ignore_index=True)
             logger.warning(
                 "R028: %d pendência(s) de FS inválida. competência=%s",
-                len(issues),
+                len(issues_df),
                 context.competencia,
                 extra=_extra,
             )
+            return self.build_issues(issues_df.to_dict("records"))
 
-        return self.build_issues(issues)
+        return self.build_issues([])

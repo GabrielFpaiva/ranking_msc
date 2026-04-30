@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ranking_msc.io.ref_loader import FP_DOMAIN
-from ranking_msc.rules.base import Rule, ic_esta_informada, register_rule
+from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -52,37 +52,37 @@ class R022(Rule):
             return self.build_issues([])
 
         df_com_fp = df[["conta_contabil", "fp"]].copy()
-        df_com_fp = df_com_fp[df_com_fp["fp"].apply(ic_esta_informada)]
+        df_com_fp = df_com_fp[ic_mask_informada(df_com_fp["fp"])]
         df_com_fp["fp"] = df_com_fp["fp"].astype(str).str.strip()
 
         if df_com_fp.empty:
             return self.build_issues([])
 
-        issues: list[dict[str, object]] = []
+        df_invalidos = df_com_fp[~df_com_fp["fp"].isin(FP_DOMAIN)].drop_duplicates().copy()
 
-        for _, row in df_com_fp.drop_duplicates().iterrows():
-            fp_valor = str(row["fp"])
-            conta = str(row["conta_contabil"])
+        if df_invalidos.empty:
+            return self.build_issues([])
 
-            if fp_valor not in FP_DOMAIN:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"FP '{fp_valor}' inválido para conta '{conta}': "
-                        "esperado '1' (Financeiro) ou '2' (Permanente)."
-                    ),
-                    "valor_esperado": "1 ou 2",
-                    "valor_encontrado": fp_valor,
-                    "competencia": context.competencia,
-                })
+        conta_s = df_invalidos["conta_contabil"].astype(str)
+        fp_s = df_invalidos["fp"].astype(str)
 
-        if issues:
-            logger.warning(
-                "R022: %d pendência(s) de FP inválido. competência=%s",
-                len(issues),
-                context.competencia,
-                extra=_extra,
-            )
+        issues_df = pd.DataFrame({
+            "severidade": "ERRO",
+            "conta_contabil": conta_s.values,
+            "descricao": (
+                "FP '" + fp_s + "' inválido para conta '" + conta_s + "': "
+                "esperado '1' (Financeiro) ou '2' (Permanente)."
+            ).values,
+            "valor_esperado": "1 ou 2",
+            "valor_encontrado": fp_s.values,
+            "competencia": context.competencia,
+        })
 
-        return self.build_issues(issues)
+        logger.warning(
+            "R022: %d pendência(s) de FP inválido. competência=%s",
+            len(issues_df),
+            context.competencia,
+            extra=_extra,
+        )
+
+        return self.build_issues(issues_df.to_dict("records"))

@@ -115,26 +115,28 @@ class R042(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = []
-        for _, row in violacoes.iterrows():
-            tipos: list[str] = []
-            if row["tem_si"]:
-                tipos.append("saldo inicial")
-            if row["tem_sf"]:
-                tipos.append("saldo final")
-            tipos_str = " e ".join(tipos)
-            issues.append({
-                "severidade": "ALERTA",
-                "conta_contabil": str(row["conta_contabil"]),
-                "descricao": (
-                    f"Conta de resultado '{row['conta_contabil']}' possui {tipos_str} "
-                    f"(SI_D={row['si_d']:.2f}, SI_C={row['si_c']:.2f}, "
-                    f"SF_D={row['sf_d']:.2f}, SF_C={row['sf_c']:.2f}). "
-                    f"Contas de resultado devem ter apenas movimentos."
-                ),
-                "valor_esperado": "COUNT(beginning_balance) = 0 e COUNT(ending_balance) = 0",
-                "valor_encontrado": tipos_str,
-                "competencia": context.competencia,
-            })
+        conta_s = violacoes["conta_contabil"].astype(str)
+        si_d_s = violacoes["si_d"].map(lambda x: f"{x:.2f}")
+        si_c_s = violacoes["si_c"].map(lambda x: f"{x:.2f}")
+        sf_d_s = violacoes["sf_d"].map(lambda x: f"{x:.2f}")
+        sf_c_s = violacoes["sf_c"].map(lambda x: f"{x:.2f}")
+        
+        import numpy as np
+        tipos_s = pd.Series("", index=violacoes.index)
+        tipos_s = np.where(violacoes["tem_si"] & violacoes["tem_sf"], "saldo inicial e saldo final",
+                  np.where(violacoes["tem_si"], "saldo inicial",
+                  np.where(violacoes["tem_sf"], "saldo final", "")))
+        
+        issues_df = pd.DataFrame({
+            "severidade": "ALERTA",
+            "conta_contabil": conta_s.values,
+            "descricao": ("Conta de resultado '" + conta_s + "' possui " + tipos_s + 
+                          " (SI_D=" + si_d_s + ", SI_C=" + si_c_s + 
+                          ", SF_D=" + sf_d_s + ", SF_C=" + sf_c_s + "). " + 
+                          "Contas de resultado devem ter apenas movimentos.").values,
+            "valor_esperado": "COUNT(beginning_balance) = 0 e COUNT(ending_balance) = 0",
+            "valor_encontrado": tipos_s,
+            "competencia": context.competencia,
+        })
 
-        return self.build_issues(issues)
+        return self.build_issues(issues_df.to_dict("records"))

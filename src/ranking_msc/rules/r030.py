@@ -86,19 +86,18 @@ class R030(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "ERRO",
-                "conta_contabil": row["conta_contabil"],
-                "descricao": (
-                    f"Conta '{row['conta_contabil']}': movimento D≠C. "
-                    f"Diferença de R$ {row['diferenca']:.2f}."
-                ),
-                "valor_esperado": f"{row['mov_d']:.2f}",
-                "valor_encontrado": f"{row['mov_c']:.2f}",
-                "competencia": context.competencia,
-            }
-            for _, row in violacoes.iterrows()
-        ]
+        conta_s = violacoes["conta_contabil"].astype(str)
+        dif_s = violacoes["diferenca"].map(lambda x: f"{x:.2f}")
+        mov_d_s = violacoes["mov_d"].map(lambda x: f"{x:.2f}")
+        mov_c_s = violacoes["mov_c"].map(lambda x: f"{x:.2f}")
+        
+        issues_df = pd.DataFrame({
+            "severidade": "ERRO",
+            "conta_contabil": conta_s.values,
+            "descricao": ("Conta '" + conta_s + "': movimento D≠C. Diferença de R$ " + dif_s + ".").values,
+            "valor_esperado": mov_d_s.values,
+            "valor_encontrado": mov_c_s.values,
+            "competencia": context.competencia,
+        })
 
-        return self.build_issues(issues)
+        return self.build_issues(issues_df.to_dict("records"))

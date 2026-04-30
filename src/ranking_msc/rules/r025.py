@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ranking_msc.io.ref_loader import load_tabela_co
-from ranking_msc.rules.base import Rule, ic_esta_informada, register_rule
+from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -64,51 +64,50 @@ class R025(Rule):
         )
 
         df_com_co = df[["conta_contabil", "co"]].copy()
-        df_com_co = df_com_co[df_com_co["co"].apply(ic_esta_informada)]
+        df_com_co = df_com_co[ic_mask_informada(df_com_co["co"])]
 
         if df_com_co.empty:
             return self.build_issues([])
 
-        issues: list[dict[str, object]] = []
+        df_unica = df_com_co.drop_duplicates(subset=["conta_contabil", "co"]).copy()
+        df_unica["co_raw"] = df_unica["co"].astype(str).str.strip()
+        df_unica["co_val"] = df_unica["co_raw"].str.zfill(4)
 
-        for _, row in df_com_co.drop_duplicates().iterrows():
-            co_raw = str(row["co"]).strip()
-            co_val = co_raw.zfill(4)
-            conta = str(row["conta_contabil"])
+        mask_len = df_unica["co_raw"].str.len() != 4
+        mask_tabela = (~mask_len) & (~df_unica["co_val"].isin(codigos_validos_co))
 
-            if len(co_raw) != 4:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"CO '{co_val}' inválido para conta '{conta}': "
-                        "deve ter exatamente 4 dígitos."
-                    ),
-                    "valor_esperado": "4 dígitos",
-                    "valor_encontrado": co_val,
-                    "competencia": context.competencia,
-                })
-                continue
+        dfs_issues = []
 
-            if co_val not in codigos_validos_co:
-                issues.append({
-                    "severidade": "ERRO",
-                    "conta_contabil": conta,
-                    "descricao": (
-                        f"CO '{co_val}' não encontrado na tabela CO 2026 "
-                        f"para conta '{conta}'."
-                    ),
-                    "valor_esperado": "Código CO existente na tabela",
-                    "valor_encontrado": co_val,
-                    "competencia": context.competencia,
-                })
+        if mask_len.any():
+            viol = df_unica[mask_len]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "CO '" + viol["co_val"] + "' inválido para conta '" + viol["conta_contabil"].astype(str) + "': deve ter exatamente 4 dígitos.",
+                "valor_esperado": "4 dígitos",
+                "valor_encontrado": viol["co_val"],
+                "competencia": context.competencia,
+            }))
 
-        if issues:
+        if mask_tabela.any():
+            viol = df_unica[mask_tabela]
+            dfs_issues.append(pd.DataFrame({
+                "severidade": "ERRO",
+                "conta_contabil": viol["conta_contabil"].astype(str),
+                "descricao": "CO '" + viol["co_val"] + "' não encontrado na tabela CO 2026 para conta '" + viol["conta_contabil"].astype(str) + "'.",
+                "valor_esperado": "Código CO existente na tabela",
+                "valor_encontrado": viol["co_val"],
+                "competencia": context.competencia,
+            }))
+
+        if dfs_issues:
+            issues_df = pd.concat(dfs_issues, ignore_index=True)
             logger.warning(
                 "R025: %d pendência(s) de CO inválido. competência=%s",
-                len(issues),
+                len(issues_df),
                 context.competencia,
                 extra=_extra,
             )
+            return self.build_issues(issues_df.to_dict("records"))
 
-        return self.build_issues(issues)
+        return self.build_issues([])

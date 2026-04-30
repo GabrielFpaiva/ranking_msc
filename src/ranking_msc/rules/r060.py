@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pandas as pd
 
 from ranking_msc.io.ref_loader import load_pcasp
@@ -102,7 +103,7 @@ class R060(Rule):
             (merged["ind_sf"] == _IND_SF_PERMANENTE)
             & (merged["fp"] != _FP_PERMANENTE)
         )
-        violacoes = merged[mask_financeiro | mask_permanente]
+        violacoes = merged[mask_financeiro | mask_permanente].copy()
 
         if violacoes.empty:
             return self.build_issues([])
@@ -114,26 +115,38 @@ class R060(Rule):
             extra=_extra,
         )
 
-        # 7. Gerar issues — incluir po/fr na descrição quando disponíveis
-        #    para diferenciar linhas da mesma conta com FP divergente
-        issues: list[dict[str, object]] = []
-        for _, row in violacoes.iterrows():
-            ind = str(row["ind_sf"])
-            fp_esp = _FP_FINANCEIRO if ind == _IND_SF_FINANCEIRO else _FP_PERMANENTE
-            po_info = f", po={row['po']}" if "po" in row.index else ""
-            fr_info = f", fr={row['fr']}" if "fr" in row.index else ""
-            issues.append(
-                {
-                    "severidade": "ALERTA",
-                    "conta_contabil": row["conta_contabil"],
-                    "descricao": (
-                        f"Conta '{row['conta_contabil']}'{po_info}{fr_info}: "
-                        f"IND_SF={ind} mas FP='{row['fp']}' (esperado: '{fp_esp}')."
-                    ),
-                    "valor_esperado": fp_esp,
-                    "valor_encontrado": str(row["fp"]),
-                    "competencia": context.competencia,
-                }
-            )
+        # 7. Construção vetorizada de issues — substitui iterrows()
+        conta_s = violacoes["conta_contabil"].astype(str)
+        ind_s = violacoes["ind_sf"].astype(str)
+        fp_s = violacoes["fp"].astype(str)
+        fp_esp_s = pd.Series(
+            np.where(
+                violacoes["ind_sf"] == _IND_SF_FINANCEIRO,
+                _FP_FINANCEIRO,
+                _FP_PERMANENTE,
+            ),
+            index=violacoes.index,
+        )
 
-        return self.build_issues(issues)
+        # Construir info contextual de po/fr quando disponíveis
+        po_info = pd.Series("", index=violacoes.index)
+        if "po" in violacoes.columns:
+            po_info = ", po=" + violacoes["po"].astype(str)
+        fr_info = pd.Series("", index=violacoes.index)
+        if "fr" in violacoes.columns:
+            fr_info = ", fr=" + violacoes["fr"].astype(str)
+
+        issues_df = pd.DataFrame({
+            "severidade": "ALERTA",
+            "conta_contabil": conta_s.values,
+            "descricao": (
+                "Conta '" + conta_s + "'" + po_info + fr_info
+                + ": IND_SF=" + ind_s + " mas FP='" + fp_s
+                + "' (esperado: '" + fp_esp_s + "')."
+            ).values,
+            "valor_esperado": fp_esp_s.values,
+            "valor_encontrado": fp_s.values,
+            "competencia": context.competencia,
+        })
+
+        return self.build_issues(issues_df.to_dict("records"))

@@ -104,21 +104,24 @@ class R031(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "ERRO",
-                "conta_contabil": str(row["conta_contabil"]),
-                "descricao": (
-                    f"Conta '{row['conta_contabil']}': SF ≠ SI + Movimentos. "
-                    f"SF_líq={row['_sf_liq']:.2f}, "
-                    f"SI_líq + Mov_líq={row['_si_liq'] + row['_mov_liq']:.2f}, "
-                    f"resíduo={row['_residuo']:.2f}."
-                ),
-                "valor_esperado": f"{row['_si_liq'] + row['_mov_liq']:.2f}",
-                "valor_encontrado": f"{row['_sf_liq']:.2f}",
-                "competencia": context.competencia,
-            }
-            for _, row in violacoes.iterrows()
-        ]
+        # Construção vetorizada de issues — substitui iterrows()
+        conta_s = violacoes["conta_contabil"].astype(str)
+        sf_s = violacoes["_sf_liq"].map(lambda x: f"{x:.2f}")
+        expected_s = (violacoes["_si_liq"] + violacoes["_mov_liq"]).map(lambda x: f"{x:.2f}")
+        residuo_s = violacoes["_residuo"].map(lambda x: f"{x:.2f}")
 
-        return self.build_issues(issues)
+        issues_df = pd.DataFrame({
+            "severidade": "ERRO",
+            "conta_contabil": conta_s.values,
+            "descricao": (
+                "Conta '" + conta_s
+                + "': SF ≠ SI + Movimentos. SF_líq=" + sf_s
+                + ", SI_líq + Mov_líq=" + expected_s
+                + ", resíduo=" + residuo_s + "."
+            ).values,
+            "valor_esperado": expected_s.values,
+            "valor_encontrado": sf_s.values,
+            "competencia": context.competencia,
+        })
+
+        return self.build_issues(issues_df.to_dict("records"))

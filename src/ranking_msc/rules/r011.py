@@ -87,19 +87,14 @@ class R011(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "ERRO",
-                "conta_contabil": row["conta_contabil"],
-                "descricao": (
-                    f"Conta '{row['conta_contabil']}' é sintética (nível Superior) "
-                    "e não deve ser informada na MSC. Use apenas contas analíticas."
-                ),
-                "valor_esperado": "nivel == Último (conta analítica)",
-                "valor_encontrado": str(row["nivel"]),
-                "competencia": context.competencia,
-            }
-            for _, row in sinteticas.iterrows()
-        ]
+        conta_s = sinteticas["conta_contabil"].astype(str)
+        issues_df = pd.DataFrame({
+            "severidade": "ERRO",
+            "conta_contabil": conta_s.values,
+            "descricao": ("Conta '" + conta_s + "' é sintética (nível Superior) e não deve ser informada na MSC. Use apenas contas analíticas.").values,
+            "valor_esperado": "nivel == Último (conta analítica)",
+            "valor_encontrado": sinteticas["nivel"].astype(str).values,
+            "competencia": context.competencia,
+        })
 
-        return self.build_issues(issues)
+        return self.build_issues(issues_df.to_dict("records"))

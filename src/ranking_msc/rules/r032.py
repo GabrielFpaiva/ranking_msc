@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pandas as pd
 
 from ranking_msc.exceptions import ConfigError
@@ -96,7 +97,7 @@ class R032(Rule):
         mask_credora = (merged["nat_saldo"] == "Credora") & (
             merged["saldo_final_debito"] > 0
         )
-        violacoes = merged[mask_devedora | mask_credora]
+        violacoes = merged[mask_devedora | mask_credora].copy()
 
         if violacoes.empty:
             return self.build_issues([])
@@ -108,37 +109,49 @@ class R032(Rule):
             extra=_extra,
         )
 
-        # 6. Gerar issues
-        issues: list[dict[str, object]] = []
-        for _, row in violacoes.iterrows():
-            conta = row["conta_contabil"]
-            nat = row["nat_saldo"]
-            if nat == "Devedora":
-                saldo_inv = float(row["saldo_final_credito"])
-                descricao = (
-                    f"Conta '{conta}': nat_saldo=Devedora mas possui "
-                    f"saldo credor de {saldo_inv:.2f}."
-                )
-                valor_esperado = "Natureza D (saldo devedor)"
-                valor_encontrado = f"C (saldo_final_credito={saldo_inv:.2f})"
-            else:
-                saldo_inv = float(row["saldo_final_debito"])
-                descricao = (
-                    f"Conta '{conta}': nat_saldo=Credora mas possui "
-                    f"saldo devedor de {saldo_inv:.2f}."
-                )
-                valor_esperado = "Natureza C (saldo credor)"
-                valor_encontrado = f"D (saldo_final_debito={saldo_inv:.2f})"
+        # 6. Construção vetorizada de issues — substitui iterrows()
+        conta_s = violacoes["conta_contabil"].astype(str)
+        nat_s = violacoes["nat_saldo"].astype(str)
+        is_devedora = violacoes["nat_saldo"] == "Devedora"
 
-            issues.append(
-                {
-                    "severidade": "ALERTA",
-                    "conta_contabil": conta,
-                    "descricao": descricao,
-                    "valor_esperado": valor_esperado,
-                    "valor_encontrado": valor_encontrado,
-                    "competencia": context.competencia,
-                }
-            )
+        saldo_inv_s = pd.Series(
+            np.where(
+                is_devedora,
+                violacoes["saldo_final_credito"],
+                violacoes["saldo_final_debito"],
+            ),
+            index=violacoes.index,
+        ).map(lambda x: f"{x:.2f}")
 
-        return self.build_issues(issues)
+        descricao_s = pd.Series(
+            np.where(
+                is_devedora,
+                "Conta '" + conta_s + "': nat_saldo=Devedora mas possui saldo credor de " + saldo_inv_s + ".",
+                "Conta '" + conta_s + "': nat_saldo=Credora mas possui saldo devedor de " + saldo_inv_s + ".",
+            ),
+            index=violacoes.index,
+        )
+
+        valor_esperado_s = pd.Series(
+            np.where(is_devedora, "Natureza D (saldo devedor)", "Natureza C (saldo credor)"),
+            index=violacoes.index,
+        )
+        valor_encontrado_s = pd.Series(
+            np.where(
+                is_devedora,
+                "C (saldo_final_credito=" + saldo_inv_s + ")",
+                "D (saldo_final_debito=" + saldo_inv_s + ")",
+            ),
+            index=violacoes.index,
+        )
+
+        issues_df = pd.DataFrame({
+            "severidade": "ALERTA",
+            "conta_contabil": conta_s.values,
+            "descricao": descricao_s.values,
+            "valor_esperado": valor_esperado_s.values,
+            "valor_encontrado": valor_encontrado_s.values,
+            "competencia": context.competencia,
+        })
+
+        return self.build_issues(issues_df.to_dict("records"))

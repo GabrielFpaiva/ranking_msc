@@ -84,19 +84,14 @@ class R040(Rule):
             extra=_extra,
         )
 
-        issues: list[dict[str, object]] = [
-            {
-                "severidade": "ALERTA",
-                "conta_contabil": str(row["conta_contabil"]),
-                "descricao": (
-                    f"Conta patrimonial '{row['conta_contabil']}' não possui "
-                    f"nenhuma entrada de saldo inicial (beginning_balance ausente)."
-                ),
-                "valor_esperado": "COUNT(beginning_balance) > 0",
-                "valor_encontrado": "0",
-                "competencia": context.competencia,
-            }
-            for _, row in violacoes.iterrows()
-        ]
+        conta_s = violacoes["conta_contabil"].astype(str)
+        issues_df = pd.DataFrame({
+            "severidade": "ALERTA",
+            "conta_contabil": conta_s.values,
+            "descricao": ("Conta patrimonial '" + conta_s + "' não possui nenhuma entrada de saldo inicial (beginning_balance ausente).").values,
+            "valor_esperado": "COUNT(beginning_balance) > 0",
+            "valor_encontrado": "0",
+            "competencia": context.competencia,
+        })
 
-        return self.build_issues(issues)
+        return self.build_issues(issues_df.to_dict("records"))
