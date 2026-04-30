@@ -206,7 +206,7 @@ def read_msc_csv(
     r001_r009_issues = _validate_columns(df, source)
     df, pivot_issues = _pivot_values(df, competencia, siconfi)
     ic_pair_issues = _check_ic_pairs(df, competencia)
-    ic_order_issues = _check_ic_order(df, competencia, r033_issues=ic_pair_issues)
+    ic_order_issues = _check_ic_order(df, competencia)
     pre_pivot_issues = (
         metadata_issues + r008_issues + r001_r009_issues
         + pivot_issues + ic_pair_issues + ic_order_issues
@@ -778,7 +778,40 @@ def _check_ic_pairs(df: pd.DataFrame, competencia: str) -> list[dict[str, object
     for n in range(1, 7):
         ic_col = f"ic{n}"
         tipo_col = f"tipo{n}"
-        if ic_col not in df.columns or tipo_col not in df.columns:
+        ic_present = ic_col in df.columns
+        tipo_present = tipo_col in df.columns
+
+        if not ic_present and not tipo_present:
+            continue
+
+        if not ic_present:
+            # TIPO column exists but IC column is structurally absent — treat IC as empty.
+            tipo_filled = df[tipo_col].astype(str).str.strip().ne("")
+            for idx in df.index[tipo_filled]:
+                conta = str(df.at[idx, "conta_contabil"])
+                tipo_val = str(df.at[idx, tipo_col]).strip()
+                issues.append({
+                    "regra": "R033",
+                    "conta_contabil": conta,
+                    "campo": f"IC{n}/TIPO{n}",
+                    "valor_encontrado": f"TIPO{n}='{tipo_val}' presente mas IC{n} está vazio",
+                    "competencia": competencia,
+                })
+            continue
+
+        if not tipo_present:
+            # IC column exists but TIPO column is structurally absent — treat TIPO as empty.
+            ic_filled = df[ic_col].astype(str).str.strip().ne("")
+            for idx in df.index[ic_filled]:
+                conta = str(df.at[idx, "conta_contabil"])
+                ic_val = str(df.at[idx, ic_col]).strip()
+                issues.append({
+                    "regra": "R033",
+                    "conta_contabil": conta,
+                    "campo": f"IC{n}/TIPO{n}",
+                    "valor_encontrado": f"IC{n}='{ic_val}' presente mas TIPO{n} está vazio",
+                    "competencia": competencia,
+                })
             continue
 
         ic_filled = df[ic_col].astype(str).str.strip().ne("")
@@ -810,7 +843,6 @@ def _check_ic_pairs(df: pd.DataFrame, competencia: str) -> list[dict[str, object
 def _check_ic_order(
     df: pd.DataFrame,
     competencia: str,
-    r033_issues: list[dict[str, object]] | None = None,
 ) -> list[dict[str, object]]:
     """Verifica que as ICs seguem a ordem canônica do leiaute MSC (R082).
 
@@ -818,15 +850,15 @@ def _check_ic_order(
     verifica se é uma das sequências válidas definidas no IC_MAP.  Linhas sem
     nenhuma IC são ignoradas.
 
-    **Pré-filtro R033:** linhas cujo ``conta_contabil`` já possui um issue R033
-    (par IC/TIPO desemparelhado) são excluídas da verificação de ordem, pois
-    pares inválidos impossibilitam determinação confiável da sequência de tipos.
-    Sem esse filtro, linhas malformadas geram alertas R082 enganosos.
+    **Filtro de Emparelhamento:** Linhas com pares IC/TIPO desemparelhados
+    (onde um existe e o outro não) são ignoradas na checagem de ordem
+    (já são pegas pela R033), evitando alertas R082 falsos em registros malformados.
+    Isso é verificado registro a registro, permitindo que contas com múltiplas
+    linhas ainda sejam verificadas onde os pares estão corretos.
 
     Args:
-        df: DataFrame pivotado com colunas tipo1..tipo6.
+        df: DataFrame pivotado com colunas tipo1..tipo6 e ic1..ic6.
         competencia: competência do arquivo.
-        r033_issues: lista de issues R033 já detectados (pode ser None ou vazia).
 
     Returns:
         Lista de issues com ``"regra": "R082"``.
@@ -838,39 +870,33 @@ def _check_ic_order(
     if not tipo_cols:
         return []
 
-    # Contas com pares IC/TIPO desemparelhados (R033) → excluir da verificação
-    # de ordem para evitar alertas R082 enganosos em linhas malformadas.
-    contas_r033: frozenset[str] = frozenset(
-        str(iss.get("conta_contabil", ""))
-        for iss in (r033_issues or [])
-    )
-
     issues: list[dict[str, object]] = []
 
     for _, row in df.iterrows():
         conta = str(row.get("conta_contabil", ""))
 
-        if conta in contas_r033:
-            continue
-
         # Verificar que cada tipo não-vazio está emparelhado com IC preenchido
-        # antes de incluir na sequência — defesa extra contra linhas onde
-        # _check_ic_pairs não cobriu (ex: coluna IC ausente no CSV).
+        # e vice-versa, apenas para a linha atual (defesa contra R033).
+        # Se houver inconsistência, a ordem é inválida e não checamos.
         tipos: list[str] = []
-        for c in tipo_cols:
-            tipo_val = str(row[c]).strip().upper()
+        is_consistent = True
+
+        for n in range(1, 7):
+            tipo_col = f"tipo{n}"
+            ic_col = f"ic{n}"
+
+            tipo_val = str(row.get(tipo_col, "")).strip().upper()
+            ic_val = str(row.get(ic_col, "")).strip()
+
+            if bool(tipo_val) != bool(ic_val):
+                is_consistent = False
+                break
+
             if tipo_val:
-                # Verificar par: ic_n correspondente deve estar preenchido
-                n = c.replace("tipo", "")
-                ic_col = f"ic{n}"
-                if ic_col in row.index:
-                    ic_val = str(row[ic_col]).strip()
-                    if not ic_val:
-                        # TIPO preenchido mas IC vazio → par inconsistente,
-                        # não é possível validar ordem de forma confiável.
-                        tipos = []  # reset, skip this row
-                        break
                 tipos.append(tipo_val)
+
+        if not is_consistent:
+            continue
 
         tipos_tuple = tuple(tipos)
         if not tipos_tuple:

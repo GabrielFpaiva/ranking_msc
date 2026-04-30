@@ -1103,20 +1103,14 @@ class TestCheckIcOrderSkipsR033:
             "ic6": [""],      "tipo6": [""],
         })
 
-        r033_issues = [
-            {"regra": "R033", "conta_contabil": "111110200",
-             "campo": "IC2/TIPO2",
-             "valor_encontrado": "TIPO2='CO' presente mas IC2 está vazio"}
-        ]
-
-        issues = _check_ic_order(df, "2024-01", r033_issues=r033_issues)
+        issues = _check_ic_order(df, "2024-01")
         r082_for_conta = [
             i for i in issues
             if i.get("conta_contabil") == "111110200"
         ]
         assert len(r082_for_conta) == 0, (
             "P2 regression: _check_ic_order não deve emitir R082 para "
-            "linhas que já possuem issue R033 (pares IC/TIPO inconsistentes)."
+            "linhas com pares IC/TIPO inconsistentes."
         )
 
     def test_linha_sem_r033_ainda_gera_r082(self) -> None:
@@ -1134,7 +1128,7 @@ class TestCheckIcOrderSkipsR033:
             "ic6": [""],      "tipo6": [""],
         })
 
-        issues = _check_ic_order(df, "2024-01", r033_issues=[])
+        issues = _check_ic_order(df, "2024-01")
         assert len(issues) >= 1, (
             "Conta sem R033 mas com ordem IC errada deve gerar R082."
         )
