@@ -69,7 +69,11 @@ class R021(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ERRO",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "PO '" + viol["po_raw"] + "' fora do formato: esperado 5 dígitos, encontrado " + viol["po_raw"].str.len().astype(str) + ".",
+                "descricao": (
+                    "PO '" + viol["po_raw"]
+                    + "' fora do formato: esperado 5 dígitos, encontrado "
+                    + viol["po_raw"].str.len().astype(str) + "."
+                ),
                 "valor_esperado": "5 dígitos",
                 "valor_encontrado": viol["po_raw"],
                 "competencia": context.competencia,
@@ -80,7 +84,10 @@ class R021(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ERRO",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "PO '" + viol["po_raw"] + "' não encontrado na tabela oficial de Poder/Órgão.",
+                "descricao": (
+                    "PO '" + viol["po_raw"]
+                    + "' não encontrado na tabela oficial de Poder/Órgão."
+                ),
                 "valor_esperado": "Código PO existente na tabela",
                 "valor_encontrado": viol["po_raw"],
                 "competencia": context.competencia,

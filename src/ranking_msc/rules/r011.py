@@ -91,7 +91,10 @@ class R011(Rule):
         issues_df = pd.DataFrame({
             "severidade": "ERRO",
             "conta_contabil": conta_s.values,
-            "descricao": ("Conta '" + conta_s + "' é sintética (nível Superior) e não deve ser informada na MSC. Use apenas contas analíticas.").values,
+            "descricao": (
+                "Conta '" + conta_s + "' é sintética (nível Superior)"
+                " e não deve ser informada na MSC. Use apenas contas analíticas."
+            ).values,
             "valor_esperado": "nivel == Último (conta analítica)",
             "valor_encontrado": sinteticas["nivel"].astype(str).values,
             "competencia": context.competencia,

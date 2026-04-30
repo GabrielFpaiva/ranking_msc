@@ -103,7 +103,9 @@ class R043(Rule):
         issues_df = pd.DataFrame({
             "severidade": "INFO",
             "conta_contabil": conta_s.values,
-            "descricao": ("Conta '" + conta_s + "' está totalmente zerada (SI=0, Mov=0, SF=0).").values,
+            "descricao": (
+                "Conta '" + conta_s + "' está totalmente zerada (SI=0, Mov=0, SF=0)."
+            ).values,
             "valor_esperado": "ao menos um valor ≠ 0",
             "valor_encontrado": "0",
             "competencia": context.competencia,

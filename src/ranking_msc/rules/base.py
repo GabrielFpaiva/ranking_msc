@@ -38,7 +38,6 @@ import math
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
-import numpy as np
 import pandas as pd
 
 from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS

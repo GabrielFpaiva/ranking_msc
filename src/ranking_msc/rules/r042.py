@@ -120,19 +120,19 @@ class R042(Rule):
         si_c_s = violacoes["si_c"].map(lambda x: f"{x:.2f}")
         sf_d_s = violacoes["sf_d"].map(lambda x: f"{x:.2f}")
         sf_c_s = violacoes["sf_c"].map(lambda x: f"{x:.2f}")
-        
+
         import numpy as np
         tipos_s = pd.Series("", index=violacoes.index)
         tipos_s = np.where(violacoes["tem_si"] & violacoes["tem_sf"], "saldo inicial e saldo final",
                   np.where(violacoes["tem_si"], "saldo inicial",
                   np.where(violacoes["tem_sf"], "saldo final", "")))
-        
+
         issues_df = pd.DataFrame({
             "severidade": "ALERTA",
             "conta_contabil": conta_s.values,
-            "descricao": ("Conta de resultado '" + conta_s + "' possui " + tipos_s + 
-                          " (SI_D=" + si_d_s + ", SI_C=" + si_c_s + 
-                          ", SF_D=" + sf_d_s + ", SF_C=" + sf_c_s + "). " + 
+            "descricao": ("Conta de resultado '" + conta_s + "' possui " + tipos_s +
+                          " (SI_D=" + si_d_s + ", SI_C=" + si_c_s +
+                          ", SF_D=" + sf_d_s + ", SF_C=" + sf_c_s + "). " +
                           "Contas de resultado devem ter apenas movimentos.").values,
             "valor_esperado": "COUNT(beginning_balance) = 0 e COUNT(ending_balance) = 0",
             "valor_encontrado": tipos_s,

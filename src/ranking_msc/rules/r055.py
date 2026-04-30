@@ -93,8 +93,11 @@ class R055(Rule):
         issues_df = pd.DataFrame({
             "severidade": "ALERTA",
             "conta_contabil": conta_s.values,
-            "descricao": ("Conta de resultado '" + conta_s + "' com saldo inicial não-zero em janeiro: SI_D=" + 
-                          si_d_s + ", SI_C=" + si_c_s + " (líquido=" + si_liq_s + ").").values,
+            "descricao": (
+                "Conta de resultado '" + conta_s
+                + "' com saldo inicial não-zero em janeiro: SI_D="
+                + si_d_s + ", SI_C=" + si_c_s + " (líquido=" + si_liq_s + ")."
+            ).values,
             "valor_esperado": "0.00",
             "valor_encontrado": si_liq_s.values,
             "competencia": context.competencia,

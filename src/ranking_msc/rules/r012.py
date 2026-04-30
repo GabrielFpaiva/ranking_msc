@@ -92,7 +92,10 @@ class R012(Rule):
         issues_df = pd.DataFrame({
             "severidade": "ALERTA",
             "conta_contabil": conta_s.values,
-            "descricao": ("Conta '" + conta_s + "' está inativa no PCASP (status: '" + status_s + "') — possível plano de contas desatualizado.").values,
+            "descricao": (
+                "Conta '" + conta_s + "' está inativa no PCASP (status: '"
+                + status_s + "') — possível plano de contas desatualizado."
+            ).values,
             "valor_esperado": "status == Ativa",
             "valor_encontrado": status_s.values,
             "competencia": context.competencia,

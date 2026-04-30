@@ -85,7 +85,10 @@ class R027(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ERRO",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "ND '" + viol["nd_raw"] + "' inválida para conta '" + viol["conta_contabil"].astype(str) + "': deve ter exatamente 8 dígitos.",
+                "descricao": (
+                    "ND '" + viol["nd_raw"] + "' inválida para conta '"
+                    + viol["conta_contabil"].astype(str) + "': deve ter exatamente 8 dígitos."
+                ),
                 "valor_esperado": "8 dígitos",
                 "valor_encontrado": viol["nd_raw"],
                 "competencia": context.competencia,
@@ -96,7 +99,10 @@ class R027(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ERRO",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "ND '" + viol["nd_raw"] + "' inválida para conta '" + viol["conta_contabil"].astype(str) + "': deve conter apenas dígitos (0–9).",
+                "descricao": (
+                    "ND '" + viol["nd_raw"] + "' inválida para conta '"
+                    + viol["conta_contabil"].astype(str) + "': deve conter apenas dígitos (0–9)."
+                ),
                 "valor_esperado": "apenas dígitos (0-9)",
                 "valor_encontrado": viol["nd_raw"],
                 "competencia": context.competencia,
@@ -107,7 +113,11 @@ class R027(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ALERTA",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "ND '" + viol["nd_val"] + "' não encontrada na tabela ND 2026 para conta '" + viol["conta_contabil"].astype(str) + "'.",
+                "descricao": (
+                    "ND '" + viol["nd_val"]
+                    + "' não encontrada na tabela ND 2026 para conta '"
+                    + viol["conta_contabil"].astype(str) + "'."
+                ),
                 "valor_esperado": "código em tabela_nd.csv",
                 "valor_encontrado": viol["nd_val"],
                 "competencia": context.competencia,

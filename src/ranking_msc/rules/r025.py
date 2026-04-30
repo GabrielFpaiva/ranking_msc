@@ -83,7 +83,10 @@ class R025(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ERRO",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "CO '" + viol["co_val"] + "' inválido para conta '" + viol["conta_contabil"].astype(str) + "': deve ter exatamente 4 dígitos.",
+                "descricao": (
+                    "CO '" + viol["co_val"] + "' inválido para conta '"
+                    + viol["conta_contabil"].astype(str) + "': deve ter exatamente 4 dígitos."
+                ),
                 "valor_esperado": "4 dígitos",
                 "valor_encontrado": viol["co_val"],
                 "competencia": context.competencia,
@@ -94,7 +97,11 @@ class R025(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ERRO",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "CO '" + viol["co_val"] + "' não encontrado na tabela CO 2026 para conta '" + viol["conta_contabil"].astype(str) + "'.",
+                "descricao": (
+                    "CO '" + viol["co_val"]
+                    + "' não encontrado na tabela CO 2026 para conta '"
+                    + viol["conta_contabil"].astype(str) + "'."
+                ),
                 "valor_esperado": "Código CO existente na tabela",
                 "valor_encontrado": viol["co_val"],
                 "competencia": context.competencia,

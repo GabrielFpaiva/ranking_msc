@@ -90,11 +90,13 @@ class R030(Rule):
         dif_s = violacoes["diferenca"].map(lambda x: f"{x:.2f}")
         mov_d_s = violacoes["mov_d"].map(lambda x: f"{x:.2f}")
         mov_c_s = violacoes["mov_c"].map(lambda x: f"{x:.2f}")
-        
+
         issues_df = pd.DataFrame({
             "severidade": "ERRO",
             "conta_contabil": conta_s.values,
-            "descricao": ("Conta '" + conta_s + "': movimento D≠C. Diferença de R$ " + dif_s + ".").values,
+            "descricao": (
+                "Conta '" + conta_s + "': movimento D≠C. Diferença de R$ " + dif_s + "."
+            ).values,
             "valor_esperado": mov_d_s.values,
             "valor_encontrado": mov_c_s.values,
             "competencia": context.competencia,
