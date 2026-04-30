@@ -601,3 +601,112 @@ class TestPathTraversalSanitization:
         assert ";" not in result.siconfi
         assert "/" not in result.siconfi
         assert ".." not in result.siconfi
+
+
+# ---------------------------------------------------------------------------
+# Encoding auto-detection (F4-10)
+# ---------------------------------------------------------------------------
+
+_BASE_CSV_TEXT = (
+    "2507507EX;2025-11\r"
+    "CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6"
+    ";Valor;Tipo_valor;Natureza_valor\r"
+    "111110200;10131;PO;1;FP;1500;FR;;;;;;;;1000.00;beginning_balance;D"
+)
+
+class TestAutoDetectEncoding:
+    """Testes de detecção automática de encoding (F4-10)."""
+
+    def test_auto_detect_utf8_bom(self) -> None:
+        """CSV com UTF-8 BOM (utf-8-sig) → BOM removido, siconfi válido, sem R006."""
+        raw_bytes = _BASE_CSV_TEXT.encode("utf-8-sig")  # adiciona BOM \xef\xbb\xbf
+        result = read_msc_csv(io.BytesIO(raw_bytes))
+        assert result.siconfi == "2507507EX", (
+            "utf-8-sig deve remover BOM; siconfi não deve conter caractere de BOM"
+        )
+        r006 = [i for i in result.pre_pivot_issues if i["regra"] == "R006"]
+        assert r006 == [], "CSV com BOM não deve emitir R006 com encoding auto"
+
+    def test_auto_detect_latin1_bytes(self) -> None:
+        """CSV com bytes Latin-1 não-ASCII processado com encoding='auto' sem erro."""
+        # Constrói CSV onde IC4 tem byte \xc9 (É em latin-1, inválido em UTF-8)
+        header = (
+            "CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6"
+            ";Valor;Tipo_valor;Natureza_valor"
+        )
+        metadata = "2507507EX;2025-11"
+        row = "111110200;10131;PO;1;FP;1500;FR;\xc9;;;;;;;1000.00;beginning_balance;D"
+        raw_bytes = (
+            metadata.encode("latin-1") + b"\r"
+            + header.encode("latin-1") + b"\r"
+            + row.encode("latin-1")
+        )
+        # Confirmar que o arquivo não é decodificável como UTF-8
+        with pytest.raises(UnicodeDecodeError):
+            raw_bytes.decode("utf-8")
+
+        result = read_msc_csv(io.BytesIO(raw_bytes))
+        assert len(result.df) > 0, "CSV com bytes Latin-1 deve ser processado"
+
+    def test_auto_detect_cp1252_bytes(self) -> None:
+        """CSV com bytes CP1252 exclusivos (0x80–0x9F) processado sem erro.
+
+        O byte 0x80 mapeia para U+20AC (€) em CP1252 mas é inválido em UTF-8
+        sozinho.  Latin-1 decodifica 0x80 como U+0080 (caractere de controle
+        C1), portanto CP1252 é encontrado primeiro na cascata.
+        """
+        header = (
+            b"CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6"
+            b";Valor;Tipo_valor;Natureza_valor"
+        )
+        # Byte 0x80 no campo IC4: válido em CP1252 (= €), inválido em UTF-8
+        data_row = b"111110200;10131;PO;1;FP;1500;FR;\x80;;;;;;;1000.00;beginning_balance;D"
+        raw_bytes = b"2507507EX;2025-11\r" + header + b"\r" + data_row
+
+        result = read_msc_csv(io.BytesIO(raw_bytes))
+        assert len(result.df) > 0, "CSV com bytes CP1252 deve ser processado"
+
+    def test_encoding_explicito_errado_levanta_inputformaterror(self) -> None:
+        """Encoding explícito incompatível com o arquivo → InputFormatError."""
+        # \xc9 em latin-1 não é UTF-8 válido
+        raw_bytes = (
+            b"2507507EX;2025-11\r" + b"\xc9"
+            + b"\r111110200;PO;FR;1000.00;beginning_balance;D"
+        )
+        with pytest.raises(InputFormatError, match="Falha ao decodificar"):
+            read_msc_csv(io.BytesIO(raw_bytes), encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Separador pipe (F4-10)
+# ---------------------------------------------------------------------------
+
+
+class TestSeparadorPipe:
+    """Testes de detecção e uso do separador pipe '|' (F4-10)."""
+
+    def test_header_e_dados_pipe_emite_r008_e_parseia(self, tmp_path: Path) -> None:
+        """CSV com '|' no header e dados → R008 emitido, DataFrame não vazio."""
+        cols = "CONTA|IC1|TIPO1|IC2|TIPO2|IC3|TIPO3|IC4|TIPO4|IC5|TIPO5|IC6|TIPO6"
+        header = f"{cols}|Valor|Tipo_valor|Natureza_valor"
+        data_row = "111110200|10131|PO|1|FP|1500|FR|||||||||1000.00|beginning_balance|D"
+        content = f"2507507EX;2025-11\r{header}\r{data_row}".encode("ascii")
+        path = tmp_path / "pipe_sep.csv"
+        path.write_bytes(content)
+
+        result = read_msc_csv(path)
+
+        r008 = [i for i in result.pre_pivot_issues if i["regra"] == "R008"]
+        assert len(r008) >= 1, "R008 deve ser emitido para separador '|'"
+        assert r008[0]["valor_encontrado"] == "|"
+        assert len(result.df) > 0, "DataFrame não pode ser vazio"
+
+    def test_infer_sep_pipe_vence_contagem(self) -> None:
+        """_infer_sep_from_rows retorna '|' quando pipe é o separador predominante."""
+        from ranking_msc.io.reader_msc import _infer_sep_from_rows
+
+        lines = [
+            "111|222|333|444|555",
+            "aaa|bbb|ccc|ddd|eee",
+        ]
+        assert _infer_sep_from_rows(lines, fallback=";") == "|"

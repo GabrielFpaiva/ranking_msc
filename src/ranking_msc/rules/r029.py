@@ -65,12 +65,12 @@ class R029(Rule):
 
         df_unica = df_com_ai.copy()
         mask_formato = (df_unica["ai"].str.len() != 4) | (~df_unica["ai"].str.isdigit())
-        
+
         # Safe cast for valid years
         df_validos = df_unica[~mask_formato].copy()
         df_validos["ano"] = pd.to_numeric(df_validos["ai"], errors='coerce').fillna(0).astype(int)
         mask_plausivel = (df_validos["ano"] < 2000) | (df_validos["ano"] > ano_competencia)
-        
+
         dfs_issues = []
 
         if mask_formato.any():
@@ -78,7 +78,11 @@ class R029(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ERRO",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "AI '" + viol["ai"] + "' fora do formato: esperado exatamente 4 dígitos numéricos, encontrado '" + viol["ai"] + "'. Conta: " + viol["conta_contabil"].astype(str) + ".",
+                "descricao": (
+                    "AI '" + viol["ai"]
+                    + "' fora do formato: esperado exatamente 4 dígitos numéricos, encontrado '"
+                    + viol["ai"] + "'. Conta: " + viol["conta_contabil"].astype(str) + "."
+                ),
                 "valor_esperado": "4 dígitos numéricos (ex: '2023')",
                 "valor_encontrado": viol["ai"],
                 "competencia": context.competencia,
@@ -89,7 +93,10 @@ class R029(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ALERTA",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "AI '" + viol["ai"] + "' implausível: esperado ano entre 2000 e " + str(ano_competencia) + ", encontrado " + viol["ano"].astype(str) + ".",
+                "descricao": (
+                    "AI '" + viol["ai"] + "' implausível: esperado ano entre 2000 e "
+                    + str(ano_competencia) + ", encontrado " + viol["ano"].astype(str) + "."
+                ),
                 "valor_esperado": "2000 ≤ ano ≤ " + str(ano_competencia),
                 "valor_encontrado": viol["ai"],
                 "competencia": context.competencia,

@@ -213,8 +213,8 @@ class R054(Rule):
         issues_df = pd.DataFrame({
             "severidade": "ALERTA",
             "conta_contabil": conta_s.values,
-            "descricao": ("Conta '" + conta_s + "': SI do mês " + context.competencia + 
-                          " (" + si_liq_s + ") ≠ SF do mês " + prev_comp + 
+            "descricao": ("Conta '" + conta_s + "': SI do mês " + context.competencia +
+                          " (" + si_liq_s + ") ≠ SF do mês " + prev_comp +
                           " (" + sf_liq_s + "). Diferença: " + diff_s + ".").values,
             "valor_esperado": sf_liq_s.values,
             "valor_encontrado": si_liq_s.values,

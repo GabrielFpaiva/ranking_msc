@@ -90,7 +90,10 @@ class R041(Rule):
         issues_df = pd.DataFrame({
             "severidade": "ALERTA",
             "conta_contabil": conta_s.values,
-            "descricao": ("Conta patrimonial '" + conta_s + "' não possui nenhuma entrada de saldo final (ending_balance ausente).").values,
+            "descricao": (
+                "Conta patrimonial '" + conta_s
+                + "' não possui nenhuma entrada de saldo final (ending_balance ausente)."
+            ).values,
             "valor_esperado": "COUNT(ending_balance) > 0",
             "valor_encontrado": "0",
             "competencia": context.competencia,

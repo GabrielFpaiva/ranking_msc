@@ -111,7 +111,6 @@ class R032(Rule):
 
         # 6. Construção vetorizada de issues — substitui iterrows()
         conta_s = violacoes["conta_contabil"].astype(str)
-        nat_s = violacoes["nat_saldo"].astype(str)
         is_devedora = violacoes["nat_saldo"] == "Devedora"
 
         saldo_inv_s = pd.Series(
@@ -123,12 +122,16 @@ class R032(Rule):
             index=violacoes.index,
         ).map(lambda x: f"{x:.2f}")
 
+        msg_dev = (
+            "Conta '" + conta_s + "': nat_saldo=Devedora mas saldo credor de "
+            + saldo_inv_s + "."
+        )
+        msg_cre = (
+            "Conta '" + conta_s + "': nat_saldo=Credora mas saldo devedor de "
+            + saldo_inv_s + "."
+        )
         descricao_s = pd.Series(
-            np.where(
-                is_devedora,
-                "Conta '" + conta_s + "': nat_saldo=Devedora mas possui saldo credor de " + saldo_inv_s + ".",
-                "Conta '" + conta_s + "': nat_saldo=Credora mas possui saldo devedor de " + saldo_inv_s + ".",
-            ),
+            np.where(is_devedora, msg_dev, msg_cre),
             index=violacoes.index,
         )
 

@@ -34,6 +34,11 @@ from ranking_msc.schemas import RAW_MSC_COLUMNS
 
 logger = logging.getLogger("ranking_msc")
 
+# Encodings tentados em cascata quando encoding="auto" (ordem importa: cp1252 antes
+# de latin-1 porque cp1252 rejeita bytes 0x81/0x8D/0x8F/0x90/0x9D que latin-1 aceita,
+# permitindo distinguir os dois; latin-1 como último fallback nunca falha).
+_ENCODING_CANDIDATES: list[str] = ["utf-8-sig", "utf-8", "cp1252", "latin-1"]
+
 # Colunas obrigatórias no header do CSV original (linha 2)
 _REQUIRED_CSV_COLUMNS: list[str] = [
     "CONTA", "IC1", "TIPO1", "Valor", "Tipo_valor", "Natureza_valor",
@@ -104,7 +109,7 @@ class RawMSC:
 def read_msc_csv(
     file: str | Path | io.BytesIO,
     *,
-    encoding: str = "ascii",
+    encoding: str = "auto",
     separator: str = ";",
 ) -> RawMSC:
     """Lê o CSV MSC e devolve um ``RawMSC``.
@@ -120,8 +125,13 @@ def read_msc_csv(
 
     Args:
         file: caminho do arquivo ou objeto BytesIO (ex: upload do Panel).
-        encoding: encoding do CSV (padrão ASCII, compatível UTF-8).
-        separator: separador de colunas (padrão ``;``).
+        encoding: encoding do CSV. Use ``"auto"`` (padrão) para detecção
+            automática em cascata: UTF-8 BOM → UTF-8 → CP1252 → Latin-1.
+            Passe um encoding explícito (ex: ``"utf-8"``, ``"latin-1"``)
+            para forçar sem fallback.
+        separator: separador de colunas (padrão ``;``). Suportados: ``;``,
+            ``,``, ``|``. O separador efetivo é inferido do arquivo quando
+            há inconsistência com o esperado.
 
     Returns:
         ``RawMSC`` com metadados e DataFrame no formato RAW_MSC_COLUMNS.
@@ -213,6 +223,10 @@ def _read_and_decode(file: str | Path | io.BytesIO, encoding: str) -> str:
 
     O CSV MSC usa ``\\r`` (CR only) como line terminator. Esta função
     normaliza para ``\\n`` para compatibilidade com pd.read_csv.
+
+    Quando ``encoding == "auto"``, tenta os encodings de ``_ENCODING_CANDIDATES``
+    em cascata até o primeiro que decodificar sem erro.  Um encoding explícito
+    (ex: ``"utf-8"``) falha imediatamente se o arquivo não for compatível.
     """
     try:
         if isinstance(file, (str, Path)):
@@ -227,16 +241,24 @@ def _read_and_decode(file: str | Path | io.BytesIO, encoding: str) -> str:
     if not raw:
         raise InputFormatError("Arquivo MSC está vazio.")
 
-    try:
-        text = raw.decode(encoding)
-    except (UnicodeDecodeError, LookupError) as exc:
-        raise InputFormatError(
-            f"Falha ao decodificar o arquivo MSC com encoding '{encoding}': {exc}"
-        ) from exc
+    candidates = _ENCODING_CANDIDATES if encoding == "auto" else [encoding]
+    last_exc: Exception | None = None
+    for enc in candidates:
+        try:
+            text = raw.decode(enc)
+            if encoding == "auto" and enc != "utf-8":
+                logger.debug(
+                    "encoding detectado: %s", enc,
+                    extra={"modulo": "reader_msc"},
+                )
+            text = text.replace("\r\n", "\n").replace("\r", "\n")
+            return text
+        except (UnicodeDecodeError, LookupError) as exc:
+            last_exc = exc
 
-    # Normalizar line terminators: \r\n → \n, depois \r → \n
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    return text
+    raise InputFormatError(
+        f"Falha ao decodificar o arquivo MSC com encodings {candidates}: {last_exc}"
+    ) from last_exc
 
 
 _METADATA_RE = re.compile(r"^(.+);(\d{4}-\d{2})$")
@@ -341,16 +363,16 @@ def _validate_metadata(siconfi: str, competencia: str) -> list[dict[str, object]
 def _infer_sep_from_rows(data_lines: list[str] | None, fallback: str) -> str:
     """Infere o separador efetivo amostrado das primeiras linhas de dados.
 
-    Compara a contagem de ``;`` vs ``,`` em até 3 linhas não-vazias.  Retorna
-    o separador com maior contagem total.  Quando não há linhas disponíveis ou
-    os contadores são iguais, retorna ``fallback``.
+    Compara a contagem de ``;``, ``,`` e ``|`` em até 3 linhas não-vazias.
+    Retorna o separador com maior contagem total.  Quando não há linhas
+    disponíveis ou o vencedor empata, retorna ``fallback``.
 
     Args:
         data_lines: linhas de dados (linha 3 em diante do arquivo MSC).
         fallback: separador a retornar quando a inferência é inconclusiva.
 
     Returns:
-        Separador inferido (``";"`` ou ``","``) ou ``fallback``.
+        Separador inferido (``";"``, ``","`` ou ``"|"``) ou ``fallback``.
     """
     if not data_lines:
         return fallback
@@ -359,14 +381,18 @@ def _infer_sep_from_rows(data_lines: list[str] | None, fallback: str) -> str:
     if not sample:
         return fallback
 
-    total_semi = sum(ln.count(";") for ln in sample)
-    total_comma = sum(ln.count(",") for ln in sample)
-
-    if total_semi > total_comma:
-        return ";"
-    if total_comma > total_semi:
-        return ","
-    return fallback
+    counts = {
+        ";": sum(ln.count(";") for ln in sample),
+        ",": sum(ln.count(",") for ln in sample),
+        "|": sum(ln.count("|") for ln in sample),
+    }
+    winner = max(counts, key=lambda s: counts[s])
+    if counts[winner] == 0:
+        return fallback
+    # Empate entre dois separadores → fallback (ambíguo)
+    if sum(1 for v in counts.values() if v == counts[winner]) > 1:
+        return fallback
+    return winner
 
 
 def _sanitize_for_paths(siconfi: str, competencia: str) -> tuple[str, str]:
@@ -395,26 +421,29 @@ def _sanitize_for_paths(siconfi: str, competencia: str) -> tuple[str, str]:
 def _detect_separator_issue(header_line: str, expected_sep: str) -> list[dict[str, object]]:
     """Detecta uso de separador incorreto na linha de cabeçalho (R008).
 
-    Compara contagem de ponto-e-vírgula vs vírgula no header. Se o header
-    não tem nenhum ";" mas tem "," → separador incorreto.
+    Compara contagem de ``;``, ``,`` e ``|`` no header. Se o header não tem
+    nenhum ``;`` mas tem ``,`` ou ``|`` → separador incorreto. O separador
+    encontrado (``","`` ou ``"|"``) é reportado no issue.
 
     Args:
         header_line: segunda linha do arquivo CSV (cabeçalho das colunas).
-        expected_sep: separador esperado (padrão ";").
+        expected_sep: separador esperado (padrão ``";"``).
 
     Returns:
-        Lista com um issue R008 se vírgula for detectada em vez de ";".
+        Lista com um issue R008 se separador incorreto for detectado.
     """
     if expected_sep != ";":
         return []
     semi_count = header_line.count(";")
     comma_count = header_line.count(",")
-    if semi_count == 0 and comma_count > 0:
+    pipe_count = header_line.count("|")
+    if semi_count == 0 and (comma_count > 0 or pipe_count > 0):
+        found_sep = "|" if pipe_count >= comma_count else ","
         return [{
             "regra": "R008",
             "conta_contabil": "",
             "campo": "separador",
-            "valor_encontrado": ",",
+            "valor_encontrado": found_sep,
             "competencia": "",
         }]
     return []
@@ -463,12 +492,13 @@ def _detect_effective_separator(
     # linhas como "2507507EX,2024/01" devem emitir R008 mesmo com data malformada,
     # para que o diagnóstico de delimitador seja consistente com o caso de período válido.
     meta = metadata_line.strip()
-    if ";" not in meta and "," in meta:
+    if ";" not in meta and ("," in meta or "|" in meta):
+        found_sep = "|" if meta.count("|") >= meta.count(",") else ","
         return expected_sep, [{
             "regra": "R008",
             "conta_contabil": "",
             "campo": "separador",
-            "valor_encontrado": ",",
+            "valor_encontrado": found_sep,
             "competencia": "",
         }]
 

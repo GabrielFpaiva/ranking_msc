@@ -82,7 +82,9 @@ class R028(Rule):
 
         mask_len = df_unica["fs_raw"].str.len() != 5
         mask_funcao = (~mask_len) & (~df_unica["funcao"].isin(funcoes_validas))
-        mask_subfuncao = (~mask_len) & (~mask_funcao) & (~df_unica["subfuncao"].isin(subfuncoes_validas))
+        mask_subfuncao = (
+            (~mask_len) & (~mask_funcao) & (~df_unica["subfuncao"].isin(subfuncoes_validas))
+        )
 
         dfs_issues = []
 
@@ -91,7 +93,10 @@ class R028(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ERRO",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "FS '" + viol["fs_raw"] + "' inválida para conta '" + viol["conta_contabil"].astype(str) + "': deve ter exatamente 5 dígitos.",
+                "descricao": (
+                    "FS '" + viol["fs_raw"] + "' inválida para conta '"
+                    + viol["conta_contabil"].astype(str) + "': deve ter exatamente 5 dígitos."
+                ),
                 "valor_esperado": "5 dígitos",
                 "valor_encontrado": viol["fs_raw"],
                 "competencia": context.competencia,
@@ -102,7 +107,11 @@ class R028(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ERRO",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "FS '" + viol["fs_val"] + "': função '" + viol["funcao"] + "' não encontrada na tabela FS 2026 para conta '" + viol["conta_contabil"].astype(str) + "'.",
+                "descricao": (
+                    "FS '" + viol["fs_val"] + "': função '" + viol["funcao"]
+                    + "' não encontrada na tabela FS 2026 para conta '"
+                    + viol["conta_contabil"].astype(str) + "'."
+                ),
                 "valor_esperado": "função em tabela_fs.csv",
                 "valor_encontrado": viol["funcao"],
                 "competencia": context.competencia,
@@ -113,7 +122,11 @@ class R028(Rule):
             dfs_issues.append(pd.DataFrame({
                 "severidade": "ALERTA",
                 "conta_contabil": viol["conta_contabil"].astype(str),
-                "descricao": "FS '" + viol["fs_val"] + "': subfunção '" + viol["subfuncao"] + "' não encontrada na tabela FS 2026 para conta '" + viol["conta_contabil"].astype(str) + "'.",
+                "descricao": (
+                    "FS '" + viol["fs_val"] + "': subfunção '" + viol["subfuncao"]
+                    + "' não encontrada na tabela FS 2026 para conta '"
+                    + viol["conta_contabil"].astype(str) + "'."
+                ),
                 "valor_esperado": "subfunção em tabela_fs.csv",
                 "valor_encontrado": viol["subfuncao"],
                 "competencia": context.competencia,
