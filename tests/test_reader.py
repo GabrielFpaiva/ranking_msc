@@ -733,3 +733,45 @@ class TestSeparadorPipe:
             "aaa|bbb|ccc|ddd|eee",
         ]
         assert _infer_sep_from_rows(lines, fallback=";") == "|"
+
+    def test_extract_metadata_pipe_separator(self) -> None:
+        """_extract_metadata com sep='|' extrai siconfi e competencia corretamente."""
+        from ranking_msc.io.reader_msc import _extract_metadata
+
+        comp, siconfi = _extract_metadata("2507507EX|2025-11", sep="|")
+        assert siconfi == "2507507EX"
+        assert comp == "2025-11"
+
+    def test_metadata_pipe_nao_emite_falso_r006_r007(self, tmp_path: Path) -> None:
+        """Metadata com '|' (ex: '2507507EX|2025-11') extrai siconfi/competencia
+        sem emitir R006/R007 falsos (regressão P1).
+
+        Antes do fix, meta_sep selecionava apenas ';'/',' → metadata '|' não
+        era reconhecida → siconfi="" e competencia="2507507EX|2025-11" → R006
+        + R007 falsos + sanitização para placeholders, corrompendo o snapshot.
+        """
+        cols = "CONTA|IC1|TIPO1|IC2|TIPO2|IC3|TIPO3|IC4|TIPO4|IC5|TIPO5|IC6|TIPO6"
+        header = f"{cols}|Valor|Tipo_valor|Natureza_valor"
+        data_row = "111110200|10131|PO|1|FP|1500|FR|||||||||1000.00|beginning_balance|D"
+        content = f"2507507EX|2025-11\r{header}\r{data_row}".encode("ascii")
+        path = tmp_path / "pipe_metadata.csv"
+        path.write_bytes(content)
+
+        result = read_msc_csv(path)
+
+        # siconfi e competencia devem ser extraídos corretamente, sem sanitização
+        assert result.siconfi == "2507507EX", (
+            f"siconfi deve ser '2507507EX', foi '{result.siconfi}'"
+        )
+        assert result.competencia == "2025-11", (
+            f"competencia deve ser '2025-11', foi '{result.competencia}'"
+        )
+
+        # R006 e R007 NÃO devem ser emitidos (metadata é válida)
+        regras = {i["regra"] for i in result.pre_pivot_issues}
+        assert "R006" not in regras, "R006 falso emitido para metadata pipe válida"
+        assert "R007" not in regras, "R007 falso emitido para metadata pipe válida"
+
+        # R008 DEVE ser emitido (delimitador incorreto)
+        assert "R008" in regras, "R008 deve ser emitido para separador '|'"
+        assert len(result.df) > 0, "DataFrame não pode ser vazio"

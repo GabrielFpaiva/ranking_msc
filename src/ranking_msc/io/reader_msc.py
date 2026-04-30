@@ -173,9 +173,12 @@ def read_msc_csv(
     # period format validity.  A malformed period (e.g. "2024/01") must not
     # push parsing onto the wrong delimiter — that would corrupt siconfi /
     # competencia extraction and produce a false R006 instead of R007.
+    # Ordem: ; (canônico) → | → , (consistente com R008/separator detection).
     _meta = lines[0].strip()
     if ";" in _meta:
         meta_sep = ";"
+    elif "|" in _meta:
+        meta_sep = "|"
     elif "," in _meta:
         meta_sep = ","
     else:
@@ -268,6 +271,12 @@ def _read_and_decode(file: str | Path | io.BytesIO, encoding: str) -> str:
 
 _METADATA_RE = re.compile(r"^(.+);(\d{4}-\d{2})$")
 _METADATA_COMMA_RE = re.compile(r"^([^,]+),(\d{4}-\d{2})$")
+_METADATA_PIPE_RE = re.compile(r"^([^|]+)\|(\d{4}-\d{2})$")
+_METADATA_PATTERNS: dict[str, re.Pattern[str]] = {
+    ";": _METADATA_RE,
+    ",": _METADATA_COMMA_RE,
+    "|": _METADATA_PIPE_RE,
+}
 _SICONFI_RE = re.compile(r"^\d{7}EX$")
 _COMPETENCIA_SAFE_RE = re.compile(r"^\d{4}-\d{2}$")
 _PATH_UNSAFE_RE = re.compile(r"[^A-Za-z0-9\-_]")
@@ -302,8 +311,8 @@ def _extract_metadata(first_line: str, sep: str = ";") -> tuple[str, str]:
             "siconfi nem competência."
         )
 
-    # Tentativa 1: padrão canônico (ex: "2507507EX;2025-11" ou "2507507EX,2025-11")
-    pattern = _METADATA_RE if sep == ";" else _METADATA_COMMA_RE
+    # Tentativa 1: padrão canônico — dispatch por separador (;, , ou |)
+    pattern = _METADATA_PATTERNS.get(sep, _METADATA_RE)
     match = pattern.match(line)
     if match:
         return match.group(2), match.group(1)
