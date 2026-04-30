@@ -206,7 +206,7 @@ def read_msc_csv(
     r001_r009_issues = _validate_columns(df, source)
     df, pivot_issues = _pivot_values(df, competencia, siconfi)
     ic_pair_issues = _check_ic_pairs(df, competencia)
-    ic_order_issues = _check_ic_order(df, competencia)
+    ic_order_issues = _check_ic_order(df, competencia, r033_issues=ic_pair_issues)
     pre_pivot_issues = (
         metadata_issues + r008_issues + r001_r009_issues
         + pivot_issues + ic_pair_issues + ic_order_issues
@@ -779,7 +779,7 @@ def _check_ic_pairs(df: pd.DataFrame, competencia: str) -> list[dict[str, object
         ic_col = f"ic{n}"
         tipo_col = f"tipo{n}"
         if ic_col not in df.columns or tipo_col not in df.columns:
-            break
+            continue
 
         ic_filled = df[ic_col].astype(str).str.strip().ne("")
         tipo_filled = df[tipo_col].astype(str).str.strip().ne("")
@@ -807,17 +807,26 @@ def _check_ic_pairs(df: pd.DataFrame, competencia: str) -> list[dict[str, object
     return issues
 
 
-def _check_ic_order(df: pd.DataFrame, competencia: str) -> list[dict[str, object]]:
+def _check_ic_order(
+    df: pd.DataFrame,
+    competencia: str,
+    r033_issues: list[dict[str, object]] | None = None,
+) -> list[dict[str, object]]:
     """Verifica que as ICs seguem a ordem canônica do leiaute MSC (R082).
 
     Para cada linha, extrai a sequência de tipos não-vazios (tipo1..tipo6) e
     verifica se é uma das sequências válidas definidas no IC_MAP.  Linhas sem
-    nenhuma IC são ignoradas.  Executa somente para linhas sem issue R033
-    (pares inválidos impossibilitam verificação de ordem).
+    nenhuma IC são ignoradas.
+
+    **Pré-filtro R033:** linhas cujo ``conta_contabil`` já possui um issue R033
+    (par IC/TIPO desemparelhado) são excluídas da verificação de ordem, pois
+    pares inválidos impossibilitam determinação confiável da sequência de tipos.
+    Sem esse filtro, linhas malformadas geram alertas R082 enganosos.
 
     Args:
         df: DataFrame pivotado com colunas tipo1..tipo6.
         competencia: competência do arquivo.
+        r033_issues: lista de issues R033 já detectados (pode ser None ou vazia).
 
     Returns:
         Lista de issues com ``"regra": "R082"``.
@@ -829,26 +838,50 @@ def _check_ic_order(df: pd.DataFrame, competencia: str) -> list[dict[str, object
     if not tipo_cols:
         return []
 
+    # Contas com pares IC/TIPO desemparelhados (R033) → excluir da verificação
+    # de ordem para evitar alertas R082 enganosos em linhas malformadas.
+    contas_r033: frozenset[str] = frozenset(
+        str(iss.get("conta_contabil", ""))
+        for iss in (r033_issues or [])
+    )
+
     issues: list[dict[str, object]] = []
 
     for _, row in df.iterrows():
         conta = str(row.get("conta_contabil", ""))
 
-        tipos = tuple(
-            str(row[c]).strip().upper()
-            for c in tipo_cols
-            if str(row[c]).strip()
-        )
-
-        if not tipos:
+        if conta in contas_r033:
             continue
 
-        if tipos not in _IC_VALID_ORDERS:
+        # Verificar que cada tipo não-vazio está emparelhado com IC preenchido
+        # antes de incluir na sequência — defesa extra contra linhas onde
+        # _check_ic_pairs não cobriu (ex: coluna IC ausente no CSV).
+        tipos: list[str] = []
+        for c in tipo_cols:
+            tipo_val = str(row[c]).strip().upper()
+            if tipo_val:
+                # Verificar par: ic_n correspondente deve estar preenchido
+                n = c.replace("tipo", "")
+                ic_col = f"ic{n}"
+                if ic_col in row.index:
+                    ic_val = str(row[ic_col]).strip()
+                    if not ic_val:
+                        # TIPO preenchido mas IC vazio → par inconsistente,
+                        # não é possível validar ordem de forma confiável.
+                        tipos = []  # reset, skip this row
+                        break
+                tipos.append(tipo_val)
+
+        tipos_tuple = tuple(tipos)
+        if not tipos_tuple:
+            continue
+
+        if tipos_tuple not in _IC_VALID_ORDERS:
             issues.append({
                 "regra": "R082",
                 "conta_contabil": conta,
                 "campo": "ordem_IC",
-                "valor_encontrado": ",".join(tipos),
+                "valor_encontrado": ",".join(tipos_tuple),
                 "competencia": competencia,
             })
 

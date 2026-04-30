@@ -1017,3 +1017,124 @@ class TestR082:
         df = pd.DataFrame({"conta_contabil": ["111110200"]})
         result = R082().execute(df, ctx)
         assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# Testes de regressão — P1/P2 badges
+# ---------------------------------------------------------------------------
+
+
+class TestR038MultiRow:
+    """P1: R038 deve avaliar todas as linhas, não só a primeira por conta."""
+
+    def test_segunda_linha_com_ic_invalida_detectada(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Conta com 2 linhas: 1ª válida, 2ª com NR não permitida → ERRO detectado."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r038.load_pcasp",
+            lambda *a, **kw: _pcasp_com_id_ic(),
+        )
+        # conta 211000000 tem id_ic=2 → IC_MAP[2] = [PO, FP]
+        # Linha 1: válida (apenas PO+FP)
+        # Linha 2: NR preenchida (não permitida para id_ic=2)
+        df = pd.DataFrame({
+            "conta_contabil": ["211000000", "211000000"],
+            "po": ["20202", "20202"],
+            "fp": ["1", "1"],
+            "nr": ["", "12345678"],   # 2ª linha tem NR inválida
+            "fr": ["", ""],
+            "co": ["", ""],
+            "dc": ["", ""],
+            "nd": ["", ""],
+            "fs": ["", ""],
+            "ai": ["", ""],
+        })
+        result = R038().execute(df, engine_context)
+        assert len(result) >= 1, (
+            "P1 regression: R038 deve detectar IC inválida na 2ª linha "
+            "da mesma conta, não apenas na primeira."
+        )
+        assert any("NR" in str(row["descricao"]) for _, row in result.iterrows())
+
+
+class TestCheckIcPairsContinue:
+    """P2: _check_ic_pairs deve continuar validando posições após coluna ausente."""
+
+    def test_coluna_ic3_ausente_nao_impede_ic4(self) -> None:
+        """CSV sem ic3/tipo3 mas com ic4/tipo4 → R033 detecta mismatch em ic4."""
+        from ranking_msc.io.reader_msc import _check_ic_pairs
+
+        # ic3/tipo3 ausentes, ic4 preenchido mas tipo4 vazio → R033
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200"],
+            "ic1": ["10131"], "tipo1": ["PO"],
+            "ic2": ["1"],     "tipo2": ["FP"],
+            # ic3/tipo3 ausentes
+            "ic4": ["99999"], "tipo4": [""],   # mismatch!
+            "ic5": [""],      "tipo5": [""],
+            "ic6": [""],      "tipo6": [""],
+        })
+        issues = _check_ic_pairs(df, "2024-01")
+        r033_ic4 = [i for i in issues if "IC4" in str(i.get("campo", ""))]
+        assert len(r033_ic4) >= 1, (
+            "P2 regression: _check_ic_pairs deve continuar validando "
+            "posições após colunas intermediárias ausentes (ic3/tipo3)."
+        )
+
+
+class TestCheckIcOrderSkipsR033:
+    """P2: _check_ic_order deve ignorar linhas com R033 (pares inconsistentes)."""
+
+    def test_linha_com_r033_nao_gera_r082(self) -> None:
+        """Conta com R033 (TIPO sem IC) → _check_ic_order não emite R082."""
+        from ranking_msc.io.reader_msc import _check_ic_order
+
+        # TIPO1=PO mas TIPO2=CO sem IC2 (puro R033, não deve gerar R082)
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200"],
+            "ic1": ["10131"], "tipo1": ["PO"],
+            "ic2": [""],      "tipo2": ["CO"],  # R033 violation
+            "ic3": [""],      "tipo3": [""],
+            "ic4": [""],      "tipo4": [""],
+            "ic5": [""],      "tipo5": [""],
+            "ic6": [""],      "tipo6": [""],
+        })
+
+        r033_issues = [
+            {"regra": "R033", "conta_contabil": "111110200",
+             "campo": "IC2/TIPO2",
+             "valor_encontrado": "TIPO2='CO' presente mas IC2 está vazio"}
+        ]
+
+        issues = _check_ic_order(df, "2024-01", r033_issues=r033_issues)
+        r082_for_conta = [
+            i for i in issues
+            if i.get("conta_contabil") == "111110200"
+        ]
+        assert len(r082_for_conta) == 0, (
+            "P2 regression: _check_ic_order não deve emitir R082 para "
+            "linhas que já possuem issue R033 (pares IC/TIPO inconsistentes)."
+        )
+
+    def test_linha_sem_r033_ainda_gera_r082(self) -> None:
+        """Conta sem R033 mas com ordem errada → _check_ic_order emite R082."""
+        from ranking_msc.io.reader_msc import _check_ic_order
+
+        # Ordem errada: CO antes de PO (deveria ser PO,FP,FR,CO)
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200"],
+            "ic1": ["1001"],  "tipo1": ["CO"],   # CO na posição 1 (errado)
+            "ic2": ["10131"], "tipo2": ["PO"],   # PO na posição 2 (errado)
+            "ic3": [""],      "tipo3": [""],
+            "ic4": [""],      "tipo4": [""],
+            "ic5": [""],      "tipo5": [""],
+            "ic6": [""],      "tipo6": [""],
+        })
+
+        issues = _check_ic_order(df, "2024-01", r033_issues=[])
+        assert len(issues) >= 1, (
+            "Conta sem R033 mas com ordem IC errada deve gerar R082."
+        )

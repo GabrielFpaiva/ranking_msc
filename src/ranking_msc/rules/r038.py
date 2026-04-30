@@ -78,12 +78,13 @@ class R038(Rule):
         if not ic_cols_presentes:
             return self.build_issues([])
 
-        contas_unicas = df[["conta_contabil"] + ic_cols_presentes].drop_duplicates(
-            subset=["conta_contabil"]
-        ).copy()
-        contas_unicas["conta_contabil"] = contas_unicas["conta_contabil"].astype(str)
+        # Avaliar TODAS as linhas — não deduplicar por conta, pois diferentes
+        # registros da mesma conta podem ter combinações IC distintas e apenas
+        # algumas podem conter ICs não-permitidas.
+        all_rows = df[["conta_contabil"] + ic_cols_presentes].copy()
+        all_rows["conta_contabil"] = all_rows["conta_contabil"].astype(str)
 
-        merged = contas_unicas.merge(pcasp_map, on="conta_contabil", how="inner")
+        merged = all_rows.merge(pcasp_map, on="conta_contabil", how="inner")
 
         if merged.empty:
             return self.build_issues([])
