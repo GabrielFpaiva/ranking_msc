@@ -156,11 +156,16 @@ def read_msc_csv(
     )
 
     # Quando o separador efetivo do corpo difere do separador do header (ex: header
-    # usa vírgula mas dados usam ";"), normalizar o header para usar o separador do
-    # corpo antes de passar para pd.read_csv.  Isso garante parse correto enquanto
+    # usa vírgula ou pipe mas dados usam ";"), normalizar o header para usar o separador
+    # do corpo antes de passar para pd.read_csv.  Isso garante parse correto enquanto
     # R008 já foi emitido acima.
     header_line = lines[1]
-    header_sep_in_use = "," if (header_line.count(",") > header_line.count(";")) else ";"
+    _hcounts = {
+        ";": header_line.count(";"),
+        ",": header_line.count(","),
+        "|": header_line.count("|"),
+    }
+    header_sep_in_use = max(_hcounts, key=lambda s: _hcounts[s])
     if header_sep_in_use != effective_sep:
         header_line = header_line.replace(header_sep_in_use, effective_sep)
 
