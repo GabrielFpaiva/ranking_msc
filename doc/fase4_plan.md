@@ -1,6 +1,6 @@
 # Fase 4 — Plano de Implementação
 
-**Status:** Em andamento (F4-01 a F4-08 concluídos · 39/78 regras · 663 testes)
+**Status:** Em andamento (F4-01 a F4-11 concluídos · 43/78 regras · 639 testes)
 **Depende de:** Fase 3 (concluída — 35 regras, 471 testes, pipeline completo)
 **Referência do backlog:** F4-01 a F4-20
 
@@ -42,9 +42,9 @@ comparação temporal e otimizações de performance.
 | F4-06 | Relatório consolidado multi-competência | Excel com aba de evolução temporal + gráficos. | Alta | 8 | F4-05 | **Concluído** (export_consolidado_excel(); 12 colunas; LineChart; band coloring; 16 testes; PR #60) |
 | F4-07 | Regras de Estrutura — R006 a R009 | 4 regras de formato do CSV: siconfi/período válidos (R006/R007), separador (R008), colunas IC/TIPO (R009). | Alta | 6 | — | **Concluído** (PR #63 · 4 regras drain pre_pivot_issues · metadata sep inferido por presença de delimitador · YYYY-MM shape check · path traversal sanitize) |
 | F4-08 | Testes de carga com CSVs grandes (>100k linhas) | Benchmark de performance com CSVs reais grandes. | Alta | 6 | F4-04 | **Concluído** (PR #64 · módulo benchmark · baseline 100k/500k/1M · R081 mais lenta) |
-| F4-09 | Otimizar regras com operações vetorizadas | Refatorar regras para usar groupby/vectorized ao invés de loops. Melhoria ≥50%. | Alta | 8 | F4-08 | A Fazer |
-| F4-10 | Tratamento robusto de encoding e separadores | Suportar UTF-8/Latin-1/CP1252, separadores `,` `;` `\|` e detecção automática. | Média | 6 | — | A Fazer |
-| F4-11 | Regras IC completude — R033, R034, R038, R082 | R033: pares IC/TIPO · R034: PO obrigatório · R038: IC×conta do leiaute · R082: ordem de ICs. | Alta | 5 | R020 | A Fazer |
+| F4-09 | Otimizar regras com operações vetorizadas | Refatorar regras para usar groupby/vectorized ao invés de loops. Melhoria ≥50%. | Alta | 8 | F4-08 | **Concluído** (PR #67 · vectorize all rules · ruff E501 fixes) |
+| F4-10 | Tratamento robusto de encoding e separadores | Suportar UTF-8/Latin-1/CP1252, separadores `,` `;` `\|` e detecção automática. | Média | 6 | — | **Concluído** (PR #68 · encoding cascade UTF-8/CP1252/Latin-1 · pipe/comma sep · P1 fixes · 9 novos testes) |
+| F4-11 | Regras IC completude — R033, R034, R038, R082 | R033: pares IC/TIPO · R034: PO obrigatório · R038: IC×conta do leiaute · R082: ordem de ICs. | Alta | 5 | R020 | **Concluído** (R033+R082 drain pre_pivot · R034 po check · R038 IC_MAP subset · _check_ic_pairs/_check_ic_order no reader · 13 testes) |
 | F4-12 | Regras de domínio complementares — 9 regras | R039 (PO×esfera) · R044 (NR valorizável) · R045-R047 (ND nível/genérica/subelementos) · R048 (FR 1º dígito) · R063 (DC contas permitidas) · R064 (CO×conta) · R065 (FS combinação atípica). | Alta | 10 | R020-R028 | A Fazer |
 | F4-13 | Regras Fechamento por classe — R035, R036, R037 | R035: D=C patrimonial total · R036: D=C orçamentário · R037: D=C controle. Complementam R030. | Alta | 4 | R030 | A Fazer |
 | F4-14 | Regras Superávit completo + Interconta R053 | R061: conta Financeira com FP=2 · R062: conta Permanente com FP=1 · R053: INTRA OFSS com contrapartida. | Alta | 4 | R060, R010 | A Fazer |
@@ -64,7 +64,7 @@ comparação temporal e otimizações de performance.
 | Categoria | Implementadas | Total | Faltam | Task |
 |---|:---:|:---:|:---:|---|
 | Estrutura | 9 | 11 | 2 | — (gap residual pós F4-07) |
-| IC | 1 | 5 | 4 | F4-11 |
+| IC | 5 | 5 | 0 | — ✅ F4-11 |
 | PO | 1 | 2 | 1 | F4-12 |
 | DC | 1 | 2 | 1 | F4-12 |
 | FR | 1 | 2 | 1 | F4-12 |
@@ -84,7 +84,7 @@ comparação temporal e otimizações de performance.
 | SIGEF saldo | 0 | 3 | 3 | F4-16 |
 | SIGEF IC detail | 0 | 5 | 5 | F4-17 |
 | SIGEF temporal | 0 | 3 | 3 | F4-18 |
-| **Total** | **39** | **78** | **39** | |
+| **Total** | **43** | **78** | **35** | |
 
 ---
 
