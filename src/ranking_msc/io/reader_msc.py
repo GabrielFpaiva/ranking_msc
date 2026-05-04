@@ -890,8 +890,9 @@ def _check_ic_order(
 
             tipo_val = str(row.get(tipo_col, "")).strip().upper()
             ic_val = str(row.get(ic_col, "")).strip()
+            ic_is_filled = ic_val.lower() not in _IC_EMPTY_VALS
 
-            if bool(tipo_val) != bool(ic_val):
+            if bool(tipo_val) != ic_is_filled:
                 is_consistent = False
                 break
 
