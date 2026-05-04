@@ -30,6 +30,9 @@ from ranking_msc.rules.r030 import R030
 from ranking_msc.rules.r033 import R033
 from ranking_msc.rules.r034 import R034
 from ranking_msc.rules.r038 import R038
+from ranking_msc.rules.r053 import R053
+from ranking_msc.rules.r061 import R061
+from ranking_msc.rules.r062 import R062
 from ranking_msc.rules.r082 import R082
 
 # ---------------------------------------------------------------------------
@@ -1154,3 +1157,207 @@ class TestCheckIcOrderSkipsR033:
             "P1 regression: FR no slot-4 sem intermediários é posição inválida "
             "e deve gerar R082 mesmo que a sequência comprimida (PO,FR) exista."
         )
+
+
+# ---------------------------------------------------------------------------
+# Helpers para R053, R061, R062
+# ---------------------------------------------------------------------------
+
+def _pcasp_com_ind_sf(financeiro: list[str], permanente: list[str]) -> pd.DataFrame:
+    """PCASP stub com IND_SF para testes de R061/R062."""
+    contas = financeiro + permanente
+    ind_sf = ["Financeiro"] * len(financeiro) + ["Permanente"] * len(permanente)
+    return pd.DataFrame({"conta_contabil": contas, "ind_sf": ind_sf})
+
+
+def _pcasp_com_titulo_desc(contas_intra: list[str], contas_normais: list[str]) -> pd.DataFrame:
+    """PCASP stub com titulo_desc para testes de R053."""
+    contas = contas_intra + contas_normais
+    titulos = (
+        [f"CONTA INTRA OFSS {c}" for c in contas_intra]
+        + [f"Conta normal {c}" for c in contas_normais]
+    )
+    return pd.DataFrame({"conta_contabil": contas, "titulo_desc": titulos})
+
+
+def _df_saldos(contas: list[str], sf_d: list[float], sf_c: list[float]) -> pd.DataFrame:
+    """DataFrame com saldos finais para testes de R053."""
+    return pd.DataFrame({
+        "conta_contabil": contas,
+        "saldo_final_debito": sf_d,
+        "saldo_final_credito": sf_c,
+    })
+
+
+# ---------------------------------------------------------------------------
+# R061 — Conta exclusivamente Financeira com FP=2
+# ---------------------------------------------------------------------------
+
+
+class TestR061:
+    def test_financeira_com_fp1_nao_gera_pendencia(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """IND_SF=Financeiro e FP=1 → correto, nenhuma pendência."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r061.load_pcasp",
+            lambda *a, **kw: _pcasp_com_ind_sf(["111110200"], []),
+        )
+        df = pd.DataFrame({"conta_contabil": ["111110200"], "fp": ["1"]})
+        result = R061().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_financeira_com_fp2_gera_alerta(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """IND_SF=Financeiro e FP=2 → uma pendência ALERTA."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r061.load_pcasp",
+            lambda *a, **kw: _pcasp_com_ind_sf(["111110200"], []),
+        )
+        df = pd.DataFrame({"conta_contabil": ["111110200"], "fp": ["2"]})
+        result = R061().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R061"
+        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["valor_esperado"] == "1"
+
+    def test_permanente_com_fp1_nao_afeta_r061(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """IND_SF=Permanente com FP=1 é escopo de R062, não de R061."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r061.load_pcasp",
+            lambda *a, **kw: _pcasp_com_ind_sf([], ["211000000"]),
+        )
+        df = pd.DataFrame({"conta_contabil": ["211000000"], "fp": ["1"]})
+        result = R061().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_ind_sf_ausente_retorna_vazio(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """PCASP sem coluna ind_sf → build_issues([]) sem exceção."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r061.load_pcasp",
+            lambda *a, **kw: pd.DataFrame({"conta_contabil": ["111110200"]}),
+        )
+        df = pd.DataFrame({"conta_contabil": ["111110200"], "fp": ["2"]})
+        result = R061().execute(df, engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R062 — Conta exclusivamente Permanente com FP=1
+# ---------------------------------------------------------------------------
+
+
+class TestR062:
+    def test_permanente_com_fp2_nao_gera_pendencia(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """IND_SF=Permanente e FP=2 → correto, nenhuma pendência."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r062.load_pcasp",
+            lambda *a, **kw: _pcasp_com_ind_sf([], ["211000000"]),
+        )
+        df = pd.DataFrame({"conta_contabil": ["211000000"], "fp": ["2"]})
+        result = R062().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_permanente_com_fp1_gera_alerta(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """IND_SF=Permanente e FP=1 → uma pendência ALERTA."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r062.load_pcasp",
+            lambda *a, **kw: _pcasp_com_ind_sf([], ["211000000"]),
+        )
+        df = pd.DataFrame({"conta_contabil": ["211000000"], "fp": ["1"]})
+        result = R062().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R062"
+        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["valor_esperado"] == "2"
+
+    def test_financeira_com_fp2_nao_afeta_r062(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """IND_SF=Financeiro com FP=2 é escopo de R061, não de R062."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r062.load_pcasp",
+            lambda *a, **kw: _pcasp_com_ind_sf(["111110200"], []),
+        )
+        df = pd.DataFrame({"conta_contabil": ["111110200"], "fp": ["2"]})
+        result = R062().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_ind_sf_ausente_retorna_vazio(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """PCASP sem coluna ind_sf → build_issues([]) sem exceção."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r062.load_pcasp",
+            lambda *a, **kw: pd.DataFrame({"conta_contabil": ["211000000"]}),
+        )
+        df = pd.DataFrame({"conta_contabil": ["211000000"], "fp": ["1"]})
+        result = R062().execute(df, engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R053 — Contas INTRA OFSS com contrapartida
+# ---------------------------------------------------------------------------
+
+
+class TestR053:
+    def test_titulo_desc_ausente_retorna_vazio(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """PCASP sem titulo_desc → build_issues([]) sem exceção."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r053.load_pcasp",
+            lambda *a, **kw: pd.DataFrame({"conta_contabil": ["111110200"]}),
+        )
+        df = _df_saldos(["111110200"], [1000.0], [500.0])
+        result = R053().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_sem_contas_intra_retorna_vazio(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """PCASP sem contas INTRA → nenhuma pendência."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r053.load_pcasp",
+            lambda *a, **kw: _pcasp_com_titulo_desc([], ["111110200"]),
+        )
+        df = _df_saldos(["111110200"], [1000.0], [500.0])
+        result = R053().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_intra_balanceada_nao_gera_pendencia(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Contas INTRA com total D == total C → nenhuma pendência."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r053.load_pcasp",
+            lambda *a, **kw: _pcasp_com_titulo_desc(["711110000", "811110000"], []),
+        )
+        df = _df_saldos(["711110000", "811110000"], [500.0, 500.0], [500.0, 500.0])
+        result = R053().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_intra_desequilibrada_gera_alerta(
+        self, engine_context: EngineContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Contas INTRA com total D ≠ total C → uma pendência ALERTA."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r053.load_pcasp",
+            lambda *a, **kw: _pcasp_com_titulo_desc(["711110000"], []),
+        )
+        df = _df_saldos(["711110000"], [1000.0], [400.0])
+        result = R053().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R053"
+        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert "INTRA" in result.iloc[0]["conta_contabil"]

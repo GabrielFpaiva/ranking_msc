@@ -805,7 +805,8 @@ def _check_ic_pairs(df: pd.DataFrame, competencia: str) -> list[dict[str, object
 
         if not tipo_present:
             # IC column exists but TIPO column is structurally absent — treat TIPO as empty.
-            ic_filled = ~df[ic_col].fillna("").astype(str).str.strip().str.lower().isin(_IC_EMPTY_VALS)
+            ic_vals = df[ic_col].fillna("").astype(str).str.strip().str.lower()
+            ic_filled = ~ic_vals.isin(_IC_EMPTY_VALS)
             for idx in df.index[ic_filled]:
                 conta = str(df.at[idx, "conta_contabil"])
                 ic_val = str(df.at[idx, ic_col]).strip()
