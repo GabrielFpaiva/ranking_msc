@@ -7,6 +7,7 @@
 app:
   title: "Ranking MSC — Validação Contábil"
   debug: false
+  esfera: "municipal"                 # esfera do ente: "municipal", "estadual" ou "federal"
 
 paths:
   data_dir: "./data"
@@ -61,6 +62,15 @@ rules:
     - "R052"
     - "R055"
     - "R069"
+    - "R039"
+    - "R044"
+    - "R045"
+    - "R046"
+    - "R047"
+    - "R048"
+    - "R063"
+    - "R064"
+    - "R065"
     # R082-R111: a implementar nas próximas sprints
   fail_fast: false                    # true = para ao primeiro ERRO
 

@@ -52,6 +52,7 @@ class AppSettings:
     """Configurações gerais da aplicação."""
     title: str = "Ranking MSC"
     debug: bool = False
+    esfera: str = "municipal"  # esfera do ente: "municipal", "estadual" ou "federal"
 
 
 @dataclass(frozen=True)
