@@ -39,6 +39,9 @@ from ranking_msc.rules.r031 import R031  # noqa: F401
 from ranking_msc.rules.r032 import R032  # noqa: F401
 from ranking_msc.rules.r033 import R033  # noqa: F401
 from ranking_msc.rules.r034 import R034  # noqa: F401
+from ranking_msc.rules.r035 import R035  # noqa: F401
+from ranking_msc.rules.r036 import R036  # noqa: F401
+from ranking_msc.rules.r037 import R037  # noqa: F401
 from ranking_msc.rules.r038 import R038  # noqa: F401
 from ranking_msc.rules.r039 import R039  # noqa: F401
 from ranking_msc.rules.r040 import R040  # noqa: F401

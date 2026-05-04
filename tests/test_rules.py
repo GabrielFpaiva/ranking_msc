@@ -29,6 +29,9 @@ from ranking_msc.rules.r021 import R021
 from ranking_msc.rules.r030 import R030
 from ranking_msc.rules.r033 import R033
 from ranking_msc.rules.r034 import R034
+from ranking_msc.rules.r035 import R035
+from ranking_msc.rules.r036 import R036
+from ranking_msc.rules.r037 import R037
 from ranking_msc.rules.r038 import R038
 from ranking_msc.rules.r053 import R053
 from ranking_msc.rules.r061 import R061
@@ -804,6 +807,18 @@ def _pcasp_com_id_ic() -> pd.DataFrame:
     })
 
 
+# Helpers compartilhados R035/R036/R037
+# ---------------------------------------------------------------------------
+
+def _df_movimentos(contas: list[str], mov_d: list[float], mov_c: list[float]) -> pd.DataFrame:
+    """Cria DataFrame com contas e movimentos para testes de fechamento agregado."""
+    return pd.DataFrame({
+        "conta_contabil": contas,
+        "movimento_debito": mov_d,
+        "movimento_credito": mov_c,
+    })
+
+
 # ---------------------------------------------------------------------------
 # R033 — Pares IC/TIPO presentes
 # ---------------------------------------------------------------------------
@@ -846,6 +861,56 @@ class TestR033:
         ])
         df = pd.DataFrame({"conta_contabil": ["111110200"]})
         result = R033().execute(df, ctx)
+        assert len(result) == 0
+
+
+# R035 — Débito = Crédito — Patrimonial (classes 1-4)
+# ---------------------------------------------------------------------------
+
+
+class TestR035:
+    def test_totais_equilibrados_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Total D == Total C em contas patrimoniais → nenhuma pendência."""
+        df = _df_movimentos(
+            ["111110200", "211000000"],
+            [500.00, 300.00],
+            [400.00, 400.00],
+        )
+        result = R035().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_totais_desequilibrados_gera_pendencia_erro(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Total D ≠ Total C (diferença > tolerância) → uma pendência ERRO."""
+        df = _df_movimentos(["111110200"], [1000.00], [500.00])
+        result = R035().execute(df, engine_context)
+
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R035"
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert "classes 1-4" in result.iloc[0]["conta_contabil"]
+
+    def test_contas_de_outras_classes_nao_contaminam(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Contas classes 5-8 com D ≠ C não afetam R035."""
+        df = _df_movimentos(
+            ["511000000", "611000000", "711000000"],
+            [100.00, 200.00, 300.00],
+            [0.00, 0.00, 0.00],
+        )
+        result = R035().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_df_sem_contas_patrimoniais_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """DataFrame sem contas patrimoniais → nenhuma pendência."""
+        df = _df_movimentos(["511000000"], [1000.00], [0.00])
+        result = R035().execute(df, engine_context)
         assert len(result) == 0
 
 
