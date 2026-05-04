@@ -30,7 +30,7 @@ from pathlib import Path
 import pandas as pd
 
 from ranking_msc.exceptions import InputFormatError
-from ranking_msc.io.ref_loader import IC_MAP
+from ranking_msc.io.ref_loader import IC_POSITIONAL_VALID
 from ranking_msc.schemas import RAW_MSC_COLUMNS
 
 logger = logging.getLogger("ranking_msc")
@@ -72,12 +72,6 @@ _GROUP_COLS: list[str] = [
     "CONTA", "IC1", "TIPO1", "IC2", "TIPO2", "IC3", "TIPO3",
     "IC4", "TIPO4", "IC5", "TIPO5", "IC6", "TIPO6",
 ]
-
-# Conjunto de sequências de tipos de IC consideradas canônicas pelo leiaute MSC.
-# Derivado do IC_MAP (ref_loader): cada entry é uma tupla ordenada dos tipos.
-_IC_VALID_ORDERS: frozenset[tuple[str, ...]] = frozenset(
-    tuple(types) for types in IC_MAP.values() if types
-)
 
 # Valores considerados "sem IC" — alinhado com ic_mask_informada em rules/base.py.
 _IC_EMPTY_VALS: frozenset[str] = frozenset({"", "0", "nan"})
@@ -854,20 +848,17 @@ def _check_ic_order(
     df: pd.DataFrame,
     competencia: str,
 ) -> list[dict[str, object]]:
-    """Verifica que as ICs seguem a ordem canônica do leiaute MSC (R082).
+    """Verifica que as ICs seguem a ordem posicional canônica do leiaute MSC (R082).
 
-    Para cada linha, extrai a sequência de tipos não-vazios (tipo1..tipo6) e
-    verifica se é uma das sequências válidas definidas no IC_MAP.  Linhas sem
-    nenhuma IC são ignoradas.
+    Para cada linha, constrói a tupla posicional completa (tipo1..tipo6), preservando
+    slots vazios, e verifica se é uma das combinações válidas em IC_POSITIONAL_VALID.
+    Linhas sem nenhum tipo preenchido são ignoradas.
 
-    **Filtro de Emparelhamento:** Linhas com pares IC/TIPO desemparelhados
-    (onde um existe e o outro não) são ignoradas na checagem de ordem
-    (já são pegas pela R033), evitando alertas R082 falsos em registros malformados.
-    Isso é verificado registro a registro, permitindo que contas com múltiplas
-    linhas ainda sejam verificadas onde os pares estão corretos.
+    **Filtro de Emparelhamento:** Linhas com pares IC/TIPO desemparelhados são ignoradas
+    (já capturadas pela R033), evitando falsos alertas R082 em registros malformados.
 
     Args:
-        df: DataFrame pivotado com colunas tipo1..tipo6 e ic1..ic6.
+        df: DataFrame com colunas tipo1..tipo6 e ic1..ic6.
         competencia: competência do arquivo.
 
     Returns:
@@ -876,49 +867,41 @@ def _check_ic_order(
     if df.empty:
         return []
 
-    tipo_cols = [f"tipo{n}" for n in range(1, 7) if f"tipo{n}" in df.columns]
-    if not tipo_cols:
+    if not any(f"tipo{n}" in df.columns for n in range(1, 7)):
         return []
 
     issues: list[dict[str, object]] = []
 
     for _, row in df.iterrows():
         conta = str(row.get("conta_contabil", ""))
-
-        # Verificar que cada tipo não-vazio está emparelhado com IC preenchido
-        # e vice-versa, apenas para a linha atual (defesa contra R033).
-        # Se houver inconsistência, a ordem é inválida e não checamos.
-        tipos: list[str] = []
+        tipo_slots: list[str] = []
         is_consistent = True
 
         for n in range(1, 7):
-            tipo_col = f"tipo{n}"
-            ic_col = f"ic{n}"
-
-            tipo_val = str(row.get(tipo_col, "")).strip().upper()
-            ic_val = str(row.get(ic_col, "")).strip()
+            tipo_val = str(row.get(f"tipo{n}", "")).strip().upper()
+            ic_val = str(row.get(f"ic{n}", "")).strip()
             ic_is_filled = ic_val.lower() not in _IC_EMPTY_VALS
 
             if bool(tipo_val) != ic_is_filled:
                 is_consistent = False
                 break
 
-            if tipo_val:
-                tipos.append(tipo_val)
+            tipo_slots.append(tipo_val)
 
         if not is_consistent:
             continue
 
-        tipos_tuple = tuple(tipos)
-        if not tipos_tuple:
+        tipo_tuple = tuple(tipo_slots)
+        if not any(tipo_tuple):
             continue
 
-        if tipos_tuple not in _IC_VALID_ORDERS:
+        if tipo_tuple not in IC_POSITIONAL_VALID:
+            slot_repr = ",".join(t if t else "_" for t in tipo_tuple)
             issues.append({
                 "regra": "R082",
                 "conta_contabil": conta,
                 "campo": "ordem_IC",
-                "valor_encontrado": ",".join(tipos_tuple),
+                "valor_encontrado": slot_repr,
                 "competencia": competencia,
             })
 

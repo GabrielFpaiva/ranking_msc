@@ -1132,3 +1132,25 @@ class TestCheckIcOrderSkipsR033:
         assert len(issues) >= 1, (
             "Conta sem R033 mas com ordem IC errada deve gerar R082."
         )
+
+    def test_posicao_errada_gera_r082_mesmo_sequencia_comprimida_valida(self) -> None:
+        """P1: FR no slot-4 em vez do slot-2 ou slot-3 deve gerar R082."""
+        from ranking_msc.io.reader_msc import _check_ic_order
+
+        # (PO, "", "", FR, "", "") — FR no slot errado.  A sequência comprimida
+        # (PO, FR) seria aceita pela validação antiga, mas não é um layout válido.
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200"],
+            "ic1": ["10131"], "tipo1": ["PO"],
+            "ic2": [""],      "tipo2": [""],
+            "ic3": [""],      "tipo3": [""],
+            "ic4": ["111111"], "tipo4": ["FR"],  # FR no slot-4 — inválido
+            "ic5": [""],      "tipo5": [""],
+            "ic6": [""],      "tipo6": [""],
+        })
+
+        issues = _check_ic_order(df, "2024-01")
+        assert len(issues) >= 1, (
+            "P1 regression: FR no slot-4 sem intermediários é posição inválida "
+            "e deve gerar R082 mesmo que a sequência comprimida (PO,FR) exista."
+        )
