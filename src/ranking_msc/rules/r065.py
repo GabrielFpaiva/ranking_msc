@@ -39,6 +39,7 @@ class R065(Rule):
     rule_id = "R065"
     rule_name = "FS — combinação função×subfunção atípica"
     dimensao = "IC"
+    is_scoring = False  # severidade INFO — não entra no cálculo de pontuação
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
         """Verifica se cada par (funcao, subfuncao) de FS consta na tabela típica.

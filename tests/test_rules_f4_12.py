@@ -20,27 +20,107 @@ from ranking_msc.rules.r065 import R065
 # R039 — PO compatível com esfera do ente
 # ---------------------------------------------------------------------------
 
+def _tabela_po_mock() -> pd.DataFrame:
+    """Subset representativo de tabela_po.csv com cross-esfera + ranges padrão."""
+    return pd.DataFrame({
+        "codigo": [
+            # Federal puro
+            "10101", "10102", "10111",
+            # Cross-esfera municipal (dentro do range federal)
+            "10131", "10132",
+            # Estadual puro
+            "20201", "20202",
+            # Cross-esfera municipal (dentro do range estadual)
+            "20231", "20232",
+            # Municipal puro
+            "30301", "30302", "30310",
+        ],
+    })
+
+
+def _patch_tabela_po(mock_df: pd.DataFrame | None = None):
+    """Helper para patch padronizado de load_tabela_po."""
+    return patch(
+        "ranking_msc.rules.r039.load_tabela_po",
+        return_value=mock_df if mock_df is not None else _tabela_po_mock(),
+    )
+
+
 class TestR039:
-    def test_po_municipal_valido(self, engine_context):
-        """PO com prefixo '3' (municipal) em ente municipal → sem pendências."""
+    def test_po_municipal_30xxx_valido(self, engine_context):
+        """PO com prefixo '3' (municipal puro) em ente municipal → sem pendências."""
         df = pd.DataFrame({"conta_contabil": ["111110200"], "po": ["30301"]})
-        result = R039().execute(df, engine_context)
+        with _patch_tabela_po():
+            result = R039().execute(df, engine_context)
         assert len(result) == 0
 
-    def test_po_federal_em_municipal_gera_alerta(self, engine_context):
-        """PO com prefixo '1' (federal) em ente municipal → ALERTA."""
+    def test_po_cross_municipal_10131_valido(self, engine_context):
+        """PO 10131 (Município Executivo no range federal) é VÁLIDO para municipal."""
+        df = pd.DataFrame({"conta_contabil": ["111110200"], "po": ["10131"]})
+        with _patch_tabela_po():
+            result = R039().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_po_cross_municipal_20231_valido(self, engine_context):
+        """PO 20231 (Município no range estadual) é VÁLIDO para municipal."""
+        df = pd.DataFrame({"conta_contabil": ["111110200"], "po": ["20231"]})
+        with _patch_tabela_po():
+            result = R039().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_po_federal_puro_em_municipal_gera_alerta(self, engine_context):
+        """PO 10101 (Federal puro) em ente municipal → ALERTA."""
         df = pd.DataFrame({"conta_contabil": ["111110200"], "po": ["10101"]})
-        result = R039().execute(df, engine_context)
+        with _patch_tabela_po():
+            result = R039().execute(df, engine_context)
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
         assert result.iloc[0]["regra_id"] == "R039"
 
-    def test_po_estadual_em_municipal_gera_alerta(self, engine_context):
-        """PO com prefixo '2' (estadual) em ente municipal → ALERTA."""
+    def test_po_estadual_puro_em_municipal_gera_alerta(self, engine_context):
+        """PO 20201 (Estadual puro) em ente municipal → ALERTA."""
         df = pd.DataFrame({"conta_contabil": ["111110200"], "po": ["20201"]})
-        result = R039().execute(df, engine_context)
+        with _patch_tabela_po():
+            result = R039().execute(df, engine_context)
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
+
+    def test_po_cross_municipal_em_estadual_gera_alerta(self):
+        """PO 20231 (cross-municipal) em ente estadual → ALERTA."""
+        from ranking_msc.config.settings import AppSettings, Settings
+        from ranking_msc.engine.executor import EngineContext
+        ctx = EngineContext(
+            competencia="2024-01", siconfi="250400",
+            settings=Settings(app=AppSettings(esfera="estadual")),
+            usuario="teste",
+        )
+        df = pd.DataFrame({"conta_contabil": ["111110200"], "po": ["20231"]})
+        with _patch_tabela_po():
+            result = R039().execute(df, ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
+
+    def test_po_cross_municipal_em_federal_gera_alerta(self):
+        """PO 10131 (cross-municipal) em ente federal → ALERTA."""
+        from ranking_msc.config.settings import AppSettings, Settings
+        from ranking_msc.engine.executor import EngineContext
+        ctx = EngineContext(
+            competencia="2024-01", siconfi="250400",
+            settings=Settings(app=AppSettings(esfera="federal")),
+            usuario="teste",
+        )
+        df = pd.DataFrame({"conta_contabil": ["111110200"], "po": ["10131"]})
+        with _patch_tabela_po():
+            result = R039().execute(df, ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
+
+    def test_po_ausente_da_tabela_nao_gera_pendencia(self, engine_context):
+        """PO não presente na tabela → R021 cobre; R039 não duplica."""
+        df = pd.DataFrame({"conta_contabil": ["111110200"], "po": ["99999"]})
+        with _patch_tabela_po():
+            result = R039().execute(df, engine_context)
+        assert len(result) == 0
 
     def test_sem_po_retorna_vazio(self, engine_context):
         """DataFrame sem coluna 'po' → sem pendências."""
@@ -50,27 +130,29 @@ class TestR039:
     def test_po_vazio_ignorado(self, engine_context):
         """PO vazio/nan → ignorado, sem pendências."""
         df = pd.DataFrame({"conta_contabil": ["111110200"], "po": [""]})
-        assert len(R039().execute(df, engine_context)) == 0
+        with _patch_tabela_po():
+            assert len(R039().execute(df, engine_context)) == 0
 
-    def test_esfera_invalida_ignorada(self, engine_context):
+    def test_esfera_invalida_ignorada(self):
         """Esfera não reconhecida em settings → regra ignorada."""
         from ranking_msc.config.settings import AppSettings, Settings
-        settings_bad = Settings(app=AppSettings(esfera="nacional"))
         from ranking_msc.engine.executor import EngineContext
         ctx = EngineContext(
             competencia="2024-01", siconfi="250400",
-            settings=settings_bad, usuario="teste",
+            settings=Settings(app=AppSettings(esfera="nacional")),
+            usuario="teste",
         )
         df = pd.DataFrame({"conta_contabil": ["111110200"], "po": ["10101"]})
         assert len(R039().execute(df, ctx)) == 0
 
     def test_multiplos_pos_detecta_invalidos(self, engine_context):
-        """Múltiplas linhas — apenas POs não municipais geram pendências."""
+        """30301 e 10131 válidos, 10101 e 20201 inválidos para municipal."""
         df = pd.DataFrame({
-            "conta_contabil": ["111110200", "111110201", "111110202"],
-            "po": ["30301", "10101", "20201"],
+            "conta_contabil": ["111110200", "111110201", "111110202", "111110203"],
+            "po": ["30301", "10131", "10101", "20201"],
         })
-        result = R039().execute(df, engine_context)
+        with _patch_tabela_po():
+            result = R039().execute(df, engine_context)
         assert len(result) == 2
 
 
@@ -461,3 +543,7 @@ class TestR065:
         df = pd.DataFrame({"conta_contabil": ["311110200"], "fs": [""]})
         with patch("ranking_msc.rules.r065.load_tabela_fs", return_value=_tabela_fs_mock()):
             assert len(R065().execute(df, engine_context)) == 0
+
+    def test_is_scoring_false(self):
+        """R065 é INFO-only: deve estar excluída do cálculo de pontuação."""
+        assert R065.is_scoring is False
