@@ -5,8 +5,8 @@ Severidade padrão: ALERTA
 
 Lógica:
     COs do bloco de Despesa Orçamentária (1001–2999) só devem aparecer em
-    contas das classes orçamentárias de despesa (classes 5 e 6) ou de
-    Variações Patrimoniais Diminutivas — VPD (classe 3).
+    contas das classes patrimoniais (1 e 2) ou orçamentárias de despesa
+    (classes 5 e 6).
     COs do bloco de Receita Orçamentária (5001–5999) só devem aparecer em
     contas de Variações Patrimoniais Aumentativas — VPA (classe 4) ou
     controles de receita (classes 7 e 8).
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("ranking_msc")
 
-_CLASSES_DESPESA: frozenset[str] = frozenset({"3", "5", "6"})
+_CLASSES_DESPESA: frozenset[str] = frozenset({"1", "2", "5", "6"})
 _CLASSES_RECEITA: frozenset[str] = frozenset({"4", "7", "8"})
 
 
@@ -97,9 +97,9 @@ class R064(Rule):
                 "descricao": (
                     "CO '" + co_s + "' (Despesa) em conta classe '"
                     + classe_s + "' (" + conta_s + ") — CO de despesa esperado"
-                    " em contas das classes 3, 5 ou 6."
+                    " em contas das classes 1, 2, 5 ou 6."
                 ).values,
-                "valor_esperado": "conta de classe 3, 5 ou 6",
+                "valor_esperado": "conta de classe 1, 2, 5 ou 6",
                 "valor_encontrado": ("classe " + classe_s).values,
                 "competencia": context.competencia,
             }))

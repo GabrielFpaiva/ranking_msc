@@ -456,11 +456,19 @@ class TestR063:
 # ---------------------------------------------------------------------------
 
 class TestR064:
-    def test_co_despesa_em_classe3_sem_pendencia(self, engine_context):
-        """CO de despesa (1500) em conta classe 3 (VPD) → sem pendências."""
-        df = pd.DataFrame({"conta_contabil": ["311110200"], "co": ["1500"]})
+    def test_co_despesa_em_classe1_sem_pendencia(self, engine_context):
+        """CO de despesa (1500) em conta classe 1 (Ativo) → sem pendências."""
+        df = pd.DataFrame({"conta_contabil": ["111110200"], "co": ["1500"]})
         result = R064().execute(df, engine_context)
         assert len(result) == 0
+
+    def test_co_despesa_em_classe3_gera_alerta(self, engine_context):
+        """CO de despesa (1500) em conta classe 3 (VPD) → ALERTA."""
+        df = pd.DataFrame({"conta_contabil": ["311110200"], "co": ["1500"]})
+        result = R064().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["regra_id"] == "R064"
 
     def test_co_despesa_em_classe5_sem_pendencia(self, engine_context):
         """CO de despesa em conta classe 5 (orçamentário) → sem pendências."""
