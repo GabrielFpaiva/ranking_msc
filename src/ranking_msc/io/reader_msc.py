@@ -207,9 +207,16 @@ def read_msc_csv(
     csv_text = "\n".join([header_line] + lines[2:])
     df = _parse_csv(csv_text, effective_sep, source)
     r001_r009_issues = _validate_columns(df, source)
+
+    # IC structure checks run on the full pre-pivot df so that R033/R082 are
+    # emitted even when the same rows are later dropped by _pivot_values due to
+    # invalid Tipo_valor × Natureza_valor combinations.
+    _pre_cols = [c for c in _GROUP_COLS if c in df.columns]
+    df_ic_check = df[_pre_cols].drop_duplicates().rename(columns=_RENAME_MAP)
+    ic_pair_issues = _check_ic_pairs(df_ic_check, competencia)
+    ic_order_issues = _check_ic_order(df_ic_check, competencia)
+
     df, pivot_issues = _pivot_values(df, competencia, siconfi)
-    ic_pair_issues = _check_ic_pairs(df, competencia)
-    ic_order_issues = _check_ic_order(df, competencia)
     pre_pivot_issues = (
         metadata_issues + r008_issues + r001_r009_issues
         + pivot_issues + ic_pair_issues + ic_order_issues
