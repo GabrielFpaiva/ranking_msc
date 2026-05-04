@@ -61,6 +61,28 @@ IC_MAP: dict[int, list[str]] = {
     9: ["PO", "FS", "FR", "CO", "ND", "AI"],
 }
 
+# Combinações posicionais válidas de IC derivadas de ref/mapeamento_ic_tipo.csv.
+# Cada tupla representa os 6 slots TIPO1..TIPO6 — posição vazia = "".
+# Usado por R082 para validação slot-específica (não comprimida).
+IC_POSITIONAL_VALID: frozenset[tuple[str, str, str, str, str, str]] = frozenset({
+    ("PO", "",   "",   "",   "",   ""),   # só PO
+    ("PO", "",   "FR", "",   "",   ""),   # PO + FR slot-3
+    ("PO", "FP", "",   "",   "",   ""),   # PO + FP
+    ("PO", "FP", "DC", "",   "",   ""),   # PO + FP + DC
+    ("PO", "FP", "DC", "FR", "",   ""),   # PO + FP + DC + FR
+    ("PO", "FP", "FR", "",   "",   ""),   # PO + FP + FR
+    ("PO", "FP", "FR", "CO", "",   ""),   # PO + FP + FR + CO
+    ("PO", "FR", "",   "",   "",   ""),   # PO + FR slot-2
+    ("PO", "FR", "",   "NR", "",   ""),   # PO + FR + NR
+    ("PO", "FR", "CO", "",   "",   ""),   # PO + FR + CO
+    ("PO", "FR", "CO", "NR", "",   ""),   # PO + FR + CO + NR
+    ("PO", "FS", "",   "",   "ND", ""),   # PO + FS + ND
+    ("PO", "FS", "FR", "",   "ND", ""),   # PO + FS + FR + ND
+    ("PO", "FS", "FR", "",   "ND", "AI"), # PO + FS + FR + ND + AI
+    ("PO", "FS", "FR", "CO", "ND", ""),   # PO + FS + FR + CO + ND
+    ("PO", "FS", "FR", "CO", "ND", "AI"), # PO + FS + FR + CO + ND + AI
+})
+
 IC_DIGITOS: dict[str, int] = {
     "PO": 5,
     "FP": 1,
