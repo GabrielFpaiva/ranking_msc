@@ -90,7 +90,16 @@ class R039(Rule):
         if "po" not in df.columns:
             return self.build_issues([])
 
-        esfera = getattr(context.settings.app, "esfera", "municipal").lower()
+        esfera_raw = getattr(context.settings.app, "esfera", "municipal")
+        if not isinstance(esfera_raw, str):
+            logger.warning(
+                "R039: esfera não-string em settings (%r), regra ignorada. competência=%s",
+                esfera_raw,
+                context.competencia,
+                extra=_extra,
+            )
+            return self.build_issues([])
+        esfera = esfera_raw.strip().lower()
         if esfera not in {"municipal", "estadual", "federal"}:
             logger.warning(
                 "R039: esfera '%s' não reconhecida, regra ignorada. competência=%s",

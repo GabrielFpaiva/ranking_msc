@@ -2,6 +2,7 @@
 
 Dimensão: IC
 Severidade padrão: ALERTA
+Pontuação: is_scoring=False — sinal complementar (não entra no score)
 
 Lógica:
     O 1º dígito da Fonte de Recurso indica o exercício:
@@ -9,10 +10,15 @@ Lógica:
       2 = anterior (saldos de exercício anterior)
       9 = condicionado
     Qualquer outro valor no 1º dígito indica FR semanticamente inválida.
-    Complementa R024 (que trata do formato e tabela com severidade ERRO).
+
+    Complementa R024 (que já trata o mesmo problema com severidade ERRO).
+    Como a condição checada aqui é subset estrito de R024.mask_prefix,
+    a regra é marcada como is_scoring=False para não penalizar o score
+    duas vezes pelo mesmo defeito subjacente. Permanece emitindo ALERTA
+    para evidenciar o problema em relatórios de pendências.
 
 Referência:
-    Leiaute MSC 2026 — campo FR; ref/regras_catalogo.md R048
+    Leiaute MSC 2026 — campo FR; ref/regras_catalogo.md R048; R024
 """
 
 from __future__ import annotations
@@ -39,6 +45,7 @@ class R048(Rule):
     rule_id = "R048"
     rule_name = "FR — 1º dígito deve ser 1 (corrente), 2 (anterior) ou 9 (condicionado)"
     dimensao = "IC"
+    is_scoring = False  # condição já penalizada por R024 — evita double-penalty no score
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
         """Verifica se o 1º dígito de cada FR está em {1, 2, 9}.
