@@ -79,6 +79,9 @@ _IC_VALID_ORDERS: frozenset[tuple[str, ...]] = frozenset(
     tuple(types) for types in IC_MAP.values() if types
 )
 
+# Valores considerados "sem IC" — alinhado com ic_mask_informada em rules/base.py.
+_IC_EMPTY_VALS: frozenset[str] = frozenset({"", "0", "nan"})
+
 # Mapeamento de nomes CSV originais → nomes padronizados (minúsculos)
 _RENAME_MAP: dict[str, str] = {
     "CONTA": "conta_contabil",
@@ -801,7 +804,7 @@ def _check_ic_pairs(df: pd.DataFrame, competencia: str) -> list[dict[str, object
 
         if not tipo_present:
             # IC column exists but TIPO column is structurally absent — treat TIPO as empty.
-            ic_filled = df[ic_col].astype(str).str.strip().ne("")
+            ic_filled = ~df[ic_col].fillna("").astype(str).str.strip().str.lower().isin(_IC_EMPTY_VALS)
             for idx in df.index[ic_filled]:
                 conta = str(df.at[idx, "conta_contabil"])
                 ic_val = str(df.at[idx, ic_col]).strip()
@@ -814,7 +817,7 @@ def _check_ic_pairs(df: pd.DataFrame, competencia: str) -> list[dict[str, object
                 })
             continue
 
-        ic_filled = df[ic_col].astype(str).str.strip().ne("")
+        ic_filled = ~df[ic_col].fillna("").astype(str).str.strip().str.lower().isin(_IC_EMPTY_VALS)
         tipo_filled = df[tipo_col].astype(str).str.strip().ne("")
         mismatch = ic_filled.ne(tipo_filled)
 

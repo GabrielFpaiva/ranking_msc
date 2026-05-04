@@ -59,6 +59,13 @@ IC_MAP: dict[int, list[str]] = {
     7: ["PO", "FS", "FR", "CO", "ND"],
     8: ["PO", "FP", "DC", "FR"],
     9: ["PO", "FS", "FR", "CO", "ND", "AI"],
+    # Combinações adicionais do mapeamento_ic_tipo.csv ausentes acima:
+    10: ["PO", "FR"],
+    11: ["PO", "FP", "FR"],
+    12: ["PO", "FR", "NR"],
+    13: ["PO", "FS", "ND"],
+    14: ["PO", "FS", "FR", "ND"],
+    15: ["PO", "FS", "FR", "ND", "AI"],
 }
 
 IC_DIGITOS: dict[str, int] = {
