@@ -1,14 +1,14 @@
 # Backlog Consolidado — Ranking MSC
 
-> **Atualizado:** 2026-04-29
-> **Estado atual:** 39 regras implementadas · 626 testes · Fase 4 em andamento
+> **Atualizado:** 2026-04-30
+> **Estado atual:** 43 regras implementadas · 639 testes · Fase 4 em andamento
 
 ---
 
 ## Visão Geral
 
 O projeto contém **78 regras** no catálogo total (67 originais + 11 SIGEF/JPA).
-Destas, **39 estão implementadas** e habilitadas. Restam **39 regras** a implementar.
+Destas, **43 estão implementadas** e habilitadas. Restam **35 regras** a implementar.
 
 O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estável.
 
@@ -18,13 +18,13 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 |---|---|---|---|
 | Fase 2 | Infraestrutura + 5 regras piloto + Pipeline | ✅ Concluída | 190 testes |
 | Fase 3 | Catálogo expandido → 35 regras | ✅ Concluída | 471 testes |
-| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-01→F4-08 concluídos) | 626 testes |
+| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-01→F4-11 concluídos) | 639 testes |
 | Fase 0 | Frontend MCRA (React+FastAPI replacing Panel) | ✅ Concluída | 8 commits |
 | Fase 5 | Produção (export, auth, deploy, docs, entrega) | 📋 Backlog | — |
 
 ---
 
-## Regras Implementadas (39/78)
+## Regras Implementadas (43/78)
 
 | Regra | Dimensão | Nome | Sev. | Fase |
 |---|---|---|---|---|
@@ -67,19 +67,14 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | R070 | Estrutura | Sem registros duplicados | ERRO | F3 ✅ |
 | R080 | Formato | Formato de conta — 9 dígitos numéricos | ERRO | F3 ✅ |
 | R081 | Formato | Formato de IC — dígitos por tipo | ERRO | F3 ✅ |
+| R033 | IC | Pares IC/TIPO presentes | ERRO | F4 ✅ |
+| R034 | IC | PO obrigatório | ERRO | F4 ✅ |
+| R038 | IC | IC × conta conforme leiaute | ERRO | F4 ✅ |
+| R082 | IC | Ordem das ICs no arquivo | ALERTA | F4 ✅ |
 
 ---
 
-## Regras Pendentes (39/78)
-
-### IC Completude (4 regras) — Task F4-11
-
-| Regra | Nome | Sev. | Descrição |
-|---|---|---|---|
-| R033 | Pares IC/TIPO presentes | ERRO | Cada IC1 deve ter TIPO1, etc. |
-| R034 | PO obrigatório | ERRO | PO deve estar preenchido em todas as linhas |
-| R038 | IC × conta conforme leiaute | ERRO | ID_IC da conta determina quais ICs são obrigatórios |
-| R082 | Ordem das ICs no arquivo | ALERTA | ICs devem seguir a ordem do leiaute |
+## Regras Pendentes (35/78)
 
 ### Domínio Complementar (9 regras) — Task F4-12
 
@@ -204,9 +199,9 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F4-06 | Relatório consolidado multi-competência | 8 | F4-05 | ✅ |
 | F4-07 | Regras Estrutura R006–R009 (4 regras) | 6 | — | ✅ PR #63 |
 | F4-08 | Benchmark de performance (>100k linhas) | 6 | F4-04 | ✅ PR #64 |
-| F4-09 | Otimizar regras com operações vetorizadas | 8 | F4-08 | ❌ A Fazer |
-| F4-10 | Encoding robusto (UTF-8/Latin-1/CP1252 auto) | 6 | — | ❌ A Fazer |
-| F4-11 | Regras IC completude R033, R034, R038, R082 | 5 | R020 | ❌ A Fazer |
+| F4-09 | Otimizar regras com operações vetorizadas | 8 | F4-08 | ✅ PR #67 |
+| F4-10 | Encoding robusto (UTF-8/Latin-1/CP1252 auto) | 6 | — | ✅ PR #68 |
+| F4-11 | Regras IC completude R033, R034, R038, R082 | 5 | R020 | ✅ Concluído |
 | F4-12 | Regras domínio complementares (9 regras) | 10 | R020-R028 | ❌ A Fazer |
 | F4-13 | Regras Fechamento por classe R035–R037 | 4 | R030 | ❌ A Fazer |
 | F4-14 | Superávit + Interconta R053, R061, R062 | 4 | R060, R010 | ❌ A Fazer |
@@ -252,7 +247,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 |---|:---:|:---:|:---:|---|
 | Estrutura | 10 | 12 | 2 | — (gap residual R0010, R0011) |
 | PCASP | 5 | 5 | 0 | — |
-| IC | 9 | 14 | 5 | F4-11 (+1 em F4-12) |
+| IC | 13 | 14 | 1 | F4-12 |
 | PO | 1 | 2 | 1 | F4-12 |
 | Fechamento | 2 | 6 | 4 | F4-13 (3) + F3-16 (1) |
 | Interconta | 3 | 4 | 1 | F4-14 |
@@ -265,7 +260,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | SIGEF Saldo | 0 | 3 | 3 | F4-16 |
 | SIGEF IC | 0 | 5 | 5 | F4-17 |
 | SIGEF Temporal | 0 | 3 | 3 | F4-18 |
-| **Total** | **39** | **78** | **39** | |
+| **Total** | **43** | **78** | **35** | |
 
 ---
 
@@ -318,8 +313,8 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 | Métrica | Valor |
 |---|---|
-| Regras implementadas | 39 / 78 (50.0%) |
-| Testes coletados | 626 (7 com erro de coleta) |
+| Regras implementadas | 43 / 78 (55.1%) |
+| Testes coletados | 639 (7 com erro de coleta) |
 | Cobertura de categorias | 12/15 com ≥1 regra |
 | Frontend telas | 10/10 navegáveis |
 | Endpoints API | 19 |

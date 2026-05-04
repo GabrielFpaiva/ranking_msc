@@ -15,6 +15,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from ranking_msc.config.settings import Settings
 from ranking_msc.engine.executor import EngineContext
 from ranking_msc.rules.r001 import R001
 from ranking_msc.rules.r002 import R002
@@ -26,6 +27,10 @@ from ranking_msc.rules.r011 import R011
 from ranking_msc.rules.r012 import R012
 from ranking_msc.rules.r021 import R021
 from ranking_msc.rules.r030 import R030
+from ranking_msc.rules.r033 import R033
+from ranking_msc.rules.r034 import R034
+from ranking_msc.rules.r038 import R038
+from ranking_msc.rules.r082 import R082
 
 # ---------------------------------------------------------------------------
 # Helpers compartilhados
@@ -765,3 +770,387 @@ class TestR012:
         df = pd.DataFrame({"conta_contabil": ["111110200"]})
         result = R012().execute(df, engine_context)
         assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# Helpers para R033, R034, R038, R082
+# ---------------------------------------------------------------------------
+
+def _ctx_with_issues(
+    settings: Settings,
+    issues: list[dict[str, object]],
+) -> EngineContext:
+    """EngineContext com pre_pivot_issues pré-populados."""
+    ctx = EngineContext(
+        competencia="2024-01",
+        siconfi="250400",
+        settings=settings,
+        usuario="teste",
+    )
+    ctx.pre_pivot_issues = issues
+    return ctx
+
+
+def _pcasp_com_id_ic() -> pd.DataFrame:
+    """PCASP stub com coluna id_ic para testes de R038."""
+    return pd.DataFrame({
+        "conta_contabil": ["111110200", "211000000", "311000000"],
+        "id_ic": ["4", "2", "1"],
+        "nivel": ["Último", "Último", "Último"],
+        "status": ["Ativa", "Ativa", "Ativa"],
+    })
+
+
+# ---------------------------------------------------------------------------
+# R033 — Pares IC/TIPO presentes
+# ---------------------------------------------------------------------------
+
+class TestR033:
+    def test_sem_violacoes_retorna_vazio(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Sem issues R033 em pre_pivot_issues → zero pendências."""
+        df = pd.DataFrame({"conta_contabil": ["111110200"]})
+        result = R033().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_violacao_drenada_gera_erro(
+        self, settings: Settings
+    ) -> None:
+        """Issue R033 em pre_pivot_issues → ERRO drenado."""
+        ctx = _ctx_with_issues(settings, [
+            {
+                "regra": "R033",
+                "conta_contabil": "111110200",
+                "campo": "IC1/TIPO1",
+                "valor_encontrado": "IC1='10131' presente mas TIPO1 está vazio",
+                "competencia": "2024-01",
+            }
+        ])
+        df = pd.DataFrame({"conta_contabil": ["111110200"]})
+        result = R033().execute(df, ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert result.iloc[0]["regra_id"] == "R033"
+
+    def test_issue_de_outra_regra_ignorado(
+        self, settings: Settings
+    ) -> None:
+        """Issues de outras regras em pre_pivot_issues → R033 retorna vazio."""
+        ctx = _ctx_with_issues(settings, [
+            {"regra": "R009", "conta_contabil": "", "campo": "colunas_ic_tipo",
+             "valor_encontrado": "10"}
+        ])
+        df = pd.DataFrame({"conta_contabil": ["111110200"]})
+        result = R033().execute(df, ctx)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R034 — PO obrigatório
+# ---------------------------------------------------------------------------
+
+class TestR034:
+    def test_todos_com_po_retorna_vazio(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Todas as contas com PO preenchido → zero pendências."""
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200", "211000000"],
+            "po": ["10131", "20202"],
+        })
+        result = R034().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_conta_sem_po_gera_erro(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Conta sem PO → ERRO."""
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200", "211000000"],
+            "po": ["", "20202"],
+        })
+        result = R034().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert result.iloc[0]["regra_id"] == "R034"
+        assert "111110200" in result.iloc[0]["conta_contabil"]
+
+    def test_df_sem_coluna_po_retorna_vazio(
+        self, engine_context: EngineContext
+    ) -> None:
+        """DataFrame sem coluna 'po' → retorna vazio sem exceção."""
+        df = pd.DataFrame({"conta_contabil": ["111110200"]})
+        result = R034().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_po_nan_e_zero_tratados_como_ausente(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Valores NaN e '0' em po → considerados ausentes → ERRO."""
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200", "211000000"],
+            "po": ["0", "nan"],
+        })
+        result = R034().execute(df, engine_context)
+        assert len(result) == 2
+
+
+# ---------------------------------------------------------------------------
+# R038 — IC associada à conta correta
+# ---------------------------------------------------------------------------
+
+class TestR038:
+    def test_ics_corretas_retorna_vazio(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """ICs dentro do conjunto permitido para a conta → zero pendências."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r038.load_pcasp",
+            lambda *a, **kw: _pcasp_com_id_ic(),
+        )
+        # conta 111110200 tem id_ic=4 → IC_MAP[4] = [PO, FP, FR, CO]
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200"],
+            "po": ["10131"],
+            "fp": ["1"],
+            "fr": ["1500"],
+            "co": ["1001"],
+            "dc": [""],
+            "nr": [""],
+            "nd": [""],
+            "fs": [""],
+            "ai": [""],
+        })
+        result = R038().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_ic_nao_permitida_gera_erro(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """IC não permitida para a conta (NR em conta com id_ic=2) → ERRO."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r038.load_pcasp",
+            lambda *a, **kw: _pcasp_com_id_ic(),
+        )
+        # conta 211000000 tem id_ic=2 → IC_MAP[2] = [PO, FP] — NR não permitido
+        df = pd.DataFrame({
+            "conta_contabil": ["211000000"],
+            "po": ["20202"],
+            "fp": ["1"],
+            "nr": ["12345678"],
+            "fr": [""],
+            "co": [""],
+            "dc": [""],
+            "nd": [""],
+            "fs": [""],
+            "ai": [""],
+        })
+        result = R038().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert result.iloc[0]["regra_id"] == "R038"
+        assert "NR" in result.iloc[0]["descricao"]
+
+    def test_pcasp_sem_id_ic_retorna_vazio(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """PCASP sem coluna id_ic → retorna vazio sem exceção."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r038.load_pcasp",
+            lambda *a, **kw: pd.DataFrame({"conta_contabil": ["111110200"]}),
+        )
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200"],
+            "po": ["10131"],
+        })
+        result = R038().execute(df, engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R082 — Ordem das ICs conforme leiaute
+# ---------------------------------------------------------------------------
+
+class TestR082:
+    def test_sem_violacoes_retorna_vazio(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Sem issues R082 em pre_pivot_issues → zero pendências."""
+        df = pd.DataFrame({"conta_contabil": ["111110200"]})
+        result = R082().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_violacao_drenada_gera_alerta(
+        self, settings: Settings
+    ) -> None:
+        """Issue R082 em pre_pivot_issues → ALERTA drenado."""
+        ctx = _ctx_with_issues(settings, [
+            {
+                "regra": "R082",
+                "conta_contabil": "111110200",
+                "campo": "ordem_IC",
+                "valor_encontrado": "CO,PO,FR",
+                "competencia": "2024-01",
+            }
+        ])
+        df = pd.DataFrame({"conta_contabil": ["111110200"]})
+        result = R082().execute(df, ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["regra_id"] == "R082"
+
+    def test_issue_de_outra_regra_ignorado(
+        self, settings: Settings
+    ) -> None:
+        """Issues de outras regras → R082 retorna vazio."""
+        ctx = _ctx_with_issues(settings, [
+            {"regra": "R033", "conta_contabil": "111110200",
+             "campo": "IC1/TIPO1", "valor_encontrado": "IC1='x' presente mas TIPO1 vazio"}
+        ])
+        df = pd.DataFrame({"conta_contabil": ["111110200"]})
+        result = R082().execute(df, ctx)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# Testes de regressão — P1/P2 badges
+# ---------------------------------------------------------------------------
+
+
+class TestR038MultiRow:
+    """P1: R038 deve avaliar todas as linhas, não só a primeira por conta."""
+
+    def test_segunda_linha_com_ic_invalida_detectada(
+        self,
+        engine_context: EngineContext,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Conta com 2 linhas: 1ª válida, 2ª com NR não permitida → ERRO detectado."""
+        monkeypatch.setattr(
+            "ranking_msc.rules.r038.load_pcasp",
+            lambda *a, **kw: _pcasp_com_id_ic(),
+        )
+        # conta 211000000 tem id_ic=2 → IC_MAP[2] = [PO, FP]
+        # Linha 1: válida (apenas PO+FP)
+        # Linha 2: NR preenchida (não permitida para id_ic=2)
+        df = pd.DataFrame({
+            "conta_contabil": ["211000000", "211000000"],
+            "po": ["20202", "20202"],
+            "fp": ["1", "1"],
+            "nr": ["", "12345678"],   # 2ª linha tem NR inválida
+            "fr": ["", ""],
+            "co": ["", ""],
+            "dc": ["", ""],
+            "nd": ["", ""],
+            "fs": ["", ""],
+            "ai": ["", ""],
+        })
+        result = R038().execute(df, engine_context)
+        assert len(result) >= 1, (
+            "P1 regression: R038 deve detectar IC inválida na 2ª linha "
+            "da mesma conta, não apenas na primeira."
+        )
+        assert any("NR" in str(row["descricao"]) for _, row in result.iterrows())
+
+
+class TestCheckIcPairsContinue:
+    """P2: _check_ic_pairs deve continuar validando posições após coluna ausente."""
+
+    def test_coluna_ic3_ausente_nao_impede_ic4(self) -> None:
+        """CSV sem ic3/tipo3 mas com ic4/tipo4 → R033 detecta mismatch em ic4."""
+        from ranking_msc.io.reader_msc import _check_ic_pairs
+
+        # ic3/tipo3 ausentes, ic4 preenchido mas tipo4 vazio → R033
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200"],
+            "ic1": ["10131"], "tipo1": ["PO"],
+            "ic2": ["1"],     "tipo2": ["FP"],
+            # ic3/tipo3 ausentes
+            "ic4": ["99999"], "tipo4": [""],   # mismatch!
+            "ic5": [""],      "tipo5": [""],
+            "ic6": [""],      "tipo6": [""],
+        })
+        issues = _check_ic_pairs(df, "2024-01")
+        r033_ic4 = [i for i in issues if "IC4" in str(i.get("campo", ""))]
+        assert len(r033_ic4) >= 1, (
+            "P2 regression: _check_ic_pairs deve continuar validando "
+            "posições após colunas intermediárias ausentes (ic3/tipo3)."
+        )
+
+
+class TestCheckIcOrderSkipsR033:
+    """P2: _check_ic_order deve ignorar linhas com R033 (pares inconsistentes)."""
+
+    def test_linha_com_r033_nao_gera_r082(self) -> None:
+        """Conta com R033 (TIPO sem IC) → _check_ic_order não emite R082."""
+        from ranking_msc.io.reader_msc import _check_ic_order
+
+        # TIPO1=PO mas TIPO2=CO sem IC2 (puro R033, não deve gerar R082)
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200"],
+            "ic1": ["10131"], "tipo1": ["PO"],
+            "ic2": [""],      "tipo2": ["CO"],  # R033 violation
+            "ic3": [""],      "tipo3": [""],
+            "ic4": [""],      "tipo4": [""],
+            "ic5": [""],      "tipo5": [""],
+            "ic6": [""],      "tipo6": [""],
+        })
+
+        issues = _check_ic_order(df, "2024-01")
+        r082_for_conta = [
+            i for i in issues
+            if i.get("conta_contabil") == "111110200"
+        ]
+        assert len(r082_for_conta) == 0, (
+            "P2 regression: _check_ic_order não deve emitir R082 para "
+            "linhas com pares IC/TIPO inconsistentes."
+        )
+
+    def test_linha_sem_r033_ainda_gera_r082(self) -> None:
+        """Conta sem R033 mas com ordem errada → _check_ic_order emite R082."""
+        from ranking_msc.io.reader_msc import _check_ic_order
+
+        # Ordem errada: CO antes de PO (deveria ser PO,FP,FR,CO)
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200"],
+            "ic1": ["1001"],  "tipo1": ["CO"],   # CO na posição 1 (errado)
+            "ic2": ["10131"], "tipo2": ["PO"],   # PO na posição 2 (errado)
+            "ic3": [""],      "tipo3": [""],
+            "ic4": [""],      "tipo4": [""],
+            "ic5": [""],      "tipo5": [""],
+            "ic6": [""],      "tipo6": [""],
+        })
+
+        issues = _check_ic_order(df, "2024-01")
+        assert len(issues) >= 1, (
+            "Conta sem R033 mas com ordem IC errada deve gerar R082."
+        )
+
+    def test_posicao_errada_gera_r082_mesmo_sequencia_comprimida_valida(self) -> None:
+        """P1: FR no slot-4 em vez do slot-2 ou slot-3 deve gerar R082."""
+        from ranking_msc.io.reader_msc import _check_ic_order
+
+        # (PO, "", "", FR, "", "") — FR no slot errado.  A sequência comprimida
+        # (PO, FR) seria aceita pela validação antiga, mas não é um layout válido.
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200"],
+            "ic1": ["10131"], "tipo1": ["PO"],
+            "ic2": [""],      "tipo2": [""],
+            "ic3": [""],      "tipo3": [""],
+            "ic4": ["111111"], "tipo4": ["FR"],  # FR no slot-4 — inválido
+            "ic5": [""],      "tipo5": [""],
+            "ic6": [""],      "tipo6": [""],
+        })
+
+        issues = _check_ic_order(df, "2024-01")
+        assert len(issues) >= 1, (
+            "P1 regression: FR no slot-4 sem intermediários é posição inválida "
+            "e deve gerar R082 mesmo que a sequência comprimida (PO,FR) exista."
+        )
