@@ -65,8 +65,15 @@ from ranking_msc.rules.r062 import R062  # noqa: F401
 from ranking_msc.rules.r063 import R063  # noqa: F401
 from ranking_msc.rules.r064 import R064  # noqa: F401
 from ranking_msc.rules.r065 import R065  # noqa: F401
+from ranking_msc.rules.r066 import R066  # noqa: F401
+from ranking_msc.rules.r067 import R067  # noqa: F401
+from ranking_msc.rules.r068 import R068  # noqa: F401
 from ranking_msc.rules.r069 import R069  # noqa: F401
 from ranking_msc.rules.r070 import R070  # noqa: F401
+from ranking_msc.rules.r071 import R071  # noqa: F401
+from ranking_msc.rules.r072 import R072  # noqa: F401
+from ranking_msc.rules.r073 import R073  # noqa: F401
+from ranking_msc.rules.r074 import R074  # noqa: F401
 from ranking_msc.rules.r080 import R080  # noqa: F401
 from ranking_msc.rules.r081 import R081  # noqa: F401
 from ranking_msc.rules.r082 import R082  # noqa: F401

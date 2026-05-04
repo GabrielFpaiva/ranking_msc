@@ -77,6 +77,13 @@ rules:
     - "R063"
     - "R064"
     - "R065"
+    - "R066"
+    - "R067"
+    - "R068"
+    - "R071"
+    - "R072"
+    - "R073"
+    - "R074"
     # R082-R111: a implementar nas próximas sprints
   fail_fast: false                    # true = para ao primeiro ERRO
 
