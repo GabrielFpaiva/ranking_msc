@@ -202,7 +202,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F4-09 | Otimizar regras com operações vetorizadas | 8 | F4-08 | ✅ PR #67 |
 | F4-10 | Encoding robusto (UTF-8/Latin-1/CP1252 auto) | 6 | — | ✅ PR #68 |
 | F4-11 | Regras IC completude R033, R034, R038, R082 | 5 | R020 | ✅ Concluído |
-| F4-12 | Regras domínio complementares (9 regras) | 10 | R020-R028 | ❌ A Fazer |
+| F4-12 | Regras domínio complementares (9 regras) | 10 | R020-R028 | ✅ Concluído |
 | F4-13 | Regras Fechamento por classe R035–R037 | 4 | R030 | ❌ A Fazer |
 | F4-14 | Superávit + Interconta R053, R061, R062 | 4 | R060, R010 | ❌ A Fazer |
 | F4-15 | Completude + Qualidade (7 regras) | 8 | R026, R027 | ❌ A Fazer |
