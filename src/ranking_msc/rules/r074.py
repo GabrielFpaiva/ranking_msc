@@ -64,7 +64,8 @@ def _parse_flag(series: pd.Series) -> pd.Series:
 
     Esta função aceita ambos os formatos:
     - ``bool``/``np.bool_`` nativos → passagem direta.
-    - strings ``"True"``/``"1"`` → True; qualquer outro valor → False.
+    - strings ``"True"``/``"1"``/``"yes"`` (case-insensitive) → True;
+      qualquer outro valor (``"False"``, ``"0"``, ``"no"``, vazio, NaN) → False.
     - NaN/None → False.
 
     Args:
@@ -75,9 +76,10 @@ def _parse_flag(series: pd.Series) -> pd.Series:
     """
     if pd.api.types.is_bool_dtype(series):
         return series.astype(bool)
-    # String path: "True" → True, qualquer outro valor (incluindo "False",
-    # "", NaN convertido para "nan") → False.
-    return series.astype(str).str.strip().str.lower() == "true"
+    # String path: conjunto de valores considerados truthy (case-insensitive).
+    # Inclui "1"/"0" para round-trips CSV/export que serializam bool como inteiro.
+    _TRUTHY = frozenset({"true", "1", "yes"})
+    return series.astype(str).str.strip().str.lower().isin(_TRUTHY)
 
 
 @register_rule

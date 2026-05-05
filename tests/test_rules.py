@@ -1738,6 +1738,39 @@ class TestR074:
         )
         assert result.iloc[0]["regra_id"] == "R074"
 
+    def test_flags_numericos_string_sao_honrados(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: flags como strings "1"/"0" (round-trip CSV/export) devem
+        ser interpretados corretamente por _parse_flag.
+
+        Sem o tratamento, "1" comparado contra "true" retornaria False,
+        causando falso positivo (SI presente não detectado) ou falso
+        negativo (SF presente tratado como ausente).
+
+        Cenário A: SI="1", SF="0", PC="0" → ALERTA (SI presente, SF e PC ausentes).
+        Cenário B: SI="1", SF="1", PC="0" → sem alerta (SF presente).
+        """
+        # Cenário A: deve alertar — "1" para SI deve ser True
+        df_a = _df_completo(["111110100"], ["0"], ["0"], si_d=[1000.0])
+        df_a["_has_saldo_inicial"] = "1"
+        df_a["_has_saldo_final"] = "0"
+        df_a["_has_period_change"] = "0"
+        result_a = R074().execute(df_a, engine_context)
+        assert len(result_a) == 1, (
+            "R074: flag '1' deve ser True — SI presente sem SF/PC deve gerar ALERTA."
+        )
+
+        # Cenário B: não deve alertar — "1" para SF deve ser True
+        df_b = _df_completo(["111110100"], ["0"], ["0"], si_d=[1000.0], sf_d=[1000.0])
+        df_b["_has_saldo_inicial"] = "1"
+        df_b["_has_saldo_final"] = "1"
+        df_b["_has_period_change"] = "0"
+        result_b = R074().execute(df_b, engine_context)
+        assert len(result_b) == 0, (
+            "R074: flag '1' deve ser True — SI e SF presentes não deve gerar ALERTA."
+        )
+
     def test_period_change_natureza_invalida_nao_gera_r074_no_pivot(
         self,
     ) -> None:
