@@ -1448,11 +1448,19 @@ def _df_completo(
     sf_c: list[float] | None = None,
     mov_d: list[float] | None = None,
     mov_c: list[float] | None = None,
+    has_si: list[bool] | None = None,
+    has_sf: list[bool] | None = None,
 ) -> pd.DataFrame:
-    """DataFrame com todas as colunas necessárias para R066–R074."""
+    """DataFrame com todas as colunas necessárias para R066–R074.
+
+    Quando ``has_si``/``has_sf`` são fornecidos, inclui os flags de presença
+    produzidos pelo ``reader_msc._pivot_values`` (``_has_saldo_inicial`` e
+    ``_has_saldo_final``), permitindo testar o comportamento correto de R074
+    com valores zero legítimos.
+    """
     n = len(contas)
     zeros = [0.0] * n
-    return pd.DataFrame({
+    data: dict[str, object] = {
         "conta_contabil": contas,
         "nr": nr,
         "nd": nd,
@@ -1462,7 +1470,12 @@ def _df_completo(
         "movimento_credito": mov_c if mov_c is not None else zeros,
         "saldo_final_debito": sf_d if sf_d is not None else zeros,
         "saldo_final_credito": sf_c if sf_c is not None else zeros,
-    })
+    }
+    if has_si is not None:
+        data["_has_saldo_inicial"] = has_si
+    if has_sf is not None:
+        data["_has_saldo_final"] = has_sf
+    return pd.DataFrame(data)
 
 
 # ---------------------------------------------------------------------------
@@ -1589,6 +1602,7 @@ class TestR074:
         df = _df_completo(
             ["111110100"], ["0"], ["0"],
             si_d=[1000.0], sf_d=[1000.0],
+            has_si=[True], has_sf=[True],
         )
         result = R074().execute(df, engine_context)
         assert len(result) == 0
@@ -1600,13 +1614,18 @@ class TestR074:
         df = _df_completo(
             ["111110100"], ["0"], ["0"],
             si_d=[1000.0], mov_d=[500.0],
+            has_si=[True], has_sf=[False],
         )
         result = R074().execute(df, engine_context)
         assert len(result) == 0
 
     def test_linha_so_com_si_gera_alerta(self, engine_context: EngineContext) -> None:
         """Linha com apenas saldo_inicial (sem SF e sem movimento) → ALERTA."""
-        df = _df_completo(["111110100"], ["0"], ["0"], si_d=[1000.0])
+        df = _df_completo(
+            ["111110100"], ["0"], ["0"],
+            si_d=[1000.0],
+            has_si=[True], has_sf=[False],
+        )
         result = R074().execute(df, engine_context)
         assert len(result) == 1
         assert result.iloc[0]["regra_id"] == "R074"
@@ -1617,9 +1636,53 @@ class TestR074:
         self, engine_context: EngineContext
     ) -> None:
         """Linha com todos os valores zero → sem SI, não dispara R074."""
-        df = _df_completo(["111110100"], ["0"], ["0"])
+        df = _df_completo(
+            ["111110100"], ["0"], ["0"],
+            has_si=[False], has_sf=[False],
+        )
         result = R074().execute(df, engine_context)
         assert len(result) == 0
+
+    def test_sf_zero_legitimo_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: SF=0 legítimo (linha ending_balance presente, valor zero).
+
+        Conta encerrou zerada: SI_D=1000, todos os movimentos compensaram,
+        SF_D=0.  A linha ending_balance *existe* no CSV (has_sf=True);
+        comparar != 0 levaria a falso positivo.  Com o flag, não dispara.
+        """
+        df = _df_completo(
+            ["211000000"], ["0"], ["0"],
+            si_d=[1000.0], sf_d=[0.0],
+            has_si=[True], has_sf=[True],  # SF existe, só está zerado
+        )
+        result = R074().execute(df, engine_context)
+        assert len(result) == 0, (
+            "R074 falso positivo: SF=0 com linha ending_balance presente "
+            "não deve gerar alerta."
+        )
+
+    def test_si_zero_sem_sf_gera_alerta(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: SI_D=0 mas linha beginning_balance presente (has_si=True).
+
+        Conta com saldo inicial zerado e sem SF nem movimentação — exportação
+        incompleta independente do valor.  Comparar != 0 levaria a falso
+        negativo (SI_D=0 seria tratado como 'sem SI').  Com o flag, dispara.
+        """
+        df = _df_completo(
+            ["111110100"], ["0"], ["0"],
+            si_d=[0.0],  # valor zero, mas tipo presente
+            has_si=[True], has_sf=[False],
+        )
+        result = R074().execute(df, engine_context)
+        assert len(result) == 1, (
+            "R074 falso negativo: SI=0 com linha beginning_balance presente "
+            "e sem SF deve gerar alerta."
+        )
+        assert result.iloc[0]["regra_id"] == "R074"
 
 
 # ---------------------------------------------------------------------------
