@@ -1450,13 +1450,15 @@ def _df_completo(
     mov_c: list[float] | None = None,
     has_si: list[bool] | None = None,
     has_sf: list[bool] | None = None,
+    has_pc: list[bool] | None = None,
 ) -> pd.DataFrame:
     """DataFrame com todas as colunas necessárias para R066–R074.
 
-    Quando ``has_si``/``has_sf`` são fornecidos, inclui os flags de presença
-    produzidos pelo ``reader_msc._pivot_values`` (``_has_saldo_inicial`` e
-    ``_has_saldo_final``), permitindo testar o comportamento correto de R074
-    com valores zero legítimos.
+    Quando ``has_si``/``has_sf``/``has_pc`` são fornecidos, inclui os flags
+    de presença produzidos pelo ``reader_msc._pivot_values``
+    (``_has_saldo_inicial``, ``_has_saldo_final``, ``_has_period_change``),
+    permitindo testar o comportamento correto de R074 com valores zero
+    legítimos.
     """
     n = len(contas)
     zeros = [0.0] * n
@@ -1475,7 +1477,10 @@ def _df_completo(
         data["_has_saldo_inicial"] = has_si
     if has_sf is not None:
         data["_has_saldo_final"] = has_sf
+    if has_pc is not None:
+        data["_has_period_change"] = has_pc
     return pd.DataFrame(data)
+
 
 
 # ---------------------------------------------------------------------------
@@ -1683,6 +1688,27 @@ class TestR074:
             "e sem SF deve gerar alerta."
         )
         assert result.iloc[0]["regra_id"] == "R074"
+
+    def test_period_change_zero_legitimo_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: period_change presente com MOV=0 não deve disparar R074.
+
+        Conta com SI e linha period_change no CSV, mas sem movimentação no
+        período (valor=0) e sem SF.  O tipo está presente — exportação
+        completa.  Inferir presença por != 0 levaria a falso positivo.
+        Com o flag _has_period_change=True, não dispara.
+        """
+        df = _df_completo(
+            ["311110100"], ["0"], ["0"],
+            si_d=[500.0], mov_d=[0.0],  # period_change presente, valor zero
+            has_si=[True], has_sf=[False], has_pc=[True],
+        )
+        result = R074().execute(df, engine_context)
+        assert len(result) == 0, (
+            "R074 falso positivo: period_change presente com valor zero "
+            "não deve gerar alerta."
+        )
 
 
 # ---------------------------------------------------------------------------

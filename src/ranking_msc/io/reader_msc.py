@@ -699,20 +699,24 @@ def _pivot_values(
     group_cols = [c for c in _GROUP_COLS if c in df_valid.columns]
 
     # Indicadores de presença — detectar se a conta possui ao menos uma linha
-    # beginning_balance / ending_balance no CSV original. Necessário para
-    # distinguir "saldo ausente" (fill_value=0.0) de "saldo zero legítimo".
+    # beginning_balance / ending_balance / period_change no CSV original.
+    # Necessário para distinguir "saldo ausente" (fill_value=0.0) de "saldo
+    # zero legítimo" ou "movimentação zero legítima".
     _bb_names: frozenset[str] = frozenset({"saldo_inicial_debito", "saldo_inicial_credito"})
     _eb_names: frozenset[str] = frozenset({"saldo_final_debito", "saldo_final_credito"})
+    _pc_names: frozenset[str] = frozenset({"movimento_debito", "movimento_credito"})
     presence = (
         df_valid
         .assign(
             _is_bb=lambda x: x["_pivot_name"].isin(_bb_names),
             _is_eb=lambda x: x["_pivot_name"].isin(_eb_names),
+            _is_pc=lambda x: x["_pivot_name"].isin(_pc_names),
         )
         .groupby(group_cols, as_index=False)
         .agg(
             _has_saldo_inicial=("_is_bb", "any"),
             _has_saldo_final=("_is_eb", "any"),
+            _has_period_change=("_is_pc", "any"),
         )
     )
 
@@ -728,12 +732,13 @@ def _pivot_values(
     # Merge dos indicadores de presença — left join garante que toda linha pivotada
     # recebe os indicadores; fillna(False) cobre o caso de df_valid vazio.
     pivoted = pivoted.merge(
-        presence[group_cols + ["_has_saldo_inicial", "_has_saldo_final"]],
+        presence[group_cols + ["_has_saldo_inicial", "_has_saldo_final", "_has_period_change"]],
         on=group_cols,
         how="left",
     )
     pivoted["_has_saldo_inicial"] = pivoted["_has_saldo_inicial"].fillna(False)
     pivoted["_has_saldo_final"] = pivoted["_has_saldo_final"].fillna(False)
+    pivoted["_has_period_change"] = pivoted["_has_period_change"].fillna(False)
 
     # Garantir que todas as 6 colunas de valor existem (mesmo que zeradas)
     value_cols = list(_PIVOT_MAP.values())

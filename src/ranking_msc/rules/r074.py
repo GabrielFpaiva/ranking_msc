@@ -11,24 +11,23 @@ Lógica:
     A condição é baseada em *presença de tipos* (set(Tipo_valor)), não em
     magnitude de valor.  Um ending_balance com valor zero é válido — o ente
     encerrou a conta zerada; já a ausência da linha ending_balance no CSV é
-    que indica exportação incompleta.
+    que indica exportação incompleta.  O mesmo vale para period_change: uma
+    linha com valor zero significa que o tipo foi exportado (sem movimento),
+    não que a chave está incompleta.
 
-    O reader_msc._pivot_values adiciona dois flags booleanos ao DataFrame:
+    O reader_msc._pivot_values adiciona três flags booleanos ao DataFrame:
         _has_saldo_inicial  — True se havia ao menos uma linha beginning_balance
         _has_saldo_final    — True se havia ao menos uma linha ending_balance
-
-    Para period_change não há flag dedicado, pois sua presença pode ser
-    inferida dos valores: movimento ≠ 0 implica que a linha existia.  Mas
-    se ambas as colunas de movimento são zero, a linha pode ter existido com
-    valor zero (ex: encerramento sem movimento); esse cenário não é
-    penalizado por R074 — a regra exige SF *ou* MOV, então a ausência de
-    ambos (flags e valores) é suficiente para flagrar.
+        _has_period_change  — True se havia ao menos uma linha period_change
 
     PARA CADA chave (conta + ICs):
-      SE _has_saldo_inicial E NÃO _has_saldo_final E movimento == 0 → ALERTA
+      SE _has_saldo_inicial
+         E NÃO _has_saldo_final
+         E NÃO _has_period_change → ALERTA
 
     Fallback para DataFrames sem os flags (ex: testes unitários sem pivot
-    real): usa != 0 nos valores — mantém comportamento anterior nesses casos.
+    real): usa != 0 nos valores — mantém comportamento conservador nesses
+    casos.
 
 Referência:
     ref/regras_catalogo.md — R074; Portaria STN 642/2026
@@ -51,6 +50,7 @@ _COLS_SI = ("saldo_inicial_debito", "saldo_inicial_credito")
 
 _FLAG_SI = "_has_saldo_inicial"
 _FLAG_SF = "_has_saldo_final"
+_FLAG_PC = "_has_period_change"
 
 
 @register_rule
@@ -64,11 +64,12 @@ class R074(Rule):
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
         """Detecta linhas com saldo inicial mas sem SF nem movimentação.
 
-        Usa os flags de presença (_has_saldo_inicial, _has_saldo_final)
-        adicionados pelo reader_msc._pivot_values para distinguir
-        'saldo zero legítimo' de 'tipo ausente no CSV'.  Quando os flags
-        não estão presentes (ex: DataFrames sintéticos em testes de outras
-        regras), recai em comparação de valor != 0 como fallback.
+        Usa os flags de presença (_has_saldo_inicial, _has_saldo_final,
+        _has_period_change) adicionados pelo reader_msc._pivot_values para
+        distinguir 'tipo ausente no CSV' de 'tipo presente com valor zero'.
+        Quando os flags não estão presentes (ex: DataFrames sintéticos em
+        testes de outras regras), recai em comparação de valor != 0 como
+        fallback.
 
         Args:
             df: DataFrame normalizado com colunas de saldo e movimentação.
@@ -102,12 +103,13 @@ class R074(Rule):
             has_sf = (work[list(_COLS_SF)] != 0).any(axis=1)
 
         # --- Presença de movimentação ---
-        # Não há flag dedicado para period_change.  Valor != 0 é suficiente:
-        # se a linha period_change existia com valor zero, a regra não dispara
-        # porque a ausência de SF é que determina o alerta — e nesse caso
-        # o ente tem um saldo inicial + movimento zero + sem SF, cenário que
-        # merece alerta independentemente.
-        has_mov = (work[list(_COLS_MOV)] != 0).any(axis=1)
+        # Flag preferencial: _has_period_change (True = linha period_change existia
+        # no CSV, mesmo que o valor seja zero — ex: conta sem movimentação no período).
+        # Fallback: qualquer valor != 0 nas colunas de movimento.
+        if _FLAG_PC in work.columns:
+            has_mov = work[_FLAG_PC].astype(bool)
+        else:
+            has_mov = (work[list(_COLS_MOV)] != 0).any(axis=1)
 
         violacoes = work[has_si & ~has_sf & ~has_mov]
 
@@ -124,10 +126,10 @@ class R074(Rule):
                 "descricao": (
                     "Conta/IC com saldo inicial mas sem saldo final nem movimentação."
                 ),
-                "valor_esperado": "linha ending_balance presente no CSV",
+                "valor_esperado": "linhas ending_balance ou period_change presentes no CSV",
                 "valor_encontrado": (
                     f"SI_D={si_d.loc[idx]:.2f}, SI_C={si_c.loc[idx]:.2f}; "
-                    "SF ausente, MOV=0"
+                    "SF ausente, period_change ausente"
                 ),
                 "competencia": context.competencia,
             }
