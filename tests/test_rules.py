@@ -1738,6 +1738,43 @@ class TestR074:
         )
         assert result.iloc[0]["regra_id"] == "R074"
 
+    def test_period_change_natureza_invalida_nao_gera_r074_no_pivot(
+        self,
+    ) -> None:
+        """Regressão: period_change com Natureza_valor inválida não deve causar
+        R074 falso positivo via _has_period_change=False.
+
+        Cenário: uma chave tem beginning_balance válido e um period_change com
+        Natureza_valor="X" (inválida).  R004 deve ser emitido para a linha
+        period_change;X.  Os flags de presença devem ser calculados sobre o
+        Tipo_valor *antes* do filtro df_valid, então _has_period_change=True
+        — e o DataFrame pivotado não deve acionar R074 para essa chave.
+        """
+        from io import BytesIO
+        from ranking_msc.io.reader_msc import read_msc_csv
+
+        csv_content = (
+            "2507507EX;2025-01\n"
+            "CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6;"
+            "Valor;Tipo_valor;Natureza_valor\n"
+            "111110200;10131;PO;;;;;;;;;;;1000.00;beginning_balance;D\n"
+            "111110200;10131;PO;;;;;;;;;;;500.00;period_change;X\n"
+        ).encode("utf-8")
+
+
+        raw = read_msc_csv(BytesIO(csv_content))
+
+        # R004 deve ter sido emitido para a linha period_change;X
+        r004 = [i for i in raw.pre_pivot_issues if i.get("regra") == "R004"]
+        assert len(r004) >= 1, "R004 deve ser emitido para Natureza_valor='X'"
+
+        # O flag _has_period_change deve ser True — o Tipo estava presente no CSV
+        assert "_has_period_change" in raw.df.columns
+        assert bool(raw.df.iloc[0]["_has_period_change"]) is True, (
+            "R074 regressão: _has_period_change deve ser True quando period_change "
+            "está presente no CSV mesmo com Natureza_valor inválida."
+        )
+
 
 # ---------------------------------------------------------------------------
 # R071 — Valores com > 2 decimais

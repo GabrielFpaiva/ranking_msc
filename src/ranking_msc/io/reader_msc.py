@@ -719,25 +719,32 @@ def _pivot_values(
     group_cols = [c for c in _GROUP_COLS if c in df_valid.columns]
 
     # Indicadores de presença — detectar se a conta possui ao menos uma linha
-    # beginning_balance / ending_balance / period_change no CSV original.
-    # Necessário para distinguir "saldo ausente" (fill_value=0.0) de "saldo
-    # zero legítimo" ou "movimentação zero legítima".
-    _bb_names: frozenset[str] = frozenset({"saldo_inicial_debito", "saldo_inicial_credito"})
-    _eb_names: frozenset[str] = frozenset({"saldo_final_debito", "saldo_final_credito"})
-    _pc_names: frozenset[str] = frozenset({"movimento_debito", "movimento_credito"})
+    # de cada Tipo_valor no CSV original, *antes* de filtrar combinações
+    # Tipo×Natureza inválidas.
+    #
+    # Motivação: uma linha "period_change;X" (Natureza inválida) gera R004 e
+    # é removida de df_valid pelo filtro _pivot_name.notna(). Se os flags
+    # fossem calculados sobre df_valid, _has_period_change ficaria False para
+    # essa chave, e R074 emitiria um alerta falso "sem period_change" mesmo
+    # com a linha presente no CSV.
+    #
+    # Os flags refletem presença de Tipo_valor no CSV, independentemente da
+    # validade da Natureza_valor — a violação de Natureza já é capturada por R004.
+    group_cols_in_df = [c for c in _GROUP_COLS if c in df.columns]
     presence = (
-        df_valid
+        df[group_cols_in_df + ["Tipo_valor"]]
         .assign(
-            _is_bb=lambda x: x["_pivot_name"].isin(_bb_names),
-            _is_eb=lambda x: x["_pivot_name"].isin(_eb_names),
-            _is_pc=lambda x: x["_pivot_name"].isin(_pc_names),
+            _is_bb=lambda x: x["Tipo_valor"] == "beginning_balance",
+            _is_eb=lambda x: x["Tipo_valor"] == "ending_balance",
+            _is_pc=lambda x: x["Tipo_valor"] == "period_change",
         )
-        .groupby(group_cols, as_index=False)
+        .groupby(group_cols_in_df, as_index=False)
         .agg(
             _has_saldo_inicial=("_is_bb", "any"),
             _has_saldo_final=("_is_eb", "any"),
             _has_period_change=("_is_pc", "any"),
         )
+        .rename(columns=dict(zip(group_cols_in_df, group_cols)))
     )
 
     # Pivot (soma de valores por conta × IC)
