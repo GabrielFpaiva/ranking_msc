@@ -637,7 +637,8 @@ def _pivot_values(
     """
     # R005: capturar valores não-numéricos antes do coerce
     _valor_raw = df["Valor"].astype(str).str.strip().str.replace(",", ".", regex=False)
-    _invalidos = pd.to_numeric(_valor_raw, errors="coerce").isna() & _valor_raw.ne("")
+    _valor_num = pd.to_numeric(_valor_raw, errors="coerce")
+    _invalidos = _valor_num.isna() & _valor_raw.ne("")
     r005_issues: list[dict[str, object]] = [
         {
             "regra": "R005",
@@ -649,7 +650,26 @@ def _pivot_values(
         for idx in df.index[_invalidos]
     ]
 
+    # R071: verificar escala decimal pré-pivot, antes da agregação por soma.
+    # Valores como 0.005 somados em pares produzem 0.01 pós-pivot, ocultando
+    # a violação.  A verificação deve ocorrer aqui sobre o Valor bruto.
+    _decimal_tol = 1e-9
+    _valor_validos = _valor_num[~_invalidos]
+    _excesso_decimal = (_valor_validos - _valor_validos.round(2)).abs() > _decimal_tol
+    r071_issues: list[dict[str, object]] = [
+        {
+            "regra": "R071",
+            "conta_contabil": str(df.loc[idx, "CONTA"]) if "CONTA" in df.columns else "",
+            "campo": "Valor",
+            "valor_encontrado": str(float(_valor_validos.loc[idx])),
+            "valor_esperado": f"{round(float(_valor_validos.loc[idx]), 2):.2f}",
+            "competencia": competencia,
+        }
+        for idx in _valor_validos.index[_excesso_decimal]
+    ]
+
     # Converter Valor para float
+
     df["Valor"] = pd.to_numeric(df["Valor"].str.replace(",", "."), errors="coerce").fillna(0.0)
 
     # Criar coluna combinada para pivot
@@ -771,7 +791,7 @@ def _pivot_values(
     final_cols = [c for c in RAW_MSC_COLUMNS if c in pivoted.columns]
     pivoted = pivoted[final_cols]
 
-    return pivoted, pre_pivot_issues + r005_issues
+    return pivoted, pre_pivot_issues + r005_issues + r071_issues
 
 
 def _check_ic_pairs(df: pd.DataFrame, competencia: str) -> list[dict[str, object]]:

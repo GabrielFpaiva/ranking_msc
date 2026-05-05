@@ -1745,34 +1745,84 @@ class TestR074:
 
 
 class TestR071:
-    def test_valores_com_2_decimais_sem_pendencia(
+    def test_sem_issues_retorna_vazio(
         self, engine_context: EngineContext
     ) -> None:
-        """Valor com exatamente 2 casas decimais → nenhuma pendência."""
-        df = _df_completo(["111110100"], ["0"], ["0"], sf_d=[1000.50])
+        """Nenhum issue R071 em pre_pivot_issues → zero pendências."""
+        df = pd.DataFrame({"conta_contabil": ["111110100"]})
         result = R071().execute(df, engine_context)
         assert len(result) == 0
 
     def test_valor_com_mais_de_2_decimais_gera_info(
-        self, engine_context: EngineContext
+        self, settings: Settings
     ) -> None:
-        """Valor com 3 casas decimais → pendência INFO."""
-        df = _df_completo(["111110100"], ["0"], ["0"], sf_d=[1000.005])
-        result = R071().execute(df, engine_context)
+        """Issue R071 em pre_pivot_issues → pendência INFO drenada."""
+        ctx = _ctx_with_issues(settings, [
+            {
+                "regra": "R071",
+                "conta_contabil": "111110100",
+                "campo": "Valor",
+                "valor_encontrado": "1000.005",
+                "valor_esperado": "1000.00",
+                "competencia": "2024-01",
+            }
+        ])
+        df = pd.DataFrame({"conta_contabil": ["111110100"]})
+        result = R071().execute(df, ctx)
         assert len(result) == 1
         assert result.iloc[0]["regra_id"] == "R071"
         assert result.iloc[0]["severidade"] == "INFO"
+        assert "1000.005" in result.iloc[0]["valor_encontrado"]
 
     def test_df_vazio_retorna_vazio(self, engine_context: EngineContext) -> None:
-        """DataFrame vazio → nenhuma pendência."""
+        """DataFrame vazio → nenhuma pendência (pre_pivot_issues vazio)."""
         result = R071().execute(pd.DataFrame(), engine_context)
         assert len(result) == 0
 
-    def test_valor_inteiro_sem_pendencia(self, engine_context: EngineContext) -> None:
-        """Valor inteiro (0 casas decimais) → nenhuma pendência."""
-        df = _df_completo(["111110100"], ["0"], ["0"], sf_d=[5000.0])
-        result = R071().execute(df, engine_context)
+    def test_issue_de_outra_regra_ignorado(self, settings: Settings) -> None:
+        """Issues de outras regras em pre_pivot_issues → R071 retorna vazio."""
+        ctx = _ctx_with_issues(settings, [
+            {"regra": "R005", "conta_contabil": "111110100",
+             "campo": "Valor", "valor_encontrado": "abc"}
+        ])
+        df = pd.DataFrame({"conta_contabil": ["111110100"]})
+        result = R071().execute(df, ctx)
         assert len(result) == 0
+
+    def test_duplicatas_somadas_nao_ocultam_violacao(
+        self, settings: Settings
+    ) -> None:
+        """Regressão: 0.005 + 0.005 = 0.01 pós-pivot não deve ocultar R071.
+
+        O reader verifica escala no Valor bruto antes de pivot_table somar
+        duplicatas.  Ambas as linhas devem gerar issues R071 independentes,
+        mesmo que a soma resultante (0.01) pareça válida pós-pivot.
+        """
+        ctx = _ctx_with_issues(settings, [
+            {
+                "regra": "R071",
+                "conta_contabil": "111110100",
+                "campo": "Valor",
+                "valor_encontrado": "0.005",
+                "valor_esperado": "0.01",
+                "competencia": "2024-01",
+            },
+            {
+                "regra": "R071",
+                "conta_contabil": "111110100",
+                "campo": "Valor",
+                "valor_encontrado": "0.005",
+                "valor_esperado": "0.01",
+                "competencia": "2024-01",
+            },
+        ])
+        df = pd.DataFrame({"conta_contabil": ["111110100"]})
+        result = R071().execute(df, ctx)
+        assert len(result) == 2, (
+            "R071 deve reportar ambas as linhas 0.005 individualmente; "
+            "a soma pós-pivot (0.01) não deve suprimir os alertas."
+        )
+        assert all(r == "INFO" for r in result["severidade"])
 
 
 # ---------------------------------------------------------------------------
