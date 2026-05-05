@@ -1710,6 +1710,34 @@ class TestR074:
             "não deve gerar alerta."
         )
 
+    def test_flags_como_string_nao_geram_falso_positivo(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: flags serializados como strings pelo reader não devem
+        travar o parser booleano.
+
+        O reader_msc converte _has_* para strings "True"/"False" na passagem
+        de normalização (str_cols loop).  astype(bool) trataria "False" como
+        True (string não-vazia).  _parse_flag() deve resolver isso.
+
+        Cenário: SI presente, SF ausente ("False"), MOV ausente ("False")
+        → deve disparar ALERTA.
+        """
+        df = _df_completo(
+            ["111110100"], ["0"], ["0"],
+            si_d=[1000.0],
+        )
+        # Simula o que o reader faz: flags são strings, não bools nativos.
+        df["_has_saldo_inicial"] = "True"
+        df["_has_saldo_final"] = "False"   # seria True com astype(bool)!
+        df["_has_period_change"] = "False"  # idem
+        result = R074().execute(df, engine_context)
+        assert len(result) == 1, (
+            "R074: flags como string 'False' devem ser interpretados como False, "
+            "não True — a regra deve disparar ALERTA."
+        )
+        assert result.iloc[0]["regra_id"] == "R074"
+
 
 # ---------------------------------------------------------------------------
 # R071 — Valores com > 2 decimais

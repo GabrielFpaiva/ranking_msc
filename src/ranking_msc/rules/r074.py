@@ -53,6 +53,33 @@ _FLAG_SF = "_has_saldo_final"
 _FLAG_PC = "_has_period_change"
 
 
+def _parse_flag(series: pd.Series) -> pd.Series:
+    """Converte uma coluna de flag de presença em Series booleana.
+
+    Os flags _has_* são gerados como ``bool`` pelo reader, mas a passagem
+    de normalização de strings em ``_pivot_values`` pode convertê-los para
+    as strings ``"True"`` / ``"False"``.  ``astype(bool)`` trataria a
+    string ``"False"`` como ``True`` (string não-vazia é truthy), o que
+    suprimiria alertas legítimos.
+
+    Esta função aceita ambos os formatos:
+    - ``bool``/``np.bool_`` nativos → passagem direta.
+    - strings ``"True"``/``"1"`` → True; qualquer outro valor → False.
+    - NaN/None → False.
+
+    Args:
+        series: coluna do DataFrame contendo o flag de presença.
+
+    Returns:
+        ``pd.Series`` de dtype ``bool``.
+    """
+    if pd.api.types.is_bool_dtype(series):
+        return series.astype(bool)
+    # String path: "True" → True, qualquer outro valor (incluindo "False",
+    # "", NaN convertido para "nan") → False.
+    return series.astype(str).str.strip().str.lower() == "true"
+
+
 @register_rule
 class R074(Rule):
     """Verifica se toda chave conta/IC tem saldo final ou movimentação."""
@@ -89,7 +116,7 @@ class R074(Rule):
         # Flag preferencial: _has_saldo_inicial (True = linha beginning_balance existia)
         # Fallback: qualquer valor != 0 nas colunas de SI.
         if _FLAG_SI in work.columns:
-            has_si = work[_FLAG_SI].astype(bool)
+            has_si = _parse_flag(work[_FLAG_SI])
         else:
             has_si = (work[list(_COLS_SI)] != 0).any(axis=1)
 
@@ -98,7 +125,7 @@ class R074(Rule):
         # mesmo que o valor seja zero — ex: conta encerrada zerada).
         # Fallback: qualquer valor != 0 nas colunas de SF.
         if _FLAG_SF in work.columns:
-            has_sf = work[_FLAG_SF].astype(bool)
+            has_sf = _parse_flag(work[_FLAG_SF])
         else:
             has_sf = (work[list(_COLS_SF)] != 0).any(axis=1)
 
@@ -107,9 +134,10 @@ class R074(Rule):
         # no CSV, mesmo que o valor seja zero — ex: conta sem movimentação no período).
         # Fallback: qualquer valor != 0 nas colunas de movimento.
         if _FLAG_PC in work.columns:
-            has_mov = work[_FLAG_PC].astype(bool)
+            has_mov = _parse_flag(work[_FLAG_PC])
         else:
             has_mov = (work[list(_COLS_MOV)] != 0).any(axis=1)
+
 
         violacoes = work[has_si & ~has_sf & ~has_mov]
 

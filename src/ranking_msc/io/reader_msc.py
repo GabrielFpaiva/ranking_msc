@@ -753,8 +753,17 @@ def _pivot_values(
     pivoted.insert(0, "competencia", competencia)
     pivoted.insert(1, "siconfi", siconfi)
 
-    # Garantir strings vazias (não NaN) nas colunas de texto
-    str_cols = [c for c in pivoted.columns if c not in value_cols]
+    # Garantir strings vazias (não NaN) nas colunas de texto.
+    # Os flags _has_* são booleanos — excluí-los da normalização de strings
+    # impede que True/False virem as strings "True"/"False", o que faria
+    # astype(bool) retornar True para "False" (string não-vazia é truthy).
+    _bool_flag_cols: frozenset[str] = frozenset(
+        {"_has_saldo_inicial", "_has_saldo_final", "_has_period_change"}
+    )
+    str_cols = [
+        c for c in pivoted.columns
+        if c not in value_cols and c not in _bool_flag_cols
+    ]
     for col in str_cols:
         pivoted[col] = pivoted[col].astype(str).replace("nan", "")
 
