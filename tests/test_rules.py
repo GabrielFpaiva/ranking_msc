@@ -30,12 +30,17 @@ from ranking_msc.rules.r030 import R030
 from ranking_msc.rules.r033 import R033
 from ranking_msc.rules.r034 import R034
 from ranking_msc.rules.r035 import R035
-from ranking_msc.rules.r036 import R036
-from ranking_msc.rules.r037 import R037
 from ranking_msc.rules.r038 import R038
 from ranking_msc.rules.r053 import R053
 from ranking_msc.rules.r061 import R061
 from ranking_msc.rules.r062 import R062
+from ranking_msc.rules.r066 import R066
+from ranking_msc.rules.r067 import R067
+from ranking_msc.rules.r068 import R068
+from ranking_msc.rules.r071 import R071
+from ranking_msc.rules.r072 import R072
+from ranking_msc.rules.r073 import R073
+from ranking_msc.rules.r074 import R074
 from ranking_msc.rules.r082 import R082
 
 # ---------------------------------------------------------------------------
@@ -1426,3 +1431,550 @@ class TestR053:
         assert result.iloc[0]["regra_id"] == "R053"
         assert result.iloc[0]["severidade"] == "ALERTA"
         assert "INTRA" in result.iloc[0]["conta_contabil"]
+
+
+# ---------------------------------------------------------------------------
+# Helpers para R066–R074
+# ---------------------------------------------------------------------------
+
+
+def _df_completo(
+    contas: list[str],
+    nr: list[str],
+    nd: list[str],
+    si_d: list[float] | None = None,
+    si_c: list[float] | None = None,
+    sf_d: list[float] | None = None,
+    sf_c: list[float] | None = None,
+    mov_d: list[float] | None = None,
+    mov_c: list[float] | None = None,
+    has_si: list[bool] | None = None,
+    has_sf: list[bool] | None = None,
+    has_pc: list[bool] | None = None,
+) -> pd.DataFrame:
+    """DataFrame com todas as colunas necessárias para R066–R074.
+
+    Quando ``has_si``/``has_sf``/``has_pc`` são fornecidos, inclui os flags
+    de presença produzidos pelo ``reader_msc._pivot_values``
+    (``_has_saldo_inicial``, ``_has_saldo_final``, ``_has_period_change``),
+    permitindo testar o comportamento correto de R074 com valores zero
+    legítimos.
+    """
+    n = len(contas)
+    zeros = [0.0] * n
+    data: dict[str, object] = {
+        "conta_contabil": contas,
+        "nr": nr,
+        "nd": nd,
+        "saldo_inicial_debito": si_d if si_d is not None else zeros,
+        "saldo_inicial_credito": si_c if si_c is not None else zeros,
+        "movimento_debito": mov_d if mov_d is not None else zeros,
+        "movimento_credito": mov_c if mov_c is not None else zeros,
+        "saldo_final_debito": sf_d if sf_d is not None else zeros,
+        "saldo_final_credito": sf_c if sf_c is not None else zeros,
+    }
+    if has_si is not None:
+        data["_has_saldo_inicial"] = has_si
+    if has_sf is not None:
+        data["_has_saldo_final"] = has_sf
+    if has_pc is not None:
+        data["_has_period_change"] = has_pc
+    return pd.DataFrame(data)
+
+
+
+# ---------------------------------------------------------------------------
+# R066 — Receita presente (NR informado)
+# ---------------------------------------------------------------------------
+
+
+class TestR066:
+    def test_df_com_nr_nao_gera_pendencia(self, engine_context: EngineContext) -> None:
+        """Ao menos um registro com NR preenchido → nenhuma pendência."""
+        df = _df_completo(["411110100"], ["12345678"], ["0"])
+        result = R066().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_df_sem_nr_gera_alerta(self, engine_context: EngineContext) -> None:
+        """Nenhum NR preenchido → um ALERTA."""
+        df = _df_completo(["111110100", "211110100"], ["0", "0"], ["0", "0"])
+        result = R066().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R066"
+        assert result.iloc[0]["severidade"] == "ALERTA"
+
+    def test_df_vazio_retorna_vazio(self, engine_context: EngineContext) -> None:
+        """DataFrame vazio → nenhuma pendência."""
+        result = R066().execute(pd.DataFrame(), engine_context)
+        assert len(result) == 0
+
+    def test_nr_nan_tratado_como_vazio(self, engine_context: EngineContext) -> None:
+        """NR com float NaN → considerado vazio → ALERTA."""
+        df = _df_completo(["411110100"], [str(float("nan"))], ["0"])
+        result = R066().execute(df, engine_context)
+        assert len(result) == 1
+
+
+# ---------------------------------------------------------------------------
+# R067 — Despesa presente (ND informado)
+# ---------------------------------------------------------------------------
+
+
+class TestR067:
+    def test_df_com_nd_nao_gera_pendencia(self, engine_context: EngineContext) -> None:
+        """Ao menos um registro com ND preenchido → nenhuma pendência."""
+        df = _df_completo(["311110100"], ["0"], ["33390300"])
+        result = R067().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_df_sem_nd_gera_alerta(self, engine_context: EngineContext) -> None:
+        """Nenhum ND preenchido → um ALERTA."""
+        df = _df_completo(["111110100", "211110100"], ["0", "0"], ["0", "0"])
+        result = R067().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R067"
+        assert result.iloc[0]["severidade"] == "ALERTA"
+
+    def test_df_vazio_retorna_vazio(self, engine_context: EngineContext) -> None:
+        """DataFrame vazio → nenhuma pendência."""
+        result = R067().execute(pd.DataFrame(), engine_context)
+        assert len(result) == 0
+
+    def test_nd_nan_tratado_como_vazio(self, engine_context: EngineContext) -> None:
+        """ND com float NaN → considerado vazio → ALERTA."""
+        df = _df_completo(["311110100"], ["0"], [str(float("nan"))])
+        result = R067().execute(df, engine_context)
+        assert len(result) == 1
+
+
+# ---------------------------------------------------------------------------
+# R068 — 8 classes contábeis presentes
+# ---------------------------------------------------------------------------
+
+
+class TestR068:
+    def _df_8_classes(self) -> pd.DataFrame:
+        contas = [f"{c}11110100" for c in range(1, 9)]
+        return _df_completo(contas, ["0"] * 8, ["0"] * 8)
+
+    def test_todas_classes_presentes_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Todas as 8 classes presentes → nenhuma pendência."""
+        result = R068().execute(self._df_8_classes(), engine_context)
+        assert len(result) == 0
+
+    def test_classes_faltantes_geram_alerta(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Classes 6, 7, 8 ausentes → 3 pendências ALERTA."""
+        df = _df_completo(
+            ["111110100", "211110100", "311110100", "411110100", "511110100"],
+            ["0"] * 5,
+            ["0"] * 5,
+        )
+        result = R068().execute(df, engine_context)
+        assert len(result) == 3
+        assert all(r == "ALERTA" for r in result["severidade"])
+        assert all(r == "R068" for r in result["regra_id"])
+
+    def test_df_vazio_retorna_vazio(self, engine_context: EngineContext) -> None:
+        """DataFrame vazio → nenhuma pendência."""
+        result = R068().execute(pd.DataFrame(), engine_context)
+        assert len(result) == 0
+
+    def test_uma_classe_ausente_gera_um_alerta(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Apenas classe 8 ausente → exatamente 1 pendência."""
+        contas = [f"{c}11110100" for c in range(1, 8)]
+        df = _df_completo(contas, ["0"] * 7, ["0"] * 7)
+        result = R068().execute(df, engine_context)
+        assert len(result) == 1
+        assert "Classe 8" in result.iloc[0]["conta_contabil"]
+
+
+# ---------------------------------------------------------------------------
+# R074 — Chave com SF ou PC
+# ---------------------------------------------------------------------------
+
+
+class TestR074:
+    def test_linha_com_sf_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Linha com saldo_inicial e saldo_final → nenhuma pendência."""
+        df = _df_completo(
+            ["111110100"], ["0"], ["0"],
+            si_d=[1000.0], sf_d=[1000.0],
+            has_si=[True], has_sf=[True],
+        )
+        result = R074().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_linha_com_movimento_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Linha com saldo_inicial e movimentação → nenhuma pendência."""
+        df = _df_completo(
+            ["111110100"], ["0"], ["0"],
+            si_d=[1000.0], mov_d=[500.0],
+            has_si=[True], has_sf=[False],
+        )
+        result = R074().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_linha_so_com_si_gera_alerta(self, engine_context: EngineContext) -> None:
+        """Linha com apenas saldo_inicial (sem SF e sem movimento) → ALERTA."""
+        df = _df_completo(
+            ["111110100"], ["0"], ["0"],
+            si_d=[1000.0],
+            has_si=[True], has_sf=[False],
+        )
+        result = R074().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R074"
+        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["conta_contabil"] == "111110100"
+
+    def test_linha_tudo_zero_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Linha com todos os valores zero → sem SI, não dispara R074."""
+        df = _df_completo(
+            ["111110100"], ["0"], ["0"],
+            has_si=[False], has_sf=[False],
+        )
+        result = R074().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_sf_zero_legitimo_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: SF=0 legítimo (linha ending_balance presente, valor zero).
+
+        Conta encerrou zerada: SI_D=1000, todos os movimentos compensaram,
+        SF_D=0.  A linha ending_balance *existe* no CSV (has_sf=True);
+        comparar != 0 levaria a falso positivo.  Com o flag, não dispara.
+        """
+        df = _df_completo(
+            ["211000000"], ["0"], ["0"],
+            si_d=[1000.0], sf_d=[0.0],
+            has_si=[True], has_sf=[True],  # SF existe, só está zerado
+        )
+        result = R074().execute(df, engine_context)
+        assert len(result) == 0, (
+            "R074 falso positivo: SF=0 com linha ending_balance presente "
+            "não deve gerar alerta."
+        )
+
+    def test_si_zero_sem_sf_gera_alerta(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: SI_D=0 mas linha beginning_balance presente (has_si=True).
+
+        Conta com saldo inicial zerado e sem SF nem movimentação — exportação
+        incompleta independente do valor.  Comparar != 0 levaria a falso
+        negativo (SI_D=0 seria tratado como 'sem SI').  Com o flag, dispara.
+        """
+        df = _df_completo(
+            ["111110100"], ["0"], ["0"],
+            si_d=[0.0],  # valor zero, mas tipo presente
+            has_si=[True], has_sf=[False],
+        )
+        result = R074().execute(df, engine_context)
+        assert len(result) == 1, (
+            "R074 falso negativo: SI=0 com linha beginning_balance presente "
+            "e sem SF deve gerar alerta."
+        )
+        assert result.iloc[0]["regra_id"] == "R074"
+
+    def test_period_change_zero_legitimo_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: period_change presente com MOV=0 não deve disparar R074.
+
+        Conta com SI e linha period_change no CSV, mas sem movimentação no
+        período (valor=0) e sem SF.  O tipo está presente — exportação
+        completa.  Inferir presença por != 0 levaria a falso positivo.
+        Com o flag _has_period_change=True, não dispara.
+        """
+        df = _df_completo(
+            ["311110100"], ["0"], ["0"],
+            si_d=[500.0], mov_d=[0.0],  # period_change presente, valor zero
+            has_si=[True], has_sf=[False], has_pc=[True],
+        )
+        result = R074().execute(df, engine_context)
+        assert len(result) == 0, (
+            "R074 falso positivo: period_change presente com valor zero "
+            "não deve gerar alerta."
+        )
+
+    def test_flags_como_string_nao_geram_falso_positivo(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: flags serializados como strings pelo reader não devem
+        travar o parser booleano.
+
+        O reader_msc converte _has_* para strings "True"/"False" na passagem
+        de normalização (str_cols loop).  astype(bool) trataria "False" como
+        True (string não-vazia).  _parse_flag() deve resolver isso.
+
+        Cenário: SI presente, SF ausente ("False"), MOV ausente ("False")
+        → deve disparar ALERTA.
+        """
+        df = _df_completo(
+            ["111110100"], ["0"], ["0"],
+            si_d=[1000.0],
+        )
+        # Simula o que o reader faz: flags são strings, não bools nativos.
+        df["_has_saldo_inicial"] = "True"
+        df["_has_saldo_final"] = "False"   # seria True com astype(bool)!
+        df["_has_period_change"] = "False"  # idem
+        result = R074().execute(df, engine_context)
+        assert len(result) == 1, (
+            "R074: flags como string 'False' devem ser interpretados como False, "
+            "não True — a regra deve disparar ALERTA."
+        )
+        assert result.iloc[0]["regra_id"] == "R074"
+
+    def test_flags_numericos_string_sao_honrados(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: flags como strings "1"/"0" (round-trip CSV/export) devem
+        ser interpretados corretamente por _parse_flag.
+
+        Sem o tratamento, "1" comparado contra "true" retornaria False,
+        causando falso positivo (SI presente não detectado) ou falso
+        negativo (SF presente tratado como ausente).
+
+        Cenário A: SI="1", SF="0", PC="0" → ALERTA (SI presente, SF e PC ausentes).
+        Cenário B: SI="1", SF="1", PC="0" → sem alerta (SF presente).
+        """
+        # Cenário A: deve alertar — "1" para SI deve ser True
+        df_a = _df_completo(["111110100"], ["0"], ["0"], si_d=[1000.0])
+        df_a["_has_saldo_inicial"] = "1"
+        df_a["_has_saldo_final"] = "0"
+        df_a["_has_period_change"] = "0"
+        result_a = R074().execute(df_a, engine_context)
+        assert len(result_a) == 1, (
+            "R074: flag '1' deve ser True — SI presente sem SF/PC deve gerar ALERTA."
+        )
+
+        # Cenário B: não deve alertar — "1" para SF deve ser True
+        df_b = _df_completo(["111110100"], ["0"], ["0"], si_d=[1000.0], sf_d=[1000.0])
+        df_b["_has_saldo_inicial"] = "1"
+        df_b["_has_saldo_final"] = "1"
+        df_b["_has_period_change"] = "0"
+        result_b = R074().execute(df_b, engine_context)
+        assert len(result_b) == 0, (
+            "R074: flag '1' deve ser True — SI e SF presentes não deve gerar ALERTA."
+        )
+
+    def test_period_change_natureza_invalida_nao_gera_r074_no_pivot(
+        self,
+    ) -> None:
+        """Regressão: period_change com Natureza_valor inválida não deve causar
+        R074 falso positivo via _has_period_change=False.
+
+        Cenário: uma chave tem beginning_balance válido e um period_change com
+        Natureza_valor="X" (inválida).  R004 deve ser emitido para a linha
+        period_change;X.  Os flags de presença devem ser calculados sobre o
+        Tipo_valor *antes* do filtro df_valid, então _has_period_change=True
+        — e o DataFrame pivotado não deve acionar R074 para essa chave.
+        """
+        from io import BytesIO
+        from ranking_msc.io.reader_msc import read_msc_csv
+
+        csv_content = (
+            "2507507EX;2025-01\n"
+            "CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6;"
+            "Valor;Tipo_valor;Natureza_valor\n"
+            "111110200;10131;PO;;;;;;;;;;;1000.00;beginning_balance;D\n"
+            "111110200;10131;PO;;;;;;;;;;;500.00;period_change;X\n"
+        ).encode("utf-8")
+
+
+        raw = read_msc_csv(BytesIO(csv_content))
+
+        # R004 deve ter sido emitido para a linha period_change;X
+        r004 = [i for i in raw.pre_pivot_issues if i.get("regra") == "R004"]
+        assert len(r004) >= 1, "R004 deve ser emitido para Natureza_valor='X'"
+
+        # O flag _has_period_change deve ser True — o Tipo estava presente no CSV
+        assert "_has_period_change" in raw.df.columns
+        assert bool(raw.df.iloc[0]["_has_period_change"]) is True, (
+            "R074 regressão: _has_period_change deve ser True quando period_change "
+            "está presente no CSV mesmo com Natureza_valor inválida."
+        )
+
+
+# ---------------------------------------------------------------------------
+# R071 — Valores com > 2 decimais
+# ---------------------------------------------------------------------------
+
+
+class TestR071:
+    def test_sem_issues_retorna_vazio(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Nenhum issue R071 em pre_pivot_issues → zero pendências."""
+        df = pd.DataFrame({"conta_contabil": ["111110100"]})
+        result = R071().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_valor_com_mais_de_2_decimais_gera_info(
+        self, settings: Settings
+    ) -> None:
+        """Issue R071 em pre_pivot_issues → pendência INFO drenada."""
+        ctx = _ctx_with_issues(settings, [
+            {
+                "regra": "R071",
+                "conta_contabil": "111110100",
+                "campo": "Valor",
+                "valor_encontrado": "1000.005",
+                "valor_esperado": "1000.00",
+                "competencia": "2024-01",
+            }
+        ])
+        df = pd.DataFrame({"conta_contabil": ["111110100"]})
+        result = R071().execute(df, ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R071"
+        assert result.iloc[0]["severidade"] == "INFO"
+        assert "1000.005" in result.iloc[0]["valor_encontrado"]
+
+    def test_df_vazio_retorna_vazio(self, engine_context: EngineContext) -> None:
+        """DataFrame vazio → nenhuma pendência (pre_pivot_issues vazio)."""
+        result = R071().execute(pd.DataFrame(), engine_context)
+        assert len(result) == 0
+
+    def test_issue_de_outra_regra_ignorado(self, settings: Settings) -> None:
+        """Issues de outras regras em pre_pivot_issues → R071 retorna vazio."""
+        ctx = _ctx_with_issues(settings, [
+            {"regra": "R005", "conta_contabil": "111110100",
+             "campo": "Valor", "valor_encontrado": "abc"}
+        ])
+        df = pd.DataFrame({"conta_contabil": ["111110100"]})
+        result = R071().execute(df, ctx)
+        assert len(result) == 0
+
+    def test_duplicatas_somadas_nao_ocultam_violacao(
+        self, settings: Settings
+    ) -> None:
+        """Regressão: 0.005 + 0.005 = 0.01 pós-pivot não deve ocultar R071.
+
+        O reader verifica escala no Valor bruto antes de pivot_table somar
+        duplicatas.  Ambas as linhas devem gerar issues R071 independentes,
+        mesmo que a soma resultante (0.01) pareça válida pós-pivot.
+        """
+        ctx = _ctx_with_issues(settings, [
+            {
+                "regra": "R071",
+                "conta_contabil": "111110100",
+                "campo": "Valor",
+                "valor_encontrado": "0.005",
+                "valor_esperado": "0.01",
+                "competencia": "2024-01",
+            },
+            {
+                "regra": "R071",
+                "conta_contabil": "111110100",
+                "campo": "Valor",
+                "valor_encontrado": "0.005",
+                "valor_esperado": "0.01",
+                "competencia": "2024-01",
+            },
+        ])
+        df = pd.DataFrame({"conta_contabil": ["111110100"]})
+        result = R071().execute(df, ctx)
+        assert len(result) == 2, (
+            "R071 deve reportar ambas as linhas 0.005 individualmente; "
+            "a soma pós-pivot (0.01) não deve suprimir os alertas."
+        )
+        assert all(r == "INFO" for r in result["severidade"])
+
+
+# ---------------------------------------------------------------------------
+# R072 — Registros atípicos por conta (outlier estatístico)
+# ---------------------------------------------------------------------------
+
+
+class TestR072:
+    def test_distribuicao_uniforme_sem_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Todas as contas com o mesmo número de registros → nenhuma pendência."""
+        contas = [f"11111010{i}" for i in range(5)] * 3
+        df = _df_completo(contas, ["0"] * 15, ["0"] * 15)
+        result = R072().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_conta_com_outlier_gera_info(self, engine_context: EngineContext) -> None:
+        """Conta com muito mais registros que a média → pendência INFO."""
+        # 20 contas com 1 registro cada + 1 conta com 100 registros
+        # limiar = media(~5.7) + 3*std(~21.6) ≈ 70 → 100 é flagrado
+        contas_base = [f"{i:09d}" for i in range(1, 21)]
+        conta_outlier = ["999999999"] * 100
+        contas = contas_base + conta_outlier
+        df = _df_completo(contas, ["0"] * len(contas), ["0"] * len(contas))
+        result = R072().execute(df, engine_context)
+        assert len(result) >= 1
+        assert result.iloc[0]["regra_id"] == "R072"
+        assert result.iloc[0]["severidade"] == "INFO"
+        assert "999999999" in result.iloc[0]["conta_contabil"]
+
+    def test_menos_de_2_contas_retorna_vazio(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Apenas 1 conta distinta → sem outliers possíveis."""
+        df = _df_completo(["111110100"] * 5, ["0"] * 5, ["0"] * 5)
+        result = R072().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_df_vazio_retorna_vazio(self, engine_context: EngineContext) -> None:
+        """DataFrame vazio → nenhuma pendência."""
+        result = R072().execute(pd.DataFrame(), engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R073 — Valores outliers extremos (> p99 × 10)
+# ---------------------------------------------------------------------------
+
+
+class TestR073:
+    def test_valores_normais_sem_pendencia(self, engine_context: EngineContext) -> None:
+        """Valores dentro da faixa normal → nenhuma pendência."""
+        contas = [f"11111010{i}" for i in range(15)]
+        valores = [float(i * 1000) for i in range(1, 16)]
+        df = _df_completo(contas, ["0"] * 15, ["0"] * 15, sf_d=valores)
+        result = R073().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_valor_outlier_extremo_gera_info(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Valor muito acima de p99 × 10 → pendência INFO."""
+        # 100 valores normais de 1000 fazem p99 ≈ 1000; limiar = 10000
+        # 1 valor de 1B >> 10000 → flagrado
+        contas = [f"{i:09d}" for i in range(1, 101)] + ["999999999"]
+        valores = [1000.0] * 100 + [1_000_000_000.0]
+        df = _df_completo(contas, ["0"] * 101, ["0"] * 101, sf_d=valores)
+        result = R073().execute(df, engine_context)
+        assert len(result) >= 1
+        assert result.iloc[0]["regra_id"] == "R073"
+        assert result.iloc[0]["severidade"] == "INFO"
+
+    def test_menos_de_10_valores_retorna_vazio(
+        self, engine_context: EngineContext
+    ) -> None:
+        """< 10 valores não-zero → sem threshold útil, retorna vazio."""
+        df = _df_completo(["111110100"] * 5, ["0"] * 5, ["0"] * 5, sf_d=[100.0] * 5)
+        result = R073().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_df_vazio_retorna_vazio(self, engine_context: EngineContext) -> None:
+        """DataFrame vazio → nenhuma pendência."""
+        result = R073().execute(pd.DataFrame(), engine_context)
+        assert len(result) == 0

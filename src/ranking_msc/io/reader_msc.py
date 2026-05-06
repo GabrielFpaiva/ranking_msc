@@ -637,7 +637,8 @@ def _pivot_values(
     """
     # R005: capturar valores não-numéricos antes do coerce
     _valor_raw = df["Valor"].astype(str).str.strip().str.replace(",", ".", regex=False)
-    _invalidos = pd.to_numeric(_valor_raw, errors="coerce").isna() & _valor_raw.ne("")
+    _valor_num = pd.to_numeric(_valor_raw, errors="coerce")
+    _invalidos = _valor_num.isna() & _valor_raw.ne("")
     r005_issues: list[dict[str, object]] = [
         {
             "regra": "R005",
@@ -649,7 +650,26 @@ def _pivot_values(
         for idx in df.index[_invalidos]
     ]
 
+    # R071: verificar escala decimal pré-pivot, antes da agregação por soma.
+    # Valores como 0.005 somados em pares produzem 0.01 pós-pivot, ocultando
+    # a violação.  A verificação deve ocorrer aqui sobre o Valor bruto.
+    _decimal_tol = 1e-9
+    _valor_validos = _valor_num[~_invalidos]
+    _excesso_decimal = (_valor_validos - _valor_validos.round(2)).abs() > _decimal_tol
+    r071_issues: list[dict[str, object]] = [
+        {
+            "regra": "R071",
+            "conta_contabil": str(df.loc[idx, "CONTA"]) if "CONTA" in df.columns else "",
+            "campo": "Valor",
+            "valor_encontrado": str(float(_valor_validos.loc[idx])),
+            "valor_esperado": f"{round(float(_valor_validos.loc[idx]), 2):.2f}",
+            "competencia": competencia,
+        }
+        for idx in _valor_validos.index[_excesso_decimal]
+    ]
+
     # Converter Valor para float
+
     df["Valor"] = pd.to_numeric(df["Valor"].str.replace(",", "."), errors="coerce").fillna(0.0)
 
     # Criar coluna combinada para pivot
@@ -699,21 +719,32 @@ def _pivot_values(
     group_cols = [c for c in _GROUP_COLS if c in df_valid.columns]
 
     # Indicadores de presença — detectar se a conta possui ao menos uma linha
-    # beginning_balance / ending_balance no CSV original. Necessário para
-    # distinguir "saldo ausente" (fill_value=0.0) de "saldo zero legítimo".
-    _bb_names: frozenset[str] = frozenset({"saldo_inicial_debito", "saldo_inicial_credito"})
-    _eb_names: frozenset[str] = frozenset({"saldo_final_debito", "saldo_final_credito"})
+    # de cada Tipo_valor no CSV original, *antes* de filtrar combinações
+    # Tipo×Natureza inválidas.
+    #
+    # Motivação: uma linha "period_change;X" (Natureza inválida) gera R004 e
+    # é removida de df_valid pelo filtro _pivot_name.notna(). Se os flags
+    # fossem calculados sobre df_valid, _has_period_change ficaria False para
+    # essa chave, e R074 emitiria um alerta falso "sem period_change" mesmo
+    # com a linha presente no CSV.
+    #
+    # Os flags refletem presença de Tipo_valor no CSV, independentemente da
+    # validade da Natureza_valor — a violação de Natureza já é capturada por R004.
+    group_cols_in_df = [c for c in _GROUP_COLS if c in df.columns]
     presence = (
-        df_valid
+        df[group_cols_in_df + ["Tipo_valor"]]
         .assign(
-            _is_bb=lambda x: x["_pivot_name"].isin(_bb_names),
-            _is_eb=lambda x: x["_pivot_name"].isin(_eb_names),
+            _is_bb=lambda x: x["Tipo_valor"] == "beginning_balance",
+            _is_eb=lambda x: x["Tipo_valor"] == "ending_balance",
+            _is_pc=lambda x: x["Tipo_valor"] == "period_change",
         )
-        .groupby(group_cols, as_index=False)
+        .groupby(group_cols_in_df, as_index=False)
         .agg(
             _has_saldo_inicial=("_is_bb", "any"),
             _has_saldo_final=("_is_eb", "any"),
+            _has_period_change=("_is_pc", "any"),
         )
+        .rename(columns=dict(zip(group_cols_in_df, group_cols)))
     )
 
     # Pivot (soma de valores por conta × IC)
@@ -728,12 +759,13 @@ def _pivot_values(
     # Merge dos indicadores de presença — left join garante que toda linha pivotada
     # recebe os indicadores; fillna(False) cobre o caso de df_valid vazio.
     pivoted = pivoted.merge(
-        presence[group_cols + ["_has_saldo_inicial", "_has_saldo_final"]],
+        presence[group_cols + ["_has_saldo_inicial", "_has_saldo_final", "_has_period_change"]],
         on=group_cols,
         how="left",
     )
     pivoted["_has_saldo_inicial"] = pivoted["_has_saldo_inicial"].fillna(False)
     pivoted["_has_saldo_final"] = pivoted["_has_saldo_final"].fillna(False)
+    pivoted["_has_period_change"] = pivoted["_has_period_change"].fillna(False)
 
     # Garantir que todas as 6 colunas de valor existem (mesmo que zeradas)
     value_cols = list(_PIVOT_MAP.values())
@@ -748,8 +780,17 @@ def _pivot_values(
     pivoted.insert(0, "competencia", competencia)
     pivoted.insert(1, "siconfi", siconfi)
 
-    # Garantir strings vazias (não NaN) nas colunas de texto
-    str_cols = [c for c in pivoted.columns if c not in value_cols]
+    # Garantir strings vazias (não NaN) nas colunas de texto.
+    # Os flags _has_* são booleanos — excluí-los da normalização de strings
+    # impede que True/False virem as strings "True"/"False", o que faria
+    # astype(bool) retornar True para "False" (string não-vazia é truthy).
+    _bool_flag_cols: frozenset[str] = frozenset(
+        {"_has_saldo_inicial", "_has_saldo_final", "_has_period_change"}
+    )
+    str_cols = [
+        c for c in pivoted.columns
+        if c not in value_cols and c not in _bool_flag_cols
+    ]
     for col in str_cols:
         pivoted[col] = pivoted[col].astype(str).replace("nan", "")
 
@@ -757,7 +798,7 @@ def _pivot_values(
     final_cols = [c for c in RAW_MSC_COLUMNS if c in pivoted.columns]
     pivoted = pivoted[final_cols]
 
-    return pivoted, pre_pivot_issues + r005_issues
+    return pivoted, pre_pivot_issues + r005_issues + r071_issues
 
 
 def _check_ic_pairs(df: pd.DataFrame, competencia: str) -> list[dict[str, object]]:
