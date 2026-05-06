@@ -84,7 +84,10 @@ rules:
     - "R072"
     - "R073"
     - "R074"
-    # R082-R111: a implementar nas próximas sprints
+    - "R086"
+    - "R087"
+    - "R088"
+    # R089-R111: a implementar nas próximas sprints
   fail_fast: false                    # true = para ao primeiro ERRO
 
 security:
