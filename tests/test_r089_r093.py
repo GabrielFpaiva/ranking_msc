@@ -48,9 +48,9 @@ def _pcasp_sem_id_ic() -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 class TestR089:
-    # id_ic=6 -> IC_MAP[6] = ["PO","FR","CO","NR"] → exige FR
-    # id_ic=4 -> IC_MAP[4] = ["PO","FP","FR","CO"]  → exige FR
-    # id_ic=1 -> IC_MAP[1] = ["PO"]               → NÃO exige FR
+    # id_ic=6 -> leiaute receita orçamentária → R089 target
+    # id_ic=4 -> leiaute patrimonial com FR    → fora do escopo R089
+    # id_ic=1 -> IC_MAP[1] = ["PO"]            → fora do escopo R089
 
     def test_receita_com_fr_preenchido_sem_pendencia(self, engine_context):
         """Conta de receita (classe 4) com FR preenchido → sem pendências."""
@@ -73,14 +73,14 @@ class TestR089:
 
     def test_receita_fr_zero_gera_alerta(self, engine_context):
         """FR '0' é considerado vazio → ALERTA."""
-        pcasp = _pcasp_com_id_ic(["411000000"], ["4"])
+        pcasp = _pcasp_com_id_ic(["411000000"], ["6"])
         df = pd.DataFrame({"conta_contabil": ["411000000"], "fr": ["0"]})
         with patch("ranking_msc.rules.r089.load_pcasp", return_value=pcasp):
             result = R089().execute(df, engine_context)
         assert len(result) == 1
 
     def test_receita_id_ic_sem_fr_nao_gera_pendencia(self, engine_context):
-        """Conta de receita com id_ic=1 (só PO, sem FR) → sem pendências."""
+        """Conta de receita com id_ic=1 (fora do escopo R089) → sem pendências."""
         pcasp = _pcasp_com_id_ic(["411000000"], ["1"])
         df = pd.DataFrame({"conta_contabil": ["411000000"], "fr": [""]})
         with patch("ranking_msc.rules.r089.load_pcasp", return_value=pcasp):
@@ -107,10 +107,10 @@ class TestR089:
             result = R089().execute(df, engine_context)
         assert len(result) == 0
 
-    def test_df_sem_contas_receita_retorna_vazio(self, engine_context):
-        """DataFrame só com contas classe 1/2 → sem pendências."""
-        pcasp = _pcasp_com_id_ic(["111000000"], ["4"])
-        df = pd.DataFrame({"conta_contabil": ["111000000"], "fr": [""]})
+    def test_receita_id_ic_4_fora_do_escopo(self, engine_context):
+        """Conta com id_ic=4 (não é leiaute receita) → sem pendências."""
+        pcasp = _pcasp_com_id_ic(["411000000"], ["4"])
+        df = pd.DataFrame({"conta_contabil": ["411000000"], "fr": [""]})
         with patch("ranking_msc.rules.r089.load_pcasp", return_value=pcasp):
             result = R089().execute(df, engine_context)
         assert len(result) == 0
@@ -326,9 +326,10 @@ class TestR092:
 # ---------------------------------------------------------------------------
 
 class TestR093:
-    # id_ic=7 -> IC_MAP[7] = ["PO","FS","FR","CO","ND"] → exige FR
-    # id_ic=4 -> IC_MAP[4] = ["PO","FP","FR","CO"]      → exige FR
-    # id_ic=1 -> IC_MAP[1] = ["PO"]                     → NÃO exige FR
+    # id_ic=7 -> leiaute despesa orçamentária  → R093 target
+    # id_ic=9 -> leiaute despesa com RP         → R093 target
+    # id_ic=4 -> leiaute patrimonial com FR     → fora do escopo R093
+    # id_ic=1 -> IC_MAP[1] = ["PO"]             → fora do escopo R093
 
     def test_despesa_com_fr_preenchido_sem_pendencia(self, engine_context):
         """Conta de despesa com FR preenchido → sem pendências."""
@@ -379,7 +380,7 @@ class TestR093:
 
     def test_fr_zero_gera_alerta(self, engine_context):
         """FR '0' é considerado vazio → ALERTA."""
-        pcasp = _pcasp_com_id_ic(["311000000"], ["4"])
+        pcasp = _pcasp_com_id_ic(["311000000"], ["7"])
         df = pd.DataFrame({"conta_contabil": ["311000000"], "fr": ["0"]})
         with patch("ranking_msc.rules.r093.load_pcasp", return_value=pcasp):
             result = R093().execute(df, engine_context)

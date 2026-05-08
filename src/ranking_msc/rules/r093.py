@@ -6,16 +6,16 @@ Severidade padrão: ALERTA
 
 Lógica:
     Contas de Variação Patrimonial Diminutiva (classe 3 — VPD) cujo id_ic
-    exige Fonte de Recurso (FR) no IC_MAP devem ter FR preenchido.
+    é 7 ou 9 (leiautes de despesa orçamentária) devem ter FR preenchido.
 
     SE classe(conta) == "3"
-       AND ic_map[id_ic] contém "FR"
+       AND id_ic IN {7, 9}
        AND fr está vazio/ausente
     → ALERTA
 
     Valores considerados vazios: "", "0", "nan".
 
-    Contas sem id_ic no PCASP ou com id_ic que não exige FR são ignoradas.
+    Contas sem id_ic no PCASP ou com id_ic fora de {7, 9} são ignoradas.
 
 Referência:
     Ranking Siconfi 2026 — verificação V17; Portaria STN 642/2026.
@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ranking_msc.io.ref_loader import IC_MAP, load_pcasp
+from ranking_msc.io.ref_loader import load_pcasp
 from ranking_msc.rules.base import Rule, register_rule
 
 if TYPE_CHECKING:
@@ -38,10 +38,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("ranking_msc")
 
 _CLASSE_DESPESA = "3"
-_IC_ALVO = "FR"
-_ID_IC_COM_FR: frozenset[str] = frozenset(
-    str(k) for k, v in IC_MAP.items() if _IC_ALVO in v
-)
+_ID_IC_DESPESA: frozenset[str] = frozenset({"7", "9"})
 _IC_VAZIA: frozenset[str] = frozenset({"", "0", "nan"})
 
 
@@ -91,8 +88,8 @@ class R093(Rule):
         # 3. Join para obter id_ic de cada conta
         merged = msc.merge(pcasp, on="conta_contabil", how="left")
 
-        # 4. Manter apenas contas cujo id_ic exige FR
-        merged = merged[merged["id_ic"].isin(_ID_IC_COM_FR)]
+        # 4. Manter apenas contas cujo id_ic é de despesa orçamentária (7, 9)
+        merged = merged[merged["id_ic"].isin(_ID_IC_DESPESA)]
         if merged.empty:
             return self.build_issues([])
 
