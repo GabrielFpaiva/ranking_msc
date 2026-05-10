@@ -1,15 +1,15 @@
 """
-Regra R090 — Receita (classe 4 / VPA) sem Natureza da Receita (SIGEF V14).
+Regra R090 — Receita orçamentária sem Natureza da Receita (SIGEF V14).
 
 Dimensão: IC
 Severidade padrão: ALERTA
 
 Lógica:
-    Contas de Variação Patrimonial Aumentativa (classe 4 — VPA) cujo id_ic
-    exige Natureza da Receita (NR) no IC_MAP devem ter NR preenchido.
+    Contas cujo id_ic exige Natureza da Receita (NR) no IC_MAP devem ter NR
+    preenchida.  São as contas das classes 5 e 6 classificadas pelo PCASP com
+    id_ic=6.
 
-    SE classe(conta) == "4"
-       AND ic_map[id_ic] contém "NR"
+    SE pcasp[conta].id_ic está em {id_ics que exigem NR}
        AND nr está vazio/ausente
     → ALERTA
 
@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("ranking_msc")
 
-_CLASSE_RECEITA = "4"
 _IC_ALVO = "NR"
 _ID_IC_COM_NR: frozenset[str] = frozenset(
     str(k) for k, v in IC_MAP.items() if _IC_ALVO in v
@@ -47,14 +46,14 @@ _IC_VAZIA: frozenset[str] = frozenset({"", "0", "nan"})
 
 @register_rule
 class R090(Rule):
-    """Detecta contas de receita (classe 4) sem Natureza da Receita obrigatória."""
+    """Detecta contas de receita orçamentária sem Natureza da Receita obrigatória."""
 
     rule_id = "R090"
     rule_name = "Receita sem NR"
     dimensao = "IC"
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
-        """Identifica contas VPA com id_ic exigindo NR mas NR vazio.
+        """Identifica contas com id_ic exigindo NR mas NR vazio.
 
         Args:
             df: DataFrame normalizado com colunas ``conta_contabil`` e ``nr``.
@@ -68,15 +67,7 @@ class R090(Rule):
         if "nr" not in df.columns:
             return self.build_issues([])
 
-        # 1. Filtrar contas da classe 4 (VPA)
-        msc = df[["conta_contabil", "nr"]].copy()
-        msc["_classe"] = msc["conta_contabil"].astype(str).str[:1]
-        msc = msc[msc["_classe"] == _CLASSE_RECEITA]
-
-        if msc.empty:
-            return self.build_issues([])
-
-        # 2. Carregar PCASP e obter id_ic
+        # 1. Carregar PCASP e obter id_ic
         pcasp_raw = load_pcasp(context.settings.paths.ref_dir)
         if "id_ic" not in pcasp_raw.columns:
             logger.warning(
@@ -88,15 +79,16 @@ class R090(Rule):
         pcasp = pcasp_raw[["conta_contabil", "id_ic"]].copy()
         pcasp["id_ic"] = pcasp["id_ic"].astype(str).str.strip()
 
-        # 3. Join para obter id_ic de cada conta
+        # 2. Join para obter id_ic de cada conta
+        msc = df[["conta_contabil", "nr"]].copy()
         merged = msc.merge(pcasp, on="conta_contabil", how="left")
 
-        # 4. Manter apenas contas cujo id_ic exige NR
+        # 3. Manter apenas contas cujo id_ic exige NR
         merged = merged[merged["id_ic"].isin(_ID_IC_COM_NR)]
         if merged.empty:
             return self.build_issues([])
 
-        # 5. Identificar NR vazia/ausente
+        # 4. Identificar NR vazia/ausente
         merged["nr"] = merged["nr"].astype(str).str.strip()
         violacoes = merged[merged["nr"].isin(_IC_VAZIA)].copy()
 
@@ -104,7 +96,7 @@ class R090(Rule):
             return self.build_issues([])
 
         logger.warning(
-            "R090: %d conta(s) de receita (classe 4) sem NR. competência=%s",
+            "R090: %d conta(s) de receita orçamentária sem NR. competência=%s",
             len(violacoes),
             context.competencia,
             extra=_extra,
@@ -119,7 +111,7 @@ class R090(Rule):
             "descricao": (
                 "Conta '"
                 + conta_s
-                + "' (VPA/classe 4, id_ic="
+                + "' (receita orçamentária, id_ic="
                 + id_ic_s
                 + "): NR obrigatória não preenchida (SIGEF V14)."
             ).values,

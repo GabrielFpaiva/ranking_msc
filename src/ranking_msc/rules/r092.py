@@ -1,15 +1,15 @@
 """
-Regra R092 — Despesa (classe 3 / VPD) sem Função/Subfunção (SIGEF V16).
+Regra R092 — Despesa orçamentária sem Função/Subfunção (SIGEF V16).
 
 Dimensão: IC
 Severidade padrão: ALERTA
 
 Lógica:
-    Contas de Variação Patrimonial Diminutiva (classe 3 — VPD) cujo id_ic
-    exige Função/Subfunção (FS) no IC_MAP devem ter FS preenchida.
+    Contas cujo id_ic exige Função/Subfunção (FS) no IC_MAP devem ter FS
+    preenchida.  São as contas das classes 5, 6, 7 e 8 classificadas pelo PCASP
+    com id_ic=7 ou 9.
 
-    SE classe(conta) == "3"
-       AND ic_map[id_ic] contém "FS"
+    SE pcasp[conta].id_ic está em {id_ics que exigem FS}
        AND fs está vazio/ausente
     → ALERTA
 
@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("ranking_msc")
 
-_CLASSE_DESPESA = "3"
 _IC_ALVO = "FS"
 _ID_IC_COM_FS: frozenset[str] = frozenset(
     str(k) for k, v in IC_MAP.items() if _IC_ALVO in v
@@ -47,14 +46,14 @@ _IC_VAZIA: frozenset[str] = frozenset({"", "0", "nan"})
 
 @register_rule
 class R092(Rule):
-    """Detecta contas de despesa (classe 3) sem Função/Subfunção obrigatória."""
+    """Detecta contas de despesa orçamentária sem Função/Subfunção obrigatória."""
 
     rule_id = "R092"
     rule_name = "Despesa sem FS"
     dimensao = "IC"
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
-        """Identifica contas VPD com id_ic exigindo FS mas FS vazia.
+        """Identifica contas com id_ic exigindo FS mas FS vazia.
 
         Args:
             df: DataFrame normalizado com colunas ``conta_contabil`` e ``fs``.
@@ -68,15 +67,7 @@ class R092(Rule):
         if "fs" not in df.columns:
             return self.build_issues([])
 
-        # 1. Filtrar contas da classe 3 (VPD)
-        msc = df[["conta_contabil", "fs"]].copy()
-        msc["_classe"] = msc["conta_contabil"].astype(str).str[:1]
-        msc = msc[msc["_classe"] == _CLASSE_DESPESA]
-
-        if msc.empty:
-            return self.build_issues([])
-
-        # 2. Carregar PCASP e obter id_ic
+        # 1. Carregar PCASP e obter id_ic
         pcasp_raw = load_pcasp(context.settings.paths.ref_dir)
         if "id_ic" not in pcasp_raw.columns:
             logger.warning(
@@ -88,15 +79,16 @@ class R092(Rule):
         pcasp = pcasp_raw[["conta_contabil", "id_ic"]].copy()
         pcasp["id_ic"] = pcasp["id_ic"].astype(str).str.strip()
 
-        # 3. Join para obter id_ic de cada conta
+        # 2. Join para obter id_ic de cada conta
+        msc = df[["conta_contabil", "fs"]].copy()
         merged = msc.merge(pcasp, on="conta_contabil", how="left")
 
-        # 4. Manter apenas contas cujo id_ic exige FS
+        # 3. Manter apenas contas cujo id_ic exige FS
         merged = merged[merged["id_ic"].isin(_ID_IC_COM_FS)]
         if merged.empty:
             return self.build_issues([])
 
-        # 5. Identificar FS vazia/ausente
+        # 4. Identificar FS vazia/ausente
         merged["fs"] = merged["fs"].astype(str).str.strip()
         violacoes = merged[merged["fs"].isin(_IC_VAZIA)].copy()
 
@@ -104,7 +96,7 @@ class R092(Rule):
             return self.build_issues([])
 
         logger.warning(
-            "R092: %d conta(s) de despesa (classe 3) sem FS. competência=%s",
+            "R092: %d conta(s) de despesa orçamentária sem FS. competência=%s",
             len(violacoes),
             context.competencia,
             extra=_extra,
@@ -119,7 +111,7 @@ class R092(Rule):
             "descricao": (
                 "Conta '"
                 + conta_s
-                + "' (VPD/classe 3, id_ic="
+                + "' (despesa orçamentária, id_ic="
                 + id_ic_s
                 + "): FS obrigatória não preenchida (SIGEF V16)."
             ).values,

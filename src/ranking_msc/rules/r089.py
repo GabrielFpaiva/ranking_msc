@@ -1,15 +1,15 @@
 """
-Regra R089 — Receita (classe 4 / VPA) sem Fonte de Recurso (SIGEF V13).
+Regra R089 — Receita orçamentária sem Fonte de Recurso (SIGEF V13).
 
 Dimensão: IC
 Severidade padrão: ALERTA
 
 Lógica:
-    Contas de Variação Patrimonial Aumentativa (classe 4 — VPA) cujo id_ic
-    é 6 (leiaute de receita orçamentária e deduções) devem ter FR preenchido.
+    Contas cujo id_ic é 6 (leiaute de receita orçamentária e deduções)
+    devem ter FR preenchido.  São as contas das classes 5 e 6 que o PCASP
+    classifica como receita orçamentária.
 
-    SE classe(conta) == "4"
-       AND id_ic == 6
+    SE pcasp[conta].id_ic == 6
        AND fr está vazio/ausente
     → ALERTA
 
@@ -37,21 +37,20 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("ranking_msc")
 
-_CLASSE_RECEITA = "4"
 _ID_IC_RECEITA: frozenset[str] = frozenset({"6"})
 _IC_VAZIA: frozenset[str] = frozenset({"", "0", "nan"})
 
 
 @register_rule
 class R089(Rule):
-    """Detecta contas de receita (classe 4) sem Fonte de Recurso obrigatória."""
+    """Detecta contas de receita orçamentária (id_ic=6) sem Fonte de Recurso."""
 
     rule_id = "R089"
     rule_name = "Receita sem FR"
     dimensao = "IC"
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
-        """Identifica contas VPA com id_ic exigindo FR mas FR vazio.
+        """Identifica contas com id_ic=6 que exigem FR mas FR está vazio.
 
         Args:
             df: DataFrame normalizado com colunas ``conta_contabil`` e ``fr``.
@@ -65,15 +64,7 @@ class R089(Rule):
         if "fr" not in df.columns:
             return self.build_issues([])
 
-        # 1. Filtrar contas da classe 4 (VPA)
-        msc = df[["conta_contabil", "fr"]].copy()
-        msc["_classe"] = msc["conta_contabil"].astype(str).str[:1]
-        msc = msc[msc["_classe"] == _CLASSE_RECEITA]
-
-        if msc.empty:
-            return self.build_issues([])
-
-        # 2. Carregar PCASP e obter id_ic
+        # 1. Carregar PCASP e obter id_ic
         pcasp_raw = load_pcasp(context.settings.paths.ref_dir)
         if "id_ic" not in pcasp_raw.columns:
             logger.warning(
@@ -85,15 +76,16 @@ class R089(Rule):
         pcasp = pcasp_raw[["conta_contabil", "id_ic"]].copy()
         pcasp["id_ic"] = pcasp["id_ic"].astype(str).str.strip()
 
-        # 3. Join para obter id_ic de cada conta
+        # 2. Join para obter id_ic de cada conta
+        msc = df[["conta_contabil", "fr"]].copy()
         merged = msc.merge(pcasp, on="conta_contabil", how="left")
 
-        # 4. Manter apenas contas cujo id_ic é de receita orçamentária (6)
+        # 3. Manter apenas contas cujo id_ic é de receita orçamentária (6)
         merged = merged[merged["id_ic"].isin(_ID_IC_RECEITA)]
         if merged.empty:
             return self.build_issues([])
 
-        # 5. Identificar FR vazio/ausente
+        # 4. Identificar FR vazio/ausente
         merged["fr"] = merged["fr"].astype(str).str.strip()
         violacoes = merged[merged["fr"].isin(_IC_VAZIA)].copy()
 
@@ -101,7 +93,7 @@ class R089(Rule):
             return self.build_issues([])
 
         logger.warning(
-            "R089: %d conta(s) de receita (classe 4) sem FR. competência=%s",
+            "R089: %d conta(s) de receita orçamentária (id_ic=6) sem FR. competência=%s",
             len(violacoes),
             context.competencia,
             extra=_extra,
@@ -116,7 +108,7 @@ class R089(Rule):
             "descricao": (
                 "Conta '"
                 + conta_s
-                + "' (VPA/classe 4, id_ic="
+                + "' (receita orçamentária, id_ic="
                 + id_ic_s
                 + "): FR obrigatório não preenchido (SIGEF V13)."
             ).values,
