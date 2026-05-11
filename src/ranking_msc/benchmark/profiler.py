@@ -84,8 +84,8 @@ class _MeasureContext:
 
 def _get_rss_kb() -> int:
     """Retorna RSS atual em kilobytes (Linux) ou bytes (macOS)."""
-    usage = resource.getrusage(resource.RUSAGE_SELF)
-    rss = usage.ru_maxrss
+    usage = resource.getrusage(resource.RUSAGE_SELF)  # type: ignore[attr-defined]
+    rss: int = usage.ru_maxrss
     # Linux: ru_maxrss em KB; macOS: em bytes
     if platform.system() == "Darwin":
         return rss // 1024
