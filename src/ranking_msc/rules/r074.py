@@ -78,8 +78,8 @@ def _parse_flag(series: pd.Series) -> pd.Series:
         return series.astype(bool)
     # String path: conjunto de valores considerados truthy (case-insensitive).
     # Inclui "1"/"0" para round-trips CSV/export que serializam bool como inteiro.
-    _TRUTHY = frozenset({"true", "1", "yes"})
-    return series.astype(str).str.strip().str.lower().isin(_TRUTHY)
+    _truthy = frozenset({"true", "1", "yes"})
+    return series.astype(str).str.strip().str.lower().isin(_truthy)
 
 
 @register_rule
