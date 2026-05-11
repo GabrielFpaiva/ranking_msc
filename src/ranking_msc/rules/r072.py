@@ -63,7 +63,7 @@ class R072(Rule):
             return self.build_issues([])
 
         limiar = media + 3 * desvio
-        outliers = contagem[contagem > limiar]
+        outliers = contagem[contagem.gt(limiar)]
 
         if outliers.empty:
             return self.build_issues([])

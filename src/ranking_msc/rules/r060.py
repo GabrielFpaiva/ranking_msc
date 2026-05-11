@@ -126,7 +126,7 @@ class R060(Rule):
                 _FP_PERMANENTE,
             ),
             index=violacoes.index,
-        )
+        ).astype(str)
 
         # Construir info contextual de po/fr quando disponíveis
         po_info = pd.Series("", index=violacoes.index)

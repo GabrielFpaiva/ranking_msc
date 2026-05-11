@@ -104,7 +104,7 @@ class R020(Rule):
 
         # Agrupar por id_ic para processar em batch
         for id_ic_val, group in merged.groupby("id_ic"):
-            ic_esperado = set(IC_MAP[int(id_ic_val)])
+            ic_esperado = set(IC_MAP[int(str(id_ic_val))])
             group_idx = group.index
 
             for idx in group_idx:
