@@ -82,7 +82,7 @@ class R073(Rule):
         for col in _COLS_VALOR:
             mask = work[col].abs() > limiar
             for idx, row in work[mask].iterrows():
-                val = float(work.loc[idx, col])  # type: ignore[index]
+                val = float(work.loc[idx, col])  # type: ignore[index, arg-type]
                 issues.append({
                     "severidade": "INFO",
                     "conta_contabil": str(row["conta_contabil"]),
