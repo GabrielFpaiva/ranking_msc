@@ -402,3 +402,51 @@ class TestR093:
         with patch("ranking_msc.rules.r093.load_pcasp", return_value=pcasp):
             result = R093().execute(df, engine_context)
         assert len(result) == 2
+
+
+# ---------------------------------------------------------------------------
+# Regressão — IC vazia uppercase e float NaN (bug ic_mask_informada)
+# ---------------------------------------------------------------------------
+
+class TestICNormalizacaoCaseInsensitive:
+    """Garante que None, float NaN e sentinelas uppercase são tratados como vazio."""
+
+    def test_r089_fr_float_nan_gera_alerta(self, engine_context):
+        """R089: FR como float NaN (pandas) deve ser tratado como vazio → ALERTA."""
+        pcasp = _pcasp_com_id_ic([_CONTA_RECEITA_1], ["6"])
+        df = pd.DataFrame({"conta_contabil": [_CONTA_RECEITA_1], "fr": [float("nan")]})
+        with patch("ranking_msc.rules.r089.load_pcasp", return_value=pcasp):
+            result = R089().execute(df, engine_context)
+        assert len(result) == 1
+
+    def test_r090_nr_uppercase_nan_gera_alerta(self, engine_context):
+        """R090: NR como string 'NAN' uppercase deve ser tratado como vazio → ALERTA."""
+        pcasp = _pcasp_com_id_ic([_CONTA_RECEITA_1], ["6"])
+        df = pd.DataFrame({"conta_contabil": [_CONTA_RECEITA_1], "nr": ["NAN"]})
+        with patch("ranking_msc.rules.r090.load_pcasp", return_value=pcasp):
+            result = R090().execute(df, engine_context)
+        assert len(result) == 1
+
+    def test_r091_nd_pd_na_gera_alerta(self, engine_context):
+        """R091: ND como pd.NA deve ser tratado como vazio → ALERTA."""
+        pcasp = _pcasp_com_id_ic([_CONTA_DESPESA_7_1], ["7"])
+        df = pd.DataFrame({"conta_contabil": [_CONTA_DESPESA_7_1], "nd": [pd.NA]})
+        with patch("ranking_msc.rules.r091.load_pcasp", return_value=pcasp):
+            result = R091().execute(df, engine_context)
+        assert len(result) == 1
+
+    def test_r092_fs_float_nan_gera_alerta(self, engine_context):
+        """R092: FS como float NaN deve ser tratado como vazio → ALERTA."""
+        pcasp = _pcasp_com_id_ic([_CONTA_DESPESA_7_1], ["7"])
+        df = pd.DataFrame({"conta_contabil": [_CONTA_DESPESA_7_1], "fs": [float("nan")]})
+        with patch("ranking_msc.rules.r092.load_pcasp", return_value=pcasp):
+            result = R092().execute(df, engine_context)
+        assert len(result) == 1
+
+    def test_r093_fr_uppercase_nan_gera_alerta(self, engine_context):
+        """R093: FR como string 'NAN' uppercase deve ser tratado como vazio → ALERTA."""
+        pcasp = _pcasp_com_id_ic([_CONTA_DESPESA_9], ["9"])
+        df = pd.DataFrame({"conta_contabil": [_CONTA_DESPESA_9], "fr": ["NAN"]})
+        with patch("ranking_msc.rules.r093.load_pcasp", return_value=pcasp):
+            result = R093().execute(df, engine_context)
+        assert len(result) == 1

@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from ranking_msc.io.ref_loader import IC_MAP, load_pcasp
-from ranking_msc.rules.base import Rule, register_rule
+from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -41,7 +41,6 @@ _IC_ALVO = "NR"
 _ID_IC_COM_NR: frozenset[str] = frozenset(
     str(k) for k, v in IC_MAP.items() if _IC_ALVO in v
 )
-_IC_VAZIA: frozenset[str] = frozenset({"", "0", "nan"})
 
 
 @register_rule
@@ -88,9 +87,8 @@ class R090(Rule):
         if merged.empty:
             return self.build_issues([])
 
-        # 4. Identificar NR vazia/ausente
-        merged["nr"] = merged["nr"].astype(str).str.strip()
-        violacoes = merged[merged["nr"].isin(_IC_VAZIA)].copy()
+        # 4. Identificar NR vazia/ausente (None, pd.NA, NaN, "0", "NAN" etc.)
+        violacoes = merged[~ic_mask_informada(merged["nr"])].copy()
 
         if violacoes.empty:
             return self.build_issues([])
