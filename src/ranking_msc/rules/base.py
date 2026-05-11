@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pandas as pd
 
@@ -82,7 +82,7 @@ class Rule(ABC):
 
     def build_issues(
         self,
-        rows: list[dict[str, object]],
+        rows: list[Any],
         *,
         extra_columns: list[str] | None = None,
     ) -> pd.DataFrame:
