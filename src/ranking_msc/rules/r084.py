@@ -2,7 +2,7 @@
 Regra R084 — Conta Financeira (FP=1) sem FR detalhada (SIGEF V11).
 
 Dimensão: PCASP
-Severidade padrão: ALERTA
+Severidade padrão: ERRO
 
 Lógica:
     Contas com FP=1 (Financeiro) devem ter Fonte de Recursos (FR) preenchida
@@ -121,7 +121,7 @@ class R084(Rule):
         id_ic_s = violacoes["id_ic"].astype(str)
 
         issues_df = pd.DataFrame({
-            "severidade": "ALERTA",
+            "severidade": "ERRO",
             "conta_contabil": conta_s.values,
             "descricao": (
                 "Conta '"

@@ -37,15 +37,15 @@ class TestR084:
             result = rule.execute(df, engine_context)
         assert len(result) == 0
 
-    def test_fp1_sem_fr_id_ic_obrigatorio_gera_alerta(self, engine_context):
-        """FP=1 sem FR e ID_IC=4 (obriga FR) → ALERTA."""
+    def test_fp1_sem_fr_id_ic_obrigatorio_gera_erro(self, engine_context):
+        """FP=1 sem FR e ID_IC=4 (obriga FR) → ERRO."""
         rule = R084()
         df = _make_df(fp="1", fr="")
         pcasp = _make_pcasp(id_ic="4")
         with patch("ranking_msc.rules.r084.load_pcasp", return_value=pcasp):
             result = rule.execute(df, engine_context)
         assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["severidade"] == "ERRO"
         assert result.iloc[0]["regra_id"] == "R084"
 
     def test_fp2_sem_fr_nao_gera_pendencia(self, engine_context):
@@ -77,14 +77,14 @@ class TestR084:
 
     @pytest.mark.parametrize("id_ic", ["4", "5", "6", "7", "8", "9"])
     def test_todos_id_ic_com_fr_obrigatorio(self, id_ic, engine_context):
-        """Todos os ID_IC que obrigam FR geram ALERTA quando FR ausente."""
+        """Todos os ID_IC que obrigam FR geram ERRO quando FR ausente."""
         rule = R084()
         df = _make_df(fp="1", fr="0")  # "0" é vazio semanticamente
         pcasp = _make_pcasp(id_ic=id_ic)
         with patch("ranking_msc.rules.r084.load_pcasp", return_value=pcasp):
             result = rule.execute(df, engine_context)
         assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["severidade"] == "ERRO"
 
     def test_fr_zero_considerado_vazio(self, engine_context):
         """FR='0' é considerado vazio (ic_mask_informada) → ALERTA se id_ic obriga."""
