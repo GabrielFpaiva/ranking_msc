@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pandas as pd
 
 from ranking_msc.rules.base import Rule, register_rule
@@ -121,11 +122,14 @@ class R042(Rule):
         sf_d_s = violacoes["sf_d"].map(lambda x: f"{x:.2f}")
         sf_c_s = violacoes["sf_c"].map(lambda x: f"{x:.2f}")
 
-        import numpy as np
-        tipos_s = pd.Series("", index=violacoes.index)
-        tipos_s = np.where(violacoes["tem_si"] & violacoes["tem_sf"], "saldo inicial e saldo final",
-                  np.where(violacoes["tem_si"], "saldo inicial",
-                  np.where(violacoes["tem_sf"], "saldo final", "")))
+        tipos_s = pd.Series(
+            np.where(
+                violacoes["tem_si"] & violacoes["tem_sf"], "saldo inicial e saldo final",
+                np.where(violacoes["tem_si"], "saldo inicial",
+                np.where(violacoes["tem_sf"], "saldo final", "")),
+            ),
+            index=violacoes.index,
+        ).astype(str)
 
         issues_df = pd.DataFrame({
             "severidade": "ALERTA",

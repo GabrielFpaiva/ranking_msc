@@ -1784,15 +1784,16 @@ class TestR074:
         — e o DataFrame pivotado não deve acionar R074 para essa chave.
         """
         from io import BytesIO
+
         from ranking_msc.io.reader_msc import read_msc_csv
 
         csv_content = (
-            "2507507EX;2025-01\n"
-            "CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6;"
-            "Valor;Tipo_valor;Natureza_valor\n"
-            "111110200;10131;PO;;;;;;;;;;;1000.00;beginning_balance;D\n"
-            "111110200;10131;PO;;;;;;;;;;;500.00;period_change;X\n"
-        ).encode("utf-8")
+            b"2507507EX;2025-01\n"
+            b"CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6;"
+            b"Valor;Tipo_valor;Natureza_valor\n"
+            b"111110200;10131;PO;;;;;;;;;;;1000.00;beginning_balance;D\n"
+            b"111110200;10131;PO;;;;;;;;;;;500.00;period_change;X\n"
+        )
 
 
         raw = read_msc_csv(BytesIO(csv_content))

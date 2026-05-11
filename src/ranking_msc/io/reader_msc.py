@@ -744,7 +744,7 @@ def _pivot_values(
             _has_saldo_final=("_is_eb", "any"),
             _has_period_change=("_is_pc", "any"),
         )
-        .rename(columns=dict(zip(group_cols_in_df, group_cols)))
+        .rename(columns=dict(zip(group_cols_in_df, group_cols, strict=False)))
     )
 
     # Pivot (soma de valores por conta × IC)
