@@ -26,9 +26,12 @@ from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _SRC_DIR = _PROJECT_ROOT / "src"
-if str(_SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(_SRC_DIR))
+_SCRIPTS_DIR = _PROJECT_ROOT / "scripts"
+for _p in (str(_SRC_DIR), str(_SCRIPTS_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
+from _cli_helpers import _log_failure, _resolve_config_path, _resolve_project_path  # noqa: E402
 from ranking_msc.config.settings import load_settings  # noqa: E402
 from ranking_msc.engine.compare_periods import PeriodComparison, compare_periods  # noqa: E402
 from ranking_msc.exceptions import RankingMSCError  # noqa: E402
@@ -172,17 +175,6 @@ def _print_comparison(result: PeriodComparison) -> None:
     print("─" * 62)
 
 
-def _resolve_config_path(config_arg: str | None) -> Path:
-    """Resolve o caminho do arquivo de configuração."""
-    if not config_arg:
-        return (_PROJECT_ROOT / "config" / "settings.yaml").resolve()
-
-    config_path = Path(config_arg).expanduser()
-    if not config_path.is_absolute():
-        config_path = Path.cwd() / config_path
-    return config_path.resolve()
-
-
 def _resolve_snapshots_dir(settings: object, snapshots_dir_arg: str | None) -> Path:
     """Resolve o diretório de snapshots a partir do argumento ou das settings.
 
@@ -200,32 +192,6 @@ def _resolve_snapshots_dir(settings: object, snapshots_dir_arg: str | None) -> P
     from ranking_msc.config.settings import Settings  # noqa: PLC0415
     assert isinstance(settings, Settings)
     return _resolve_project_path(settings.paths.snapshots_dir)
-
-
-def _resolve_project_path(path_value: str) -> Path:
-    """Resolve caminho de settings relativo à raiz do projeto."""
-    path = Path(path_value).expanduser()
-    if path.is_absolute():
-        return path.resolve()
-    return (_PROJECT_ROOT / path).resolve()
-
-
-def _log_failure(logger: logging.Logger | None, message: str) -> None:
-    """Registra falha de execução com fallback para stderr.
-
-    Inclui traceback apenas quando há uma exceção ativa — evita ruído
-    ``NoneType: None`` em caminhos de falha sem exceção real.
-    """
-    exc_info = sys.exc_info()[0] is not None
-    if logger is not None:
-        logger.error(message, exc_info=exc_info)
-        return
-
-    logging.basicConfig(
-        level=logging.ERROR,
-        format="%(levelname)s:%(name)s:%(message)s",
-    )
-    logging.getLogger("ranking_msc").error(message, exc_info=exc_info)
 
 
 def main() -> None:
