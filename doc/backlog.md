@@ -1,7 +1,7 @@
 # Backlog Consolidado — Ranking MSC
 
 > **Atualizado:** 2026-05-11
-> **Estado atual:** 73 regras implementadas · ~850 testes · Fase 4 em andamento
+> **Estado atual:** 73 regras implementadas · ~862 testes · Fase 4 em andamento (F4-01→F4-19 concluídos)
 
 ---
 
@@ -18,7 +18,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 |---|---|---|---|
 | Fase 2 | Infraestrutura + 5 regras piloto + Pipeline | ✅ Concluída | 190 testes |
 | Fase 3 | Catálogo expandido → 35 regras | ✅ Concluída | 471 testes |
-| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-01→F4-17 concluídos) | ~850 testes |
+| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-01→F4-19 concluídos) | ~862 testes |
 | Fase 0 | Frontend MCRA (React+FastAPI replacing Panel) | ✅ Concluída | 8 commits |
 | Fase 5 | Produção (export, auth, deploy, docs, entrega) | 📋 Backlog | — |
 
@@ -239,7 +239,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F4-16 | SIGEF — Saldo invertido R086–R088 | 4 | R032, R010 | ✅ Concluído |
 | F4-17 | SIGEF — IC detalhamento R089–R093 | 5 | R020, R024-R028 | ✅ Concluído |
 | F4-18 | SIGEF — Temporal/Completude R083–R085 | 5 | R054, R022 | ❌ A Fazer |
-| F4-19 | Extrair helpers CLI compartilhados | 3 | F4-04 | ❌ A Fazer |
+| F4-19 | Extrair helpers CLI compartilhados | 3 | F4-04 | ✅ Concluído |
 | F4-20 | Documentação Fase 4 + handoff Fase 5 | 4 | tudo | ❌ A Fazer |
 
 ### Fase 5 — Produção + Entrega 📋 Backlog
@@ -299,6 +299,9 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 ### 🔴 Prioridade 1 — Cobertura de Regras (Motor)
 
 1. **F4-18** — SIGEF temporal/completude R083–R085 — ~5h
+   - Rodrigo confirmou R083 (dados estáticos entre meses) e R085 (depreciação sem movimento) como prioridade alta
+   - Aguardando MSC de **encerramento 2025** + **janeiro 2026** de Rodrigo para testar R054/R083 com dados reais
+   - Rodrigo enviará novas regras de integridade ~2026-05-14 (quinta-feira)
 
 ### 🟡 Prioridade 2 — Qualidade + SIGEF
 
@@ -306,11 +309,9 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ### 🟢 Prioridade 3 — Infra + Polish
 
-9. **F4-09** — Otimização vetorizada — ~8h
-10. **F4-10** — Encoding robusto — ~6h
-11. **F4-19** — Extrair helpers CLI — ~3h
-12. **F5-01** — CI completo (front+back) — ~2h
-13. **F5-02** — Cutover Panel — ~1h
+9. **F4-20** — Documentação Fase 4 + handoff Fase 5 — ~4h
+10. **F5-01** — CI completo (front+back) — ~2h
+11. **F5-02** — Cutover Panel — ~1h
 
 ### 🔵 Prioridade 4 — Produção (Fase 5)
 
@@ -338,7 +339,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | Métrica | Valor |
 |---|---|
 | Regras implementadas | 73 / 78 (93.5%) |
-| Testes coletados | 846 |
+| Testes coletados | ~862 |
 | Cobertura de categorias | 14/15 com ≥1 regra |
 | Frontend telas | 10/10 navegáveis |
 | Endpoints API | 19 |
