@@ -1,14 +1,21 @@
 VENV := .venv/bin
+PYTHON := $(VENV)/python
 
-.PHONY: lint typecheck test ci
+.PHONY: lint typecheck test frontend-lint frontend-build ci
 
 lint:
-	$(VENV)/ruff check src/ tests/
+	$(PYTHON) -m ruff check src/ tests/ app/
 
 typecheck:
-	$(VENV)/mypy src/
+	$(PYTHON) -m mypy src/ app/api/
 
 test:
-	$(VENV)/pytest --cov=ranking_msc --cov-report=term-missing --cov-fail-under=80
+	$(PYTHON) -m pytest --cov=ranking_msc --cov-report=term-missing --cov-fail-under=80
 
-ci: lint typecheck test
+frontend-lint:
+	cd web && npm run lint
+
+frontend-build:
+	cd web && npm run build
+
+ci: lint typecheck test frontend-lint frontend-build

@@ -131,6 +131,16 @@ npx eslint src/
 npm run build
 ```
 
+### CI
+
+O repositório executa GitHub Actions em PRs e pushes para `main` com os checks abaixo:
+
+- `pytest`
+- `ruff check src tests app`
+- `mypy src app/api`
+- `npm run build`
+- `npm run lint`
+
 ---
 
 ## Estrutura de diretórios
