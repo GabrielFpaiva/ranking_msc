@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import logging
-import sys
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-
 import scripts._cli_helpers as helpers
-from ranking_msc.config.settings import PathsSettings, Settings
 
+from ranking_msc.config.settings import PathsSettings, Settings
 
 # ---------------------------------------------------------------------------
 # OutputPaths
@@ -58,7 +55,9 @@ class TestResolveConfigPath:
         result = helpers._resolve_config_path(str(cfg))
         assert result == cfg.resolve()
 
-    def test_caminho_relativo_resolvido_a_partir_de_cwd(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_caminho_relativo_resolvido_a_partir_de_cwd(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Caminho relativo é resolvido em relação ao cwd."""
         monkeypatch.chdir(tmp_path)
         result = helpers._resolve_config_path("custom/settings.yaml")
@@ -117,7 +116,9 @@ class TestResolveOutputPaths:
         assert result.reports_dir == tmp_path / "reports"
         assert result.logs_dir == tmp_path / "logs"
 
-    def test_output_dir_relativo_resolvido(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_output_dir_relativo_resolvido(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """--output-dir relativo é resolvido a partir do cwd."""
         monkeypatch.chdir(tmp_path)
         settings = self._settings()
