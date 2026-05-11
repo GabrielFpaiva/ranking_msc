@@ -180,7 +180,10 @@ ranking_msc/
 ├── ref/                         # Tabelas de referência (PCASP, domínios)
 ├── data/                        # Outputs gerados (gitignored)
 ├── doc/
-│   └── fase0_plan.md            # Plano do frontend MCRA
+│   ├── backlog.md               # Backlog consolidado e status atual
+│   ├── fase0_plan.md            # Referência das pendências F0-03/F0-04
+│   └── modelo_pontuacao.md      # Especificação do score
+├── .claude/                     # Automação/skills locais do fluxo Claude
 ├── pyproject.toml
 ├── README.md
 └── .gitignore
@@ -242,6 +245,18 @@ rules:
 | Relatórios Excel | `data/reports/` |
 | Logs de execução | `data/logs/ranking_msc.jsonl` |
 | Config da aplicação | `config/settings.yaml` |
+
+---
+
+## Documentação ativa
+
+| Documento | Uso |
+|---|---|
+| `README.md` | Visão geral, setup e comandos |
+| `CLAUDE.md` | Convenções operacionais do repositório |
+| `doc/backlog.md` | Status consolidado, pendências e prioridades |
+| `doc/fase0_plan.md` | Referência das entregas/pêndencias do frontend |
+| `doc/modelo_pontuacao.md` | Regra de negócio do score |
 
 ---
 

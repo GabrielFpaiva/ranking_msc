@@ -1,14 +1,14 @@
 # Backlog Consolidado — Ranking MSC
 
 > **Atualizado:** 2026-05-11
-> **Estado atual:** 73 regras implementadas · ~862 testes · Fase 4 em andamento (F4-01→F4-19 concluídos)
+> **Estado atual:** 76 regras implementadas · 917 testes coletados · Fase 4 em andamento (F4-01→F4-19 concluídos)
 
 ---
 
 ## Visão Geral
 
 O projeto contém **78 regras** no catálogo total (67 originais + 11 SIGEF/JPA).
-Destas, **73 estão implementadas** e habilitadas. Restam **5 regras** a implementar.
+Destas, **76 estão implementadas** e habilitadas. Restam **2 regras** a implementar.
 
 O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estável.
 
@@ -18,13 +18,13 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 |---|---|---|---|
 | Fase 2 | Infraestrutura + 5 regras piloto + Pipeline | ✅ Concluída | 190 testes |
 | Fase 3 | Catálogo expandido → 35 regras | ✅ Concluída | 471 testes |
-| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-01→F4-19 concluídos) | ~862 testes |
+| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-20 pendente) | 917 testes |
 | Fase 0 | Frontend MCRA (React+FastAPI replacing Panel) | ✅ Concluída | 8 commits |
 | Fase 5 | Produção (export, auth, deploy, docs, entrega) | 📋 Backlog | — |
 
 ---
 
-## Regras Implementadas (51/78)
+## Regras Implementadas (76/78)
 
 | Regra | Dimensão | Nome | Sev. | Fase |
 |---|---|---|---|---|
@@ -101,10 +101,13 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | R091 | SIGEF IC | Despesa sem ND | ALERTA | F4 ✅ |
 | R092 | SIGEF IC | Despesa sem FS | ALERTA | F4 ✅ |
 | R093 | SIGEF IC | Despesa sem FR | ALERTA | F4 ✅ |
+| R083 | SIGEF Temporal | Dados executivo iguais entre meses | ALERTA | F4 ✅ |
+| R084 | SIGEF Temporal | Conta Financeira sem FR | ALERTA | F4 ✅ |
+| R085 | SIGEF Temporal | Depreciação sem movimentação | ALERTA | F4 ✅ |
 
 ---
 
-## Regras Pendentes (5/78)
+## Regras Pendentes (2/78)
 
 ### ~~Domínio Complementar (9 regras) — Task F4-12~~ ✅ Concluído
 
@@ -173,7 +176,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | R092 | Despesa sem FS | ALERTA | ✅ |
 | R093 | Despesa sem FR | ALERTA | ✅ |
 
-### SIGEF — Temporal/Completude (3 regras) — Task F4-18
+### ~~SIGEF — Temporal/Completude (3 regras) — Task F4-18~~ ✅ Concluído
 
 | Regra | Nome | Sev. | Descrição |
 |---|---|---|---|
@@ -238,7 +241,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F4-15 | Completude + Qualidade (7 regras) | 8 | R026, R027 | ✅ Concluído |
 | F4-16 | SIGEF — Saldo invertido R086–R088 | 4 | R032, R010 | ✅ Concluído |
 | F4-17 | SIGEF — IC detalhamento R089–R093 | 5 | R020, R024-R028 | ✅ Concluído |
-| F4-18 | SIGEF — Temporal/Completude R083–R085 | 5 | R054, R022 | ❌ A Fazer |
+| F4-18 | SIGEF — Temporal/Completude R083–R085 | 5 | R054, R022 | ✅ Concluído |
 | F4-19 | Extrair helpers CLI compartilhados | 3 | F4-04 | ✅ Concluído |
 | F4-20 | Documentação Fase 4 + handoff Fase 5 | 4 | tudo | ❌ A Fazer |
 
@@ -289,8 +292,8 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | Qualidade | 3 | 3 | 0 | F4-15 ✅ |
 | SIGEF Saldo | 3 | 3 | 0 | F4-16 ✅ |
 | SIGEF IC | 5 | 5 | 0 | F4-17 ✅ |
-| SIGEF Temporal | 0 | 3 | 3 | F4-18 |
-| **Total** | **73** | **78** | **5** | |
+| SIGEF Temporal | 3 | 3 | 0 | F4-18 ✅ |
+| **Total** | **76** | **78** | **2** | |
 
 ---
 
@@ -298,12 +301,11 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ### 🔴 Prioridade 1 — Cobertura de Regras (Motor)
 
-1. **F4-18** — SIGEF temporal/completude R083–R085 — ~5h
-   - Rodrigo confirmou R083 (dados estáticos entre meses) e R085 (depreciação sem movimento) como prioridade alta
-   - Aguardando MSC de **encerramento 2025** + **janeiro 2026** de Rodrigo para testar R054/R083 com dados reais
-   - Rodrigo enviará novas regras de integridade ~2026-05-14 (quinta-feira)
+1. **Gap estrutural** — formalizar task para `R0010` e `R0011` — ~4h
+   - `R0010`: cabeçalho na primeira linha
+   - `R0011`: valor não-negativo
 
-### 🟡 Prioridade 2 — Qualidade + SIGEF
+### 🟡 Prioridade 2 — Qualidade + Fechamento documental
 
 (Todas as tasks originais concluídas)
 
@@ -338,12 +340,12 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 | Métrica | Valor |
 |---|---|
-| Regras implementadas | 73 / 78 (93.5%) |
-| Testes coletados | ~862 |
-| Cobertura de categorias | 14/15 com ≥1 regra |
+| Regras implementadas | 76 / 78 (97.4%) |
+| Testes coletados | 917 |
+| Cobertura de categorias | 15/15 com ≥1 regra |
 | Frontend telas | 10/10 navegáveis |
 | Endpoints API | 19 |
-| Lint (ruff + mypy + tsc + eslint) | ✅ Limpo |
+| Lint (ruff + mypy + tsc + eslint) | ✅ OK (ESLint com 2 warnings de Fast Refresh) |
 | Vite build | ✅ Passando |
 
 ---
@@ -370,8 +372,8 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 ## Referências
 
 - [regras_catalogo.md](../ref/regras_catalogo.md) — Especificação completa das 78 regras
-- [fase0_plan.md](fase0_plan.md) — Plano do frontend (concluído)
-- [fase3_plan.md](fase3_plan.md) — Plano de regras core (concluído)
-- [fase4_plan.md](fase4_plan.md) — Plano de cobertura total + scoring
+- [README.md](../README.md) — Visão geral, setup e comandos
+- [CLAUDE.md](../CLAUDE.md) — Convenções operacionais do repositório
+- [fase0_plan.md](fase0_plan.md) — Plano do frontend e pendências F0-03/F0-04
 - [modelo_pontuacao.md](modelo_pontuacao.md) — Modelo de scoring 0-100 (A-E)
 - [backlog_regras_msc_completo.xlsx](../backlog_regras_msc_completo.xlsx) — Planilha original do catálogo

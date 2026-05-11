@@ -60,3 +60,7 @@ htmlcov/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.reports_test_tmp/
+.snapshot_test_tmp/
+graphify-out/
+docs/superpowers/

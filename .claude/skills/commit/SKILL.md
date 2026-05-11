@@ -37,7 +37,7 @@ git commit -m "F3-07: fix ref_loader cache reset between tests"
 git commit -m "F3-15: extract build_issues helper to Rule base class"
 
 # Documentation
-git commit -m "F3-01: fill CODEX.md agent guide with F3 patterns"
+git commit -m "F4-20: update backlog and operational docs"
 ```
 
 ## Process
@@ -45,9 +45,9 @@ git commit -m "F3-01: fill CODEX.md agent guide with F3 patterns"
 ### Step 1: Pre-commit checks
 
 ```bash
-pytest                    # all tests must pass
-ruff check src/ tests/    # no lint errors
-mypy src/                 # no type errors
+pytest                         # all tests must pass
+ruff check src/ tests/ app/    # no lint errors
+mypy src/ app/api/             # no type errors
 ```
 
 Only commit when all three pass.
@@ -94,19 +94,22 @@ Expected: shows the commit with the correct format.
 
 If you don't know the exact task number, use the closest one and note it's approximate. The format must always start with `F<N>-`.
 
-Current phase (as of 2026-03-31): **F3** — full rule catalogue R001–R070.
+Current active closing phases:
+
+- **F4/F5** for remaining catalogue, infra and delivery work
+- check `doc/backlog.md` before choosing task id
 
 ## Branches
 
-- `main` — always stable, tests passing
-- `feat/F3-XX-descricao` — one branch per backlog task
-- Merge via PR (no direct push to main)
+- `main` — stable branch
+- `feat/F<N>-XX-descricao` — one branch per backlog task when working by task
+- prefer PR workflow unless an explicit direct push was requested
 
 ## Checklist
 
 - [ ] `pytest` passes
-- [ ] `ruff check src/ tests/` clean
-- [ ] `mypy src/` clean
+- [ ] `ruff check src/ tests/ app/` clean
+- [ ] `mypy src/ app/api/` clean
 - [ ] Only relevant files staged
 - [ ] No secrets, no `data/`, no `.venv/`
 - [ ] Message format: `F<N>-XX: description`

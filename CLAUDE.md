@@ -1,4 +1,4 @@
-# CLAUDE.md — Contexto de Desenvolvimento do ranking_msc
+# CLAUDE.md — Contexto Operacional do `ranking_msc`
 
 > Este arquivo é o **contexto permanente** do projeto. Leia-o inteiro antes de
 > implementar qualquer task. Ele garante consistência entre sessões, devs e sprints.
@@ -8,7 +8,8 @@
 ## 1. O que é este projeto
 
 **ranking_msc** é um motor de validação contábil da MSC (Matriz de Saldos Contábeis)
-para o Ranking SICONFI. Aplicação interna da prefeitura, multiusuário, Python + Panel.
+para o Ranking SICONFI. Aplicação interna da prefeitura, multiusuário, com
+**motor Python + FastAPI + React/TypeScript**.
 
 O pipeline principal é:
 
@@ -16,8 +17,15 @@ O pipeline principal é:
 CSV MSC → read_msc_csv() → normalize_ic() → run_engine(regras) → snapshot + Excel + log
 ```
 
-**Fase 2 concluída** (F2-11 a F2-23). Iniciando **Fase 3**: implementação do catálogo completo de regras (R001–R070).
-Dashboard (Panel) e deploy no servidor são a Fase 5.
+O estado de referência do projeto fica em `doc/backlog.md`.
+
+Resumo atual:
+
+- 73 de 78 regras implementadas
+- API FastAPI em `app/api/`
+- frontend React/Vite em `web/`
+- Panel mantido apenas como legado em `app/web_app_legacy.py`
+- backlog ativo: F4-18, gap estrutural R0010/R0011 e Fase 5
 
 ---
 
@@ -25,11 +33,16 @@ Dashboard (Panel) e deploy no servidor são a Fase 5.
 
 ```
 ranking_msc/
-├── app/web_app.py                  # Interface Panel (NÃO alterar na Fase 2)
+├── app/
+│   ├── api/                        # API FastAPI
+│   └── web_app_legacy.py           # Interface Panel (legado)
 ├── config/settings.yaml            # Config local (NÃO versionado)
 ├── config/settings.yaml.example    # Template versionado
 ├── scripts/
-│   └── run_pipeline.py             # CLI de execução do pipeline
+│   ├── run_pipeline.py             # CLI de execução individual
+│   ├── run_batch.py                # CLI batch multi-competência
+│   ├── compare_periods.py          # CLI de comparação temporal
+│   └── _cli_helpers.py             # Helpers compartilhados dos CLIs
 ├── src/ranking_msc/
 │   ├── __init__.py                 # __version__
 │   ├── schemas.py                  # Colunas dos DataFrames (contratos de dados)
@@ -68,6 +81,7 @@ ranking_msc/
 │   ├── snapshots/<YYYY-MM>/        # Parquet por competência
 │   ├── reports/                    # Excel gerados
 │   └── logs/                       # ranking_msc.jsonl
+├── web/                            # Frontend React + TS + Vite
 ├── pyproject.toml
 ├── README.md
 ├── CLAUDE.md                       # ← ESTE ARQUIVO
@@ -428,9 +442,9 @@ F3-18: end-to-end pipeline integration test
 ### Antes de commitar
 
 ```bash
-pytest                    # testes passam?
-ruff check src/ tests/    # lint ok?
-mypy src/                 # tipos ok?
+pytest                         # testes passam?
+ruff check src/ tests/ app/    # lint ok?
+mypy src/ app/api/             # tipos ok?
 ```
 
 ---
@@ -449,7 +463,7 @@ mypy src/                 # tipos ok?
 | Regras | Classe ABC + Registry + decorator | Extensível sem modificar engine |
 | Testes | pytest | Padrão da indústria, fixtures, boa UX |
 | Lint | ruff | Rápido, substitui flake8+isort+pyupgrade |
-| Web (futuro) | Panel + Plotly | Dashboards interativos sem frontend separado |
+| Web | FastAPI + React/Vite | API fina, SPA separada e build estático |
 
 ---
 
@@ -465,7 +479,7 @@ mypy src/                 # tipos ok?
 - **Não commitar `config/settings.yaml`** — só o `.example` vai pro repo
 - **Não commitar dados de `data/`** — está no `.gitignore`
 - **Não criar dependências desnecessárias** — discutir antes de adicionar pacote
-- **Não alterar `app/web_app.py` na Fase 3** — dashboard é Fase 5
+- **Não tratar `app/web_app_legacy.py` como superfície principal** — a interface oficial é FastAPI + React
 - **Não comparar colunas de texto de tabelas de referência sem `.str.strip()`** — `load_pcasp()` e outros loaders não normalizam colunas como `nivel`, `status`, `nat_saldo`; sempre use `.assign(col=lambda x: x[col].str.strip())` no `assign` do merge antes de filtrar
 
 ---
@@ -512,16 +526,7 @@ Antes de marcar uma task como concluída, verificar:
 - [ ] Caminhos de diretório via `settings.paths` (não hardcoded)
 - [ ] Testes escritos (positivo + negativo)
 - [ ] `pytest` passa
-- [ ] `ruff check src/ tests/` sem erros
-- [ ] `mypy src/` sem erros
+- [ ] `ruff check src/ tests/ app/` sem erros
+- [ ] `mypy src/ app/api/` sem erros
 - [ ] Docstrings em português em toda função/classe pública
 - [ ] Se é regra: segue o padrão da seção 4.1 completo
-
-## graphify
-
-This project has a graphify knowledge graph at graphify-out/.
-
-Rules:
-- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
-- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
-- After modifying code files in this session, run `python3 -c "from graphify.watch import _rebuild_code; from pathlib import Path; _rebuild_code(Path('.'))"` to keep the graph current
