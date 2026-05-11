@@ -80,3 +80,8 @@ from ranking_msc.rules.r082 import R082  # noqa: F401
 from ranking_msc.rules.r086 import R086  # noqa: F401
 from ranking_msc.rules.r087 import R087  # noqa: F401
 from ranking_msc.rules.r088 import R088  # noqa: F401
+from ranking_msc.rules.r089 import R089  # noqa: F401
+from ranking_msc.rules.r090 import R090  # noqa: F401
+from ranking_msc.rules.r091 import R091  # noqa: F401
+from ranking_msc.rules.r092 import R092  # noqa: F401
+from ranking_msc.rules.r093 import R093  # noqa: F401

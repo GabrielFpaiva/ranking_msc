@@ -1,0 +1,121 @@
+"""
+Regra R092 — Despesa orçamentária sem Função/Subfunção (SIGEF V16).
+
+Dimensão: IC
+Severidade padrão: ALERTA
+
+Lógica:
+    Contas cujo id_ic exige Função/Subfunção (FS) no IC_MAP devem ter FS
+    preenchida.  São as contas das classes 5, 6, 7 e 8 classificadas pelo PCASP
+    com id_ic=7 ou 9.
+
+    SE pcasp[conta].id_ic está em {id_ics que exigem FS}
+       AND fs está vazio/ausente
+    → ALERTA
+
+    Valores considerados vazios: "", "0", "nan".
+
+    Contas sem id_ic no PCASP ou com id_ic que não exige FS são ignoradas.
+
+Referência:
+    Ranking Siconfi 2026 — verificação V16; Portaria STN 642/2026.
+    Depende de R020 (IC_MAP) e R028 (FS válida).
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
+import pandas as pd
+
+from ranking_msc.io.ref_loader import IC_MAP, load_pcasp
+from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
+
+if TYPE_CHECKING:
+    from ranking_msc.engine.executor import EngineContext
+
+logger = logging.getLogger("ranking_msc")
+
+_IC_ALVO = "FS"
+_ID_IC_COM_FS: frozenset[str] = frozenset(
+    str(k) for k, v in IC_MAP.items() if _IC_ALVO in v
+)
+
+
+@register_rule
+class R092(Rule):
+    """Detecta contas de despesa orçamentária sem Função/Subfunção obrigatória."""
+
+    rule_id = "R092"
+    rule_name = "Despesa sem FS"
+    dimensao = "IC"
+
+    def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
+        """Identifica contas com id_ic exigindo FS mas FS vazia.
+
+        Args:
+            df: DataFrame normalizado com colunas ``conta_contabil`` e ``fs``.
+            context: metadados da execução.
+
+        Returns:
+            DataFrame de pendências — uma linha por conta violadora.
+        """
+        _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
+
+        if "fs" not in df.columns:
+            return self.build_issues([])
+
+        # 1. Carregar PCASP e obter id_ic
+        pcasp_raw = load_pcasp(context.settings.paths.ref_dir)
+        if "id_ic" not in pcasp_raw.columns:
+            logger.warning(
+                "R092: coluna 'id_ic' ausente em pcasp.csv — regra desativada.",
+                extra=_extra,
+            )
+            return self.build_issues([])
+
+        pcasp = pcasp_raw[["conta_contabil", "id_ic"]].copy()
+        pcasp["id_ic"] = pcasp["id_ic"].astype(str).str.strip()
+
+        # 2. Join para obter id_ic de cada conta
+        msc = df[["conta_contabil", "fs"]].copy()
+        merged = msc.merge(pcasp, on="conta_contabil", how="left")
+
+        # 3. Manter apenas contas cujo id_ic exige FS
+        merged = merged[merged["id_ic"].isin(_ID_IC_COM_FS)]
+        if merged.empty:
+            return self.build_issues([])
+
+        # 4. Identificar FS vazia/ausente (None, pd.NA, NaN, "0", "NAN" etc.)
+        violacoes = merged[~ic_mask_informada(merged["fs"])].copy()
+
+        if violacoes.empty:
+            return self.build_issues([])
+
+        logger.warning(
+            "R092: %d conta(s) de despesa orçamentária sem FS. competência=%s",
+            len(violacoes),
+            context.competencia,
+            extra=_extra,
+        )
+
+        conta_s = violacoes["conta_contabil"].astype(str)
+        id_ic_s = violacoes["id_ic"].astype(str)
+
+        issues_df = pd.DataFrame({
+            "severidade": "ALERTA",
+            "conta_contabil": conta_s.values,
+            "descricao": (
+                "Conta '"
+                + conta_s
+                + "' (despesa orçamentária, id_ic="
+                + id_ic_s
+                + "): FS obrigatória não preenchida (SIGEF V16)."
+            ).values,
+            "valor_esperado": "FS preenchida",
+            "valor_encontrado": "FS vazia",
+            "competencia": context.competencia,
+        })
+
+        return self.build_issues(issues_df.to_dict("records"))

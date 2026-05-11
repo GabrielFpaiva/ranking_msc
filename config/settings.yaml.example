@@ -87,7 +87,12 @@ rules:
     - "R086"
     - "R087"
     - "R088"
-    # R089-R111: a implementar nas próximas sprints
+    - "R089"
+    - "R090"
+    - "R091"
+    - "R092"
+    - "R093"
+    # Próximas sprints: R083-R085 (F4-18)
   fail_fast: false                    # true = para ao primeiro ERRO
 
 security:
