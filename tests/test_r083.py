@@ -111,6 +111,45 @@ class TestR083:
             result = rule.execute(df, engine_context)
         assert len(result) == 0
 
+    def test_conta_nova_no_atual_nao_gera_alerta(self, engine_context):
+        """Conta nova no atual → key-sets diferentes → sem ALERTA mesmo SF igual na interseção."""
+        rule = R083()
+        # Conta A idêntica nos dois meses + conta C nova apenas no atual
+        df = pd.DataFrame({
+            "conta_contabil": ["111110100", "333330100"],
+            "po": ["10131", "10131"],
+            "saldo_final_debito": [100.0, 500.0],
+            "saldo_final_credito": [0.0, 0.0],
+        })
+        prev_df = pd.DataFrame({
+            "conta_contabil": ["111110100"],
+            "po": ["10131"],
+            "saldo_final_debito": [100.0],
+            "saldo_final_credito": [0.0],
+        })
+        with patch("ranking_msc.rules.r083.read_snapshot", return_value=prev_df):
+            result = rule.execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_conta_removida_no_atual_nao_gera_alerta(self, engine_context):
+        """Conta removida no atual → key-sets diferem → sem ALERTA mesmo SF igual na interseção."""
+        rule = R083()
+        df = pd.DataFrame({
+            "conta_contabil": ["111110100"],
+            "po": ["10131"],
+            "saldo_final_debito": [100.0],
+            "saldo_final_credito": [0.0],
+        })
+        prev_df = pd.DataFrame({
+            "conta_contabil": ["111110100", "211110100"],
+            "po": ["10131", "10131"],
+            "saldo_final_debito": [100.0, 200.0],
+            "saldo_final_credito": [0.0, 0.0],
+        })
+        with patch("ranking_msc.rules.r083.read_snapshot", return_value=prev_df):
+            result = rule.execute(df, engine_context)
+        assert len(result) == 0
+
     def test_multicontas_uma_diferente_sem_alerta(self, engine_context):
         """Mesmo uma conta diferente entre meses → sem ALERTA (não é 100% idêntico)."""
         rule = R083()

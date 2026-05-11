@@ -13,8 +13,10 @@ Lógica:
     SE existe_snapshot_anterior:
         Filtra df WHERE po == PO_EXECUTIVO_MUNICIPAL
         Agrega SF por conta+ICs para o mês atual e o anterior
-        SE TODAS as linhas têm SF idêntico entre meses → 1 ALERTA global
-        SE NÃO há diferença alguma → OK (ou mês sem registros executivos)
+        SE os conjuntos de chaves (conta+ICs) são iguais nos dois meses
+        E TODAS as linhas têm SF idêntico entre meses → 1 ALERTA global
+        SE os key-sets diferem (conta nova ou removida) → OK, meses são diferentes
+        SE há diferença em algum SF → OK
 
     Se o snapshot anterior não existir, a regra é saltada silenciosamente.
 
@@ -187,6 +189,13 @@ class R083(Rule):
         )
 
         if merged.empty:
+            return self.build_issues([])
+
+        # KEY-SET CHECK: o inner merge descarta silenciosamente chaves que só
+        # existem num dos lados. Se o resultado tem menos linhas do que qualquer
+        # um dos lados, há contas novas ou removidas — os meses NÃO são
+        # estruturalmente iguais, logo não se trata de copy-paste.
+        if len(merged) != len(agg_atual) or len(merged) != len(agg_ant):
             return self.build_issues([])
 
         # Verifica se TODOS os saldos são idênticos (dentro de tolerância zero —
