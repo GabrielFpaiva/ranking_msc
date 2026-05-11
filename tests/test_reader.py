@@ -262,6 +262,41 @@ class TestReadMscCsvNegativo:
         with pytest.raises(InputFormatError, match="mínimo 3"):
             read_msc_csv(path)
 
+    def test_header_na_primeira_linha_emite_r0010_sem_abortar(self, tmp_path: Path) -> None:
+        """Arquivo sem metadata, começando no header, emite R0010 e continua parseável."""
+        content = (
+            b"CONTA;IC1;TIPO1;IC2;TIPO2;IC3;TIPO3;IC4;TIPO4;IC5;TIPO5;IC6;TIPO6"
+            b";Valor;Tipo_valor;Natureza_valor\r"
+            b"111110200;10131;PO;;;;;;;;;;;100.00;beginning_balance;D"
+        )
+        path = tmp_path / "header_primeira_linha.csv"
+        path.write_bytes(content)
+
+        result = read_msc_csv(path)
+
+        r0010 = [i for i in result.pre_pivot_issues if i["regra"] == "R0010"]
+        assert len(r0010) == 1
+        assert len(result.df) == 1
+
+    def test_valor_negativo_emite_r0011_sem_abortar(
+        self,
+        tmp_path: Path,
+        build_msc_csv: Callable[..., bytes],
+    ) -> None:
+        """Valor negativo no CSV bruto gera R0011 em pre_pivot_issues."""
+        rows = [
+            ["111110200", "10131", "PO", "", "", "", "", "", "", "", "", "", "",
+             "-100.00", "beginning_balance", "D"],
+        ]
+        path = tmp_path / "valor_negativo.csv"
+        path.write_bytes(build_msc_csv(rows=rows))
+
+        result = read_msc_csv(path)
+
+        r0011 = [i for i in result.pre_pivot_issues if i["regra"] == "R0011"]
+        assert len(r0011) == 1
+        assert r0011[0]["valor_encontrado"] == "-100.00"
+
 
 # ---------------------------------------------------------------------------
 # read_msc_csv — testes com CSV real (amostras)

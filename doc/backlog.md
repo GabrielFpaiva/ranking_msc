@@ -1,14 +1,14 @@
 # Backlog Consolidado — Ranking MSC
 
 > **Atualizado:** 2026-05-11
-> **Estado atual:** 76 regras implementadas · 917 testes coletados · Fase 4 em andamento (F4-01→F4-19 concluídos)
+> **Estado atual:** 78 regras implementadas · 923 testes coletados · Fase 4 em andamento (F4-01→F4-19 concluídos)
 
 ---
 
 ## Visão Geral
 
 O projeto contém **78 regras** no catálogo total (67 originais + 11 SIGEF/JPA).
-Destas, **76 estão implementadas** e habilitadas. Restam **2 regras** a implementar.
+Destas, **78 estão implementadas** e habilitadas. Restam **0 regras** a implementar.
 
 O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estável.
 
@@ -18,13 +18,13 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 |---|---|---|---|
 | Fase 2 | Infraestrutura + 5 regras piloto + Pipeline | ✅ Concluída | 190 testes |
 | Fase 3 | Catálogo expandido → 35 regras | ✅ Concluída | 471 testes |
-| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-20 pendente) | 917 testes |
+| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-20 pendente) | 923 testes |
 | Fase 0 | Frontend MCRA (React+FastAPI replacing Panel) | ✅ Concluída | 8 commits |
 | Fase 5 | Produção (export, auth, deploy, docs, entrega) | 📋 Backlog | — |
 
 ---
 
-## Regras Implementadas (76/78)
+## Regras Implementadas (78/78)
 
 | Regra | Dimensão | Nome | Sev. | Fase |
 |---|---|---|---|---|
@@ -37,6 +37,8 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | R007 | Estrutura | Período válido | ERRO | F4 ✅ |
 | R008 | Estrutura | Separador de campo correto | ERRO | F4 ✅ |
 | R009 | Estrutura | Sem colunas extras não previstas | ALERTA | F4 ✅ |
+| R0010 | Estrutura | Header após metadata | ERRO | P0 ✅ |
+| R0011 | Estrutura | Valor não-negativo | ERRO | P0 ✅ |
 | R010 | PCASP | Conta existe no PCASP Estendido 2026 | ERRO | F2 ✅ |
 | R011 | PCASP | Conta é de último nível | ALERTA | F3 ✅ |
 | R012 | PCASP | Conta está Ativa no PCASP | ALERTA | F3 ✅ |
@@ -107,7 +109,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ---
 
-## Regras Pendentes (2/78)
+## Regras Pendentes (0/78)
 
 ### ~~Domínio Complementar (9 regras) — Task F4-12~~ ✅ Concluído
 
@@ -151,7 +153,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | R072 | Contas com registros atípicos | INFO | Contagem de registros outlier para uma conta |
 | R073 | Valores outliers extremos | INFO | Valores muito acima/abaixo do esperado para a conta |
 
-### Estrutura residual (2 regras) — Sem task (gap pós F4-07)
+### ~~Estrutura residual (2 regras) — Issue #80~~ ✅ Concluído
 
 | Regra | Nome | Sev. | Descrição |
 |---|---|---|---|
@@ -252,7 +254,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 | ID | Descrição | Horas | Dep. | Status | Origem |
 |---|---|---|---|---|---|
-| F5-01 | CI completo — adicionar lint+build TS no GitHub Action | 2 | — | ❌ A Fazer | F0-01 |
+| F5-01 | CI completo — adicionar lint+build TS no GitHub Action | 2 | — | ✅ Concluído | F0-01 |
 | F5-02 | Cutover Panel — remover `web_app_legacy.py` + deps | 1 | — | ❌ A Fazer | F0-05 |
 | F5-03 | Exportar PDF — Visão Executiva HTML→PDF | 6 | — | ❌ A Fazer | F0-06 / F5-06(xlsx) |
 | F5-04 | Autenticação multiusuário (JWT + namespacing) | 8 | — | ❌ A Fazer | F0-07 |
@@ -278,7 +280,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 | Categoria | Implementadas | Total | Faltam | Task |
 |---|:---:|:---:|:---:|---|
-| Estrutura | 10 | 12 | 2 | — (gap residual R0010, R0011) |
+| Estrutura | 12 | 12 | 0 | Issue #80 ✅ |
 | PCASP | 5 | 5 | 0 | — |
 | IC | 21 | 22 | 0 | F4-12 ✅ |
 | PO | 2 | 2 | 0 | F4-12 ✅ |
@@ -293,29 +295,22 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | SIGEF Saldo | 3 | 3 | 0 | F4-16 ✅ |
 | SIGEF IC | 5 | 5 | 0 | F4-17 ✅ |
 | SIGEF Temporal | 3 | 3 | 0 | F4-18 ✅ |
-| **Total** | **76** | **78** | **2** | |
+| **Total** | **78** | **78** | **0** | |
 
 ---
 
 ## Prioridade Sugerida (Próximos Passos)
 
-### 🔴 Prioridade 1 — Cobertura de Regras (Motor)
-
-1. **Gap estrutural** — formalizar task para `R0010` e `R0011` — ~4h
-   - `R0010`: cabeçalho na primeira linha
-   - `R0011`: valor não-negativo
-
-### 🟡 Prioridade 2 — Qualidade + Fechamento documental
+### 🟡 Prioridade 1 — Qualidade + Fechamento documental
 
 (Todas as tasks originais concluídas)
 
-### 🟢 Prioridade 3 — Infra + Polish
+### 🟢 Prioridade 2 — Infra + Polish
 
 9. **F4-20** — Documentação Fase 4 + handoff Fase 5 — ~4h
-10. **F5-01** — CI completo (front+back) — ~2h
-11. **F5-02** — Cutover Panel — ~1h
+10. **F5-02** — Cutover Panel — ~1h
 
-### 🔵 Prioridade 4 — Produção (Fase 5)
+### 🔵 Prioridade 3 — Produção (Fase 5)
 
 14. **F5-03** — Exportar PDF — ~6h
 15. **F5-04** — Autenticação multiusuário — ~8h
@@ -325,7 +320,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 19. **F5-08** — Docs settings prod — ~2h
 20. **F5-09** — Bug fixes buffer — ~4h
 
-### ⚪ Prioridade 5 — Entrega + Nice-to-have
+### ⚪ Prioridade 4 — Entrega + Nice-to-have
 
 21. **F5-10** — Treinamento equipe contábil — ~4h
 22. **F5-11** — Entrega final + handoff — ~2h
@@ -340,8 +335,8 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 | Métrica | Valor |
 |---|---|
-| Regras implementadas | 76 / 78 (97.4%) |
-| Testes coletados | 917 |
+| Regras implementadas | 78 / 78 (100%) |
+| Testes coletados | 923 |
 | Cobertura de categorias | 15/15 com ≥1 regra |
 | Frontend telas | 10/10 navegáveis |
 | Endpoints API | 19 |

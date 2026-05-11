@@ -100,7 +100,8 @@ class RawMSC:
         pre_pivot_issues: violações estruturais detectadas antes/durante pivot —
             inclui erros de Tipo_valor/Natureza_valor (R003, R004), código
             Siconfi inválido (R006), período inválido (R007), separador
-            incorreto (R008), contagem de colunas IC/TIPO (R009), pares
+            incorreto (R008), contagem de colunas IC/TIPO (R009), header
+            na primeira linha (R0010), valor negativo (R0011), pares
             IC/TIPO desemparelhados (R033) e ordem IC incorreta (R082).
     """
 
@@ -149,22 +150,46 @@ def read_msc_csv(
     text = _read_and_decode(file, encoding)
     lines = text.strip().split("\n")
 
-    if len(lines) < 3:
+    header_on_first_line = bool(lines) and _looks_like_header_line(lines[0])
+    min_lines = 2 if header_on_first_line else 3
+
+    if len(lines) < min_lines:
+        expected_layout = "header + dados" if header_on_first_line else "metadata + header + dados"
         raise InputFormatError(
             f"Arquivo MSC com apenas {len(lines)} linha(s) — "
-            "esperado no mínimo 3 (metadata + header + dados). "
+            f"esperado no mínimo {min_lines} ({expected_layout}). "
             f"Fonte: {source}"
         )
 
+    if header_on_first_line:
+        metadata_line = ""
+        header_line = lines[0]
+        data_lines = lines[1:]
+        metadata_issues: list[dict[str, object]] = [{
+            "regra": "R0010",
+            "conta_contabil": "",
+            "campo": "layout_csv",
+            "valor_encontrado": "header na primeira linha; metadata ausente",
+            "competencia": "",
+        }]
+        competencia = "0000-00"
+        siconfi = "_"
+    else:
+        metadata_line = lines[0]
+        header_line = lines[1]
+        data_lines = lines[2:]
+        metadata_issues = []
+        competencia = ""
+        siconfi = ""
+
     effective_sep, r008_issues = _detect_effective_separator(
-        lines[0], lines[1], separator, data_lines=lines[2:]
+        metadata_line, header_line, separator, data_lines=data_lines
     )
 
     # Quando o separador efetivo do corpo difere do separador do header (ex: header
     # usa vírgula ou pipe mas dados usam ";"), normalizar o header para usar o separador
     # do corpo antes de passar para pd.read_csv.  Isso garante parse correto enquanto
     # R008 já foi emitido acima.
-    header_line = lines[1]
     _hcounts = {
         ";": header_line.count(";"),
         ",": header_line.count(","),
@@ -179,26 +204,27 @@ def read_msc_csv(
     # push parsing onto the wrong delimiter — that would corrupt siconfi /
     # competencia extraction and produce a false R006 instead of R007.
     # Ordem: ; (canônico) → | → , (consistente com R008/separator detection).
-    _meta = lines[0].strip()
-    if ";" in _meta:
-        meta_sep = ";"
-    elif "|" in _meta:
-        meta_sep = "|"
-    elif "," in _meta:
-        meta_sep = ","
-    else:
-        meta_sep = separator
-    competencia, siconfi = _extract_metadata(lines[0], meta_sep)
-    metadata_issues = _validate_metadata(siconfi, competencia)
-    # Sanitizar antes de usar em caminhos — R006/R007 já capturaram os valores originais.
-    siconfi, competencia = _sanitize_for_paths(siconfi, competencia)
+    if not header_on_first_line:
+        _meta = metadata_line.strip()
+        if ";" in _meta:
+            meta_sep = ";"
+        elif "|" in _meta:
+            meta_sep = "|"
+        elif "," in _meta:
+            meta_sep = ","
+        else:
+            meta_sep = separator
+        competencia, siconfi = _extract_metadata(metadata_line, meta_sep)
+        metadata_issues = _validate_metadata(siconfi, competencia)
+        # Sanitizar antes de usar em caminhos — R006/R007 já capturaram os valores originais.
+        siconfi, competencia = _sanitize_for_paths(siconfi, competencia)
     logger.info(
         "Lendo CSV MSC: siconfi=%s, competência=%s, fonte=%s",
         siconfi, competencia, source,
         extra={"siconfi": siconfi, "competencia": competencia, "modulo": "reader_msc"},
     )
 
-    csv_text = "\n".join([header_line] + lines[2:])
+    csv_text = "\n".join([header_line] + data_lines)
     df = _parse_csv(csv_text, effective_sep, source)
     r001_r009_issues = _validate_columns(df, source)
 
@@ -297,6 +323,21 @@ _METADATA_PATTERNS: dict[str, re.Pattern[str]] = {
 _SICONFI_RE = re.compile(r"^\d{7}EX$")
 _COMPETENCIA_SAFE_RE = re.compile(r"^\d{4}-\d{2}$")
 _PATH_UNSAFE_RE = re.compile(r"[^A-Za-z0-9\-_]")
+
+
+def _looks_like_header_line(first_line: str) -> bool:
+    """Retorna True quando a primeira linha parece ser o header do CSV."""
+    line = first_line.strip()
+    if not line:
+        return False
+
+    counts = {sep: line.count(sep) for sep in (";", ",", "|")}
+    winner = max(counts, key=lambda sep: counts[sep])
+    if counts[winner] == 0:
+        return False
+
+    tokens = {token.strip() for token in line.split(winner)}
+    return set(_REQUIRED_CSV_COLUMNS).issubset(tokens)
 
 
 def _extract_metadata(first_line: str, sep: str = ";") -> tuple[str, str]:
@@ -650,6 +691,18 @@ def _pivot_values(
         for idx in df.index[_invalidos]
     ]
 
+    _negativos = (~_invalidos) & (_valor_num < 0)
+    r0011_issues: list[dict[str, object]] = [
+        {
+            "regra": "R0011",
+            "conta_contabil": str(df.loc[idx, "CONTA"]) if "CONTA" in df.columns else "",
+            "campo": "Valor",
+            "valor_encontrado": str(df.loc[idx, "Valor"]),
+            "competencia": competencia,
+        }
+        for idx in df.index[_negativos]
+    ]
+
     # R071: verificar escala decimal pré-pivot, antes da agregação por soma.
     # Valores como 0.005 somados em pares produzem 0.01 pós-pivot, ocultando
     # a violação.  A verificação deve ocorrer aqui sobre o Valor bruto.
@@ -798,7 +851,7 @@ def _pivot_values(
     final_cols = [c for c in RAW_MSC_COLUMNS if c in pivoted.columns]
     pivoted = pivoted[final_cols]
 
-    return pivoted, pre_pivot_issues + r005_issues + r071_issues
+    return pivoted, pre_pivot_issues + r005_issues + r0011_issues + r071_issues
 
 
 def _check_ic_pairs(df: pd.DataFrame, competencia: str) -> list[dict[str, object]]:

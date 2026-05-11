@@ -18,6 +18,8 @@ import pytest
 from ranking_msc.config.settings import Settings
 from ranking_msc.engine.executor import EngineContext
 from ranking_msc.rules.r001 import R001
+from ranking_msc.rules.r0010 import R0010
+from ranking_msc.rules.r0011 import R0011
 from ranking_msc.rules.r002 import R002
 from ranking_msc.rules.r003 import R003
 from ranking_msc.rules.r004 import R004
@@ -195,6 +197,82 @@ class TestR004:
         )
         result = R004().execute(_empty_df(), engine_context_com_r003)
         assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R0010 — Header na primeira linha
+# ---------------------------------------------------------------------------
+
+
+class TestR0010:
+    def test_pre_pivot_sem_violacoes_r0010_nao_gera_pendencia(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        result = R0010().execute(_empty_df(), engine_context)
+        assert len(result) == 0
+
+    def test_pre_pivot_com_violacao_r0010_gera_pendencia_erro(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        context = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R0010",
+                    "valor_encontrado": "header na primeira linha; metadata ausente",
+                }
+            ],
+        )
+        result = R0010().execute(_empty_df(), context)
+
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R0010"
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert "primeira linha" in result.iloc[0]["descricao"]
+
+
+# ---------------------------------------------------------------------------
+# R0011 — Valor não-negativo
+# ---------------------------------------------------------------------------
+
+
+class TestR0011:
+    def test_pre_pivot_sem_violacoes_r0011_nao_gera_pendencia(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        result = R0011().execute(_empty_df(), engine_context)
+        assert len(result) == 0
+
+    def test_pre_pivot_com_violacao_r0011_gera_pendencia_erro(
+        self,
+        engine_context: EngineContext,
+    ) -> None:
+        context = EngineContext(
+            competencia=engine_context.competencia,
+            siconfi=engine_context.siconfi,
+            settings=engine_context.settings,
+            usuario=engine_context.usuario,
+            pre_pivot_issues=[
+                {
+                    "regra": "R0011",
+                    "conta_contabil": "111110200",
+                    "valor_encontrado": "-100.00",
+                }
+            ],
+        )
+        result = R0011().execute(_empty_df(), context)
+
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R0011"
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert result.iloc[0]["conta_contabil"] == "111110200"
+        assert "negativo" in result.iloc[0]["descricao"]
 
 
 # ---------------------------------------------------------------------------
