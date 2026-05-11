@@ -17,8 +17,13 @@ from __future__ import annotations
 
 import logging
 import platform
-import resource
 import time
+
+try:
+    import resource as _resource_mod
+    _HAS_RESOURCE = True
+except ImportError:
+    _HAS_RESOURCE = False
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -83,8 +88,10 @@ class _MeasureContext:
 
 
 def _get_rss_kb() -> int:
-    """Retorna RSS atual em kilobytes (Linux) ou bytes (macOS)."""
-    usage = resource.getrusage(resource.RUSAGE_SELF)  # type: ignore[attr-defined]
+    """Retorna RSS atual em kilobytes (Linux/macOS). Retorna 0 no Windows."""
+    if not _HAS_RESOURCE:
+        return 0
+    usage = _resource_mod.getrusage(_resource_mod.RUSAGE_SELF)  # type: ignore[attr-defined]
     rss: int = usage.ru_maxrss
     # Linux: ru_maxrss em KB; macOS: em bytes
     if platform.system() == "Darwin":
