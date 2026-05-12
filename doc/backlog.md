@@ -222,7 +222,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F3-15 | R060 (FP vs IND_SF) | ✅ |
 | F3-16 | Relatório com todas regras + categorias | ⏳ Parcial (Excel OK, mas sem aba separada por categoria) |
 
-### Fase 4 — Scoring + Cobertura Total 🟡 Em Andamento
+### Fase 4 — Scoring + Cobertura Total ✅ Concluída
 
 | ID | Descrição | Horas | Dep. | Status |
 |---|---|---|---|---|
