@@ -1,7 +1,7 @@
 # Backlog Consolidado — Ranking MSC
 
-> **Atualizado:** 2026-05-11
-> **Estado atual:** 78 regras implementadas · 923 testes coletados · Fase 4 em andamento (F4-01→F4-19 concluídos)
+> **Atualizado:** 2026-05-12
+> **Estado atual:** 78 regras implementadas · 923 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Próxima: Fase 5
 
 ---
 
@@ -18,7 +18,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 |---|---|---|---|
 | Fase 2 | Infraestrutura + 5 regras piloto + Pipeline | ✅ Concluída | 190 testes |
 | Fase 3 | Catálogo expandido → 35 regras | ✅ Concluída | 471 testes |
-| Fase 4 | Scoring + Batch + Compare + regras restantes | 🟡 Em andamento (F4-20 pendente) | 923 testes |
+| Fase 4 | Scoring + Batch + Compare + regras restantes | ✅ Concluída | 923 testes |
 | Fase 0 | Frontend MCRA (React+FastAPI replacing Panel) | ✅ Concluída | 8 commits |
 | Fase 5 | Produção (export, auth, deploy, docs, entrega) | 📋 Backlog | — |
 
@@ -245,7 +245,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F4-17 | SIGEF — IC detalhamento R089–R093 | 5 | R020, R024-R028 | ✅ Concluído |
 | F4-18 | SIGEF — Temporal/Completude R083–R085 | 5 | R054, R022 | ✅ Concluído |
 | F4-19 | Extrair helpers CLI compartilhados | 3 | F4-04 | ✅ Concluído |
-| F4-20 | Documentação Fase 4 + handoff Fase 5 | 4 | tudo | ❌ A Fazer |
+| F4-20 | Documentação Fase 4 + handoff Fase 5 | 4 | tudo | ✅ Concluído |
 
 ### Fase 5 — Produção + Entrega 📋 Backlog
 
@@ -307,8 +307,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ### 🟢 Prioridade 2 — Infra + Polish
 
-9. **F4-20** — Documentação Fase 4 + handoff Fase 5 — ~4h
-10. **F5-02** — Cutover Panel — ~1h
+9. **F5-02** — Cutover Panel — ~1h
 
 ### 🔵 Prioridade 3 — Produção (Fase 5)
 
@@ -324,8 +323,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 21. **F5-10** — Treinamento equipe contábil — ~4h
 22. **F5-11** — Entrega final + handoff — ~2h
-23. **F4-20** — Documentação final — ~4h
-24. **F0-02** — Recommendations engine — ~6h
+23. **F0-02** — Recommendations engine — ~6h
 25. **F0-03** — Ranking Regional — ~10h
 26. **F0-04** — Superávit por FR — ~6h
 
