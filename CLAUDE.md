@@ -21,11 +21,11 @@ O estado de referência do projeto fica em `doc/backlog.md`.
 
 Resumo atual:
 
-- 73 de 78 regras implementadas
+- **78 de 78 regras implementadas** (Fase 4 concluída — F4-01 a F4-20)
 - API FastAPI em `app/api/`
-- frontend React/Vite em `web/`
-- Panel mantido apenas como legado em `app/web_app_legacy.py`
-- backlog ativo: F4-18, gap estrutural R0010/R0011 e Fase 5
+- Frontend React/Vite em `web/` (Fase 0 concluída — 10 telas + 2 drawers)
+- Panel preservado apenas como legado em `app/web_app_legacy.py` (remoção: F5-02)
+- **Próxima fase: Fase 5** — produção, deploy Docker, auth, export PDF, manual
 
 ---
 
