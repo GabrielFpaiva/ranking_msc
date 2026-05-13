@@ -274,6 +274,104 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F0-03 | Ranking Regional — fonte de dados (dataset de outros entes) | 10 | ❌ A Fazer |
 | F0-04 | Superávit financeiro por FR (derivação contábil) | 6 | ❌ A Fazer |
 
+### Backlog Executável — Superávit por FR (F0-04)
+
+> Objetivo: substituir o `501` atual da rota `/api/superavit` por uma visão
+> funcional de resultado financeiro por Fonte de Recursos (FR), usando os
+> snapshots já gerados pelo motor.
+
+| ID | Task | Entrega | Dep. | Estimativa | Status |
+|---|---|---|---|---|---|
+| S1 | Definir regra contábil do cálculo | Lista fechada de contas/prefixos de ativo financeiro e passivo financeiro, com convenção de sinal validada | — | 2-4h | ❌ A Fazer |
+| S2 | Implementar agregador puro no motor | Função nova em `src/ranking_msc/outputs/aggregations.py` para agrupar por `FR` e calcular ativo, passivo e resultado | S1 | 3-5h | ❌ A Fazer |
+| S3 | Criar schema da API | Modelos novos em `app/api/schemas.py` para payload do superávit | S2 | 1h | ❌ A Fazer |
+| S4 | Implementar rota `/api/superavit` | Substituir `501` em `app/api/routes/superavit.py` por resposta funcional | S2, S3 | 1-2h | ❌ A Fazer |
+| S5 | Tipar integração do frontend | Atualizar `web/src/types.ts` e `web/src/api/client.ts` para consumir payload tipado | S3, S4 | 1h | ❌ A Fazer |
+| S6 | Implementar tela funcional | Substituir placeholder em `web/src/screens/Superavit.tsx` por total + tabela por FR | S5 | 2-4h | ❌ A Fazer |
+| S7 | Cobrir com testes | Testes unitários do agregador + API + ajuste do teste que hoje espera `501` | S2-S6 | 2-4h | ❌ A Fazer |
+
+**Especificação S1 — regra contábil proposta**
+
+- **Base normativa interna do projeto:** usar o campo `ind_sf` do `pcasp.csv`
+  como critério de classificação contábil, coerente com as regras `R061` e
+  `R062`.
+- **Filtro de escopo:** considerar apenas linhas da MSC normalizada com `fr`
+  informada e não vazia. A visão é “resultado financeiro por FR”, então linha
+  sem `FR` não entra no cálculo consolidado.
+- **Bloco Ativo Financeiro:** linhas cuja `conta_contabil` esteja no PCASP com
+  `ind_sf == "Financeiro"` e natureza de saldo devedora líquida.
+- **Bloco Passivo Financeiro:** linhas cuja `conta_contabil` esteja no PCASP com
+  `ind_sf == "Financeiro"` e natureza de saldo credora líquida.
+- **Bloco híbrido (`Financeiro/Permanente`):** excluir da primeira versão do
+  cálculo. Essas contas exigem critério adicional e não devem contaminar o
+  resultado da `S2`.
+- **Bloco Permanente:** excluir do cálculo. Contas com `ind_sf == "Permanente"`
+  não participam do superávit financeiro por FR.
+- **Valor base por linha:** usar saldo final líquido da linha:
+  `saldo_final_debito - saldo_final_credito`.
+- **Sinal contábil consolidado:**
+  ativo financeiro positivo = `saldo_final_debito - saldo_final_credito`;
+  passivo financeiro positivo = `saldo_final_credito - saldo_final_debito`.
+- **Agregação por FR:**
+  1. somar os valores do bloco de ativo financeiro por `FR`;
+  2. somar os valores do bloco de passivo financeiro por `FR`;
+  3. calcular `resultado_financeiro = ativo_financeiro - passivo_financeiro`.
+- **Campos mínimos esperados na resposta:** `fr`, `ativo_financeiro`,
+  `passivo_financeiro`, `resultado_financeiro`.
+- **Ordenação padrão da visão:** por `resultado_financeiro` decrescente, com
+  opção futura de ordenar por código `FR`.
+- **Tratamento de qualidade de dado:**
+  linhas com conta sem match no PCASP ficam fora do cálculo;
+  linhas com `FR` vazia ficam fora do cálculo;
+  linhas com `ind_sf` ausente ficam fora do cálculo.
+- **Validação cruzada recomendada antes do go-live:** comparar o total por `FR`
+  com um recorte manual de 1 competência real do PMJP para confirmar que a
+  classificação `Financeiro` no PCASP basta para a visão desejada.
+
+**Observação de escopo:**
+
+- Esta especificação privilegia consistência com o que já existe no projeto
+  hoje (`PCASP.ind_sf`, `R061`, `R062`, `FP`, `FR`) e minimiza heurística por
+  prefixo de conta.
+- Se a área contábil exigir inclusão de contas `Financeiro/Permanente`, isso
+  deve gerar uma revisão explícita da `S1` antes de implementar a `S2`.
+
+**Resumo técnico:**
+
+- Arquivos principais: `app/api/routes/superavit.py`, `app/api/schemas.py`,
+  `src/ranking_msc/outputs/aggregations.py`, `web/src/types.ts`,
+  `web/src/api/client.ts`, `web/src/screens/Superavit.tsx`.
+- Risco principal: definição contábil incorreta dos blocos de ativo/passivo
+  financeiro.
+- Faixa estimada total: **10-20h**.
+
+### Backlog Executável — Ranking Regional (F0-03)
+
+> Objetivo: substituir o `501` atual da rota `/api/ranking` por uma visão
+> comparativa do PMJP frente a outros entes, baseada em uma fonte benchmark
+> externa ou consolidada.
+
+| ID | Task | Entrega | Dep. | Estimativa | Status |
+|---|---|---|---|---|---|
+| R1 | Definir fonte oficial do benchmark | Decisão entre planilha consolidada, import manual de CSVs ou outra base comparável | — | 2-6h | ❌ A Fazer |
+| R2 | Definir formato canônico da base regional | Esquema mínimo com ente, `siconfi`, competência, pontuação, banda e pendências | R1 | 1-2h | ❌ A Fazer |
+| R3 | Criar loader/serviço da base regional | Módulo novo em `src/ranking_msc/io/` ou `src/ranking_msc/outputs/` para leitura/normalização do benchmark | R2 | 3-5h | ❌ A Fazer |
+| R4 | Implementar agregação de ranking | Cálculo de posição do PMJP, total de entes, mediana, top 10 e vizinhos | R3 | 2-4h | ❌ A Fazer |
+| R5 | Criar schema da API | Modelos novos em `app/api/schemas.py` para payload do ranking | R4 | 1h | ❌ A Fazer |
+| R6 | Implementar rota `/api/ranking` | Substituir `501` em `app/api/routes/ranking.py` por resposta funcional | R4, R5 | 1-2h | ❌ A Fazer |
+| R7 | Tipar integração do frontend | Atualizar `web/src/types.ts` e `web/src/api/client.ts` para consumir payload tipado | R5, R6 | 1h | ❌ A Fazer |
+| R8 | Implementar tela funcional | Substituir placeholder em `web/src/screens/Ranking.tsx` por posição, mediana e tabela comparativa | R7 | 2-4h | ❌ A Fazer |
+| R9 | Cobrir com testes | Testes do loader, agregação e API; ajuste do teste que hoje espera `501` | R3-R8 | 2-4h | ❌ A Fazer |
+
+**Resumo técnico:**
+
+- Arquivos principais: `app/api/routes/ranking.py`, `app/api/schemas.py`,
+  `web/src/types.ts`, `web/src/api/client.ts`, `web/src/screens/Ranking.tsx`,
+  mais um módulo novo para leitura/agregação da base benchmark.
+- Risco principal: indisponibilidade ou má definição da base comparativa.
+- Faixa estimada total: **13-28h** fora o esforço político/operacional para
+  obtenção da base.
+
 ---
 
 ## Gap de Regras por Categoria
