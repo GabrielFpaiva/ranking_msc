@@ -24,7 +24,6 @@ Resumo atual:
 - **78 de 78 regras implementadas** (Fase 4 concluída — F4-01 a F4-20)
 - API FastAPI em `app/api/`
 - Frontend React/Vite em `web/` (Fase 0 concluída — 10 telas + 2 drawers)
-- Panel preservado apenas como legado em `app/web_app_legacy.py` (remoção: F5-02)
 - **Próxima fase: Fase 5** — produção, deploy Docker, auth, export PDF, manual
 
 ---
@@ -34,8 +33,7 @@ Resumo atual:
 ```
 ranking_msc/
 ├── app/
-│   ├── api/                        # API FastAPI
-│   └── web_app_legacy.py           # Interface Panel (legado)
+│   └── api/                        # API FastAPI
 ├── config/settings.yaml            # Config local (NÃO versionado)
 ├── config/settings.yaml.example    # Template versionado
 ├── scripts/
@@ -479,7 +477,6 @@ mypy src/ app/api/             # tipos ok?
 - **Não commitar `config/settings.yaml`** — só o `.example` vai pro repo
 - **Não commitar dados de `data/`** — está no `.gitignore`
 - **Não criar dependências desnecessárias** — discutir antes de adicionar pacote
-- **Não tratar `app/web_app_legacy.py` como superfície principal** — a interface oficial é FastAPI + React
 - **Não comparar colunas de texto de tabelas de referência sem `.str.strip()`** — `load_pcasp()` e outros loaders não normalizam colunas como `nivel`, `status`, `nat_saldo`; sempre use `.assign(col=lambda x: x[col].str.strip())` no `assign` do merge antes de filtrar
 
 ---

@@ -60,7 +60,7 @@ Cada um vira PR próprio quando priorizado.
 | F0-02 | Recommendations engine | Lógica para derivar "ações recomendadas" (heurísticas a partir de top regras + dimensão fraca + tendência). | F0-00.E | Média |
 | F0-03 | Ranking Regional — fonte de dados | Definir e plugar dataset de outros entes (planilha SICONFI, API STN ou import manual de CSVs) para popular `/api/ranking`. | F0-00.E | Baixa |
 | F0-04 | Superávit financeiro por FR | Implementar derivação contábil (resultado financeiro = ativo financeiro − passivo financeiro por FR). | F0-00.D | Média |
-| F0-05 | Panel cutover definitivo | Remover `app/web_app_legacy.py` + dependências `panel`, `plotly`, `bokeh` do `pyproject.toml`. | F0-00.F + 1-2 sprints de validação | Alta |
+| F0-05 | Panel cutover definitivo | Remover `app/web_app_legacy.py` + dependências `panel`, `plotly`, `bokeh` do `pyproject.toml`. | F0-00.F + 1-2 sprints de validação | ✅ Concluído (F5-02) |
 | F0-06 | Exportar PDF | Geração HTML→PDF com `weasyprint` ou `reportlab` para a Visão Executiva (1 página) + Pendências completas. | F0-00.F | Alta |
 | F0-07 | Autenticação multiusuário | Login + token JWT + namespacing por usuário em snapshots. Substitui o hardcoded `usuario="sistema"`. | F0-00.F | Alta (produção) |
 | F0-08 | Deploy (Docker + nginx) | Dockerfile multi-stage (build do web + uvicorn + Python deps), compose com volume persistente para `data/`. | F0-07 | Alta (produção) |
@@ -88,4 +88,4 @@ Cada um vira PR próprio quando priorizado.
 - [ ] Topbar exibe competência ativa (vinda do último run); chip de SICONFI.
 - [ ] `pytest` ≥ 600 verdes, `ruff` + `mypy` + `tsc` + `eslint` + `vite build` limpos.
 - [ ] README atualizado com o novo "como rodar".
-- [ ] Panel preservado como `web_app_legacy.py` por 1-2 sprints.
+- [x] Panel removido via F5-02 (cutover concluído).
