@@ -1,7 +1,7 @@
 # Backlog Consolidado — Ranking MSC
 
-> **Atualizado:** 2026-05-12
-> **Estado atual:** 78 regras implementadas · 923 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Próxima: Fase 5
+> **Atualizado:** 2026-05-13
+> **Estado atual:** 78 regras implementadas · 923 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-02 ✅)
 
 ---
 
@@ -255,7 +255,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | ID | Descrição | Horas | Dep. | Status | Origem |
 |---|---|---|---|---|---|
 | F5-01 | CI completo — adicionar lint+build TS no GitHub Action | 2 | — | ✅ Concluído | F0-01 |
-| F5-02 | Cutover Panel — remover `web_app_legacy.py` + deps | 1 | — | ❌ A Fazer | F0-05 |
+| F5-02 | Cutover Panel — remover `web_app_legacy.py` + deps | 1 | — | ✅ Concluído | F0-05 |
 | F5-03 | Exportar PDF — Visão Executiva HTML→PDF | 6 | — | ❌ A Fazer | F0-06 / F5-06(xlsx) |
 | F5-04 | Autenticação multiusuário (JWT + namespacing) | 8 | — | ❌ A Fazer | F0-07 |
 | F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ❌ A Fazer | F0-08 / F5-07(xlsx) |
@@ -405,7 +405,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ### 🟢 Prioridade 2 — Infra + Polish
 
-9. **F5-02** — Cutover Panel — ~1h
+(F5-02 cutover Panel concluído)
 
 ### 🔵 Prioridade 3 — Produção (Fase 5)
 

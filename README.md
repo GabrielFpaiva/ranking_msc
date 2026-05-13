@@ -101,14 +101,6 @@ uvicorn app.api.main:app --host 0.0.0.0 --port 8000
 
 O FastAPI serve `web/dist/` como estático em `/` e as rotas em `/api/*`.
 
-### Rodar com Panel (legado)
-
-> **Nota:** O Panel está preservado como `app/web_app_legacy.py` por 1-2 sprints para validação.
-
-```bash
-panel serve app/web_app_legacy.py --show --autoreload
-```
-
 ### Rodar testes
 
 ```bash
@@ -153,7 +145,6 @@ ranking_msc/
 │   │   ├── deps.py             # Dependências (settings, logger, paths)
 │   │   ├── schemas.py          # Modelos Pydantic (contrato JSON)
 │   │   └── routes/             # Módulos de rota (run, score, rules, etc.)
-│   └── web_app_legacy.py       # Interface Panel (legado, preservado)
 ├── web/                        # Frontend React + TypeScript + Vite
 │   ├── src/
 │   │   ├── api/client.ts       # Wrapper fetch → FastAPI
