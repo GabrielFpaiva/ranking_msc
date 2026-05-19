@@ -45,7 +45,7 @@ Em **prod**: `uvicorn app.api.main:app` serve `/api/*` + `web/dist/` estático.
 
 - Python 3.11+
 - Node.js 18+ e npm
-- (Recomendado) ambiente virtual
+- `make`
 
 ### Setup local
 
@@ -53,22 +53,23 @@ Em **prod**: `uvicorn app.api.main:app` serve `/api/*` + `web/dist/` estático.
 # Clonar e entrar no repositório
 cd ranking_msc
 
-# Criar ambiente virtual Python
-python -m venv .venv
-source .venv/bin/activate        # Linux/Mac
-# .venv\Scripts\activate         # Windows
+# Bootstrap único: venv + deps Python + deps frontend + config + diretórios
+make bootstrap
+```
 
-# Instalar pacote em modo editável + dependências de dev
-pip install -e ".[dev]"
+O target `bootstrap` faz:
 
-# Copiar config de exemplo
-cp config/settings.yaml.example config/settings.yaml
+- cria `.venv`
+- instala o pacote Python em modo editável com `[dev]`
+- instala as dependências do frontend em `web/`
+- cria `config/settings.yaml` se ele ainda não existir
+- cria `data/snapshots`, `data/reports` e `data/logs`
 
-# Criar diretórios de dados
-mkdir -p data/{snapshots,reports,logs}
+Se você mover o projeto de pasta e a `.venv` parar de funcionar, recrie-a com:
 
-# Instalar dependências do frontend
-cd web && npm install && cd ..
+```bash
+rm -rf .venv
+make bootstrap
 ```
 
 ### Rodar em desenvolvimento (frontend + backend)
@@ -76,15 +77,13 @@ cd web && npm install && cd ..
 **Terminal 1 — Backend FastAPI:**
 
 ```bash
-source .venv/bin/activate
-uvicorn app.api.main:app --reload --port 8000
+make dev-backend
 ```
 
 **Terminal 2 — Frontend React (Vite):**
 
 ```bash
-cd web
-npm run dev
+make dev-frontend
 ```
 
 Acesse `http://localhost:5173` no navegador. O Vite faz proxy de `/api/*` para o backend na porta 8000.
@@ -93,34 +92,38 @@ Acesse `http://localhost:5173` no navegador. O Vite faz proxy de `/api/*` para o
 
 ```bash
 # Build do frontend
-cd web && npm run build && cd ..
+make frontend-build
 
 # Servidor (front + API unificados)
-uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+.venv/bin/python -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 O FastAPI serve `web/dist/` como estático em `/` e as rotas em `/api/*`.
 
-### Rodar testes
+### Validar localmente
 
 ```bash
-pytest                    # todos os testes
-pytest -v --tb=short      # verbose
-pytest --cov=ranking_msc  # com cobertura
+make validate
 ```
 
-### Lint e type check
+Esse comando executa:
+
+- `ruff check src/ tests/ app/`
+- `mypy src/ app/api/`
+- `pytest --cov=ranking_msc --cov-report=term-missing --cov-fail-under=80`
+- `cd web && npm run lint`
+- `cd web && npm run typecheck`
+- `cd web && npm run build`
+
+### Comandos avulsos
 
 ```bash
-# Python
-ruff check src/ tests/ app/
-mypy src/ app/api/
-
-# TypeScript / Frontend
-cd web
-npx tsc --noEmit
-npx eslint src/
-npm run build
+make lint
+make typecheck
+make test
+make frontend-lint
+make frontend-typecheck
+make frontend-build
 ```
 
 ### CI
