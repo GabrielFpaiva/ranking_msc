@@ -84,15 +84,13 @@ export function Home() {
                 >
                   ⬇ Exportar Excel
                 </a>
-                <button
-                  type="button"
-                  className="samid-btn samid-btn-disabled"
-                  disabled
-                  title="Exportação PDF será implementada em F0-06"
+                <a
+                  href={`/api/exports/pdf?siconfi=${encodeURIComponent(run.siconfi)}&competencia=${encodeURIComponent(run.competencia)}`}
+                  className="samid-btn samid-btn-gold"
                   id="btn-export-pdf"
                 >
                   📄 Exportar PDF
-                </button>
+                </a>
               </div>
             </>
           )}
