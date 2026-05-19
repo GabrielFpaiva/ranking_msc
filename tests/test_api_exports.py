@@ -89,6 +89,36 @@ class TestPdfExport:
         )
         assert response.status_code == 404
 
+    def test_pdf_422_quando_snapshot_atual_corrompido(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        snapshots = tmp_path / "snapshots"
+        reports = tmp_path / "reports"
+        snapshots.mkdir()
+        reports.mkdir()
+
+        monkeypatch.setattr(api_deps, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(api_deps, "absolute_reports_dir", lambda: reports)
+        from app.api.routes import exports as exports_module
+
+        monkeypatch.setattr(exports_module, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(exports_module, "absolute_reports_dir", lambda: reports)
+
+        corrupt_dir = snapshots / "2507507EX" / "2025-12"
+        corrupt_dir.mkdir(parents=True)
+        (corrupt_dir / "resultado_regras.parquet").write_text("nao-e-parquet", encoding="utf-8")
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/exports/pdf",
+            params={"siconfi": "2507507EX", "competencia": "2025-12"},
+        )
+
+        assert response.status_code == 422
+        assert "Snapshot inválido para 2507507EX/2025-12" in response.json()["detail"]
+
     def test_pdf_historico_nao_inclui_competencias_futuras(
         self,
         tmp_path: Path,
