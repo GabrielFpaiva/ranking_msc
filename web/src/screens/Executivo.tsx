@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { Sev } from '../components/Sev';
 import { ScoreChart } from '../components/charts/ScoreChart';
-import { useDrawer } from '../store/drawer';
-import { useMCRA } from '../store/mcra';
+import { useDrawer } from '../store/useDrawer';
+import { useMCRA } from '../store/useMCRA';
 import type { Banda, Recommendation, Score, ScoreHistory } from '../types';
 
 const BAND_COLOR: Record<Banda, string> = {

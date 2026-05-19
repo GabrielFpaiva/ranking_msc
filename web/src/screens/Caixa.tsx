@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
 import { ContaListSection } from '../components/ContaListSection';
-import { useMCRA } from '../store/mcra';
+import { useMCRA } from '../store/useMCRA';
 import type { ContaList } from '../types';
 
 export function Caixa() {

@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { DimTag } from '../components/DimTag';
 import { Sev } from '../components/Sev';
-import { useDrawer } from '../store/drawer';
-import { useMCRA } from '../store/mcra';
+import { useDrawer } from '../store/useDrawer';
+import { useMCRA } from '../store/useMCRA';
 import type { PendenciasPage, Severidade } from '../types';
 
 const SEV_OPTIONS: (Severidade | '')[] = ['', 'ERRO', 'ALERTA', 'INFO'];

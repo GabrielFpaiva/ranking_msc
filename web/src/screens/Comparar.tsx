@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '../api/client';
-import { useMCRA } from '../store/mcra';
+import { useMCRA } from '../store/useMCRA';
 import type { Compare, Competencia } from '../types';
 
 export function Comparar() {
