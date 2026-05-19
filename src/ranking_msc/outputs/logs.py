@@ -83,7 +83,7 @@ def setup_logging(
 ) -> logging.Logger:
     """Configura o logger raiz do projeto.
 
-    Deve ser chamado UMA VEZ no início da aplicação (web_app.py ou main).
+    Deve ser chamado UMA VEZ no início da aplicação (API ou CLI).
 
     Args:
         log_dir: diretório para o arquivo de log.
