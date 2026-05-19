@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom';
 
-import { useMCRA } from '../store/mcra';
+import { useMCRA } from '../store/useMCRA';
 
 const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
   '/inicio': { breadcrumb: 'Análise', title: 'Início' },

@@ -1,6 +1,6 @@
 import { ContaDetailDrawer } from './ContaDetailDrawer';
 import { RuleDetailDrawer } from './RuleDetailDrawer';
-import { useDrawer } from '../store/drawer';
+import { useDrawer } from '../store/useDrawer';
 
 export function DrawerHost() {
   const { state } = useDrawer();

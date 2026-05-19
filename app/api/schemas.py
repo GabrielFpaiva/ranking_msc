@@ -122,6 +122,14 @@ class ErrorOut(BaseModel):
     code: str = "internal_error"
 
 
+class DeferredFeatureOut(BaseModel):
+    """Resposta informativa para recursos ainda não entregues."""
+
+    detail: str
+    code: str = "not_implemented"
+    see: str
+
+
 # ---------------------------------------------------------------------------
 # Regras / Heatmap / Drawer Regra (fatia C)
 # ---------------------------------------------------------------------------

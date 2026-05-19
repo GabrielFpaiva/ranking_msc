@@ -16,7 +16,7 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-# Adicionar src/ ao path antes de importar ranking_msc — espelha o que web_app.py faz.
+# Adicionar src/ ao path antes de importar ranking_msc.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
