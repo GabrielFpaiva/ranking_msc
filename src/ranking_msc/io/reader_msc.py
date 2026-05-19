@@ -130,7 +130,7 @@ def read_msc_csv(
     extrai metadados e pivota os valores por Tipo_valor × Natureza_valor.
 
     Args:
-        file: caminho do arquivo ou objeto BytesIO (ex: upload do Panel).
+        file: caminho do arquivo ou objeto BytesIO (ex: upload HTTP ou fixture de teste).
         encoding: encoding do CSV. Use ``"auto"`` (padrão) para detecção
             automática em cascata: UTF-8 BOM → UTF-8 → CP1252 → Latin-1.
             Passe um encoding explícito (ex: ``"utf-8"``, ``"latin-1"``)
