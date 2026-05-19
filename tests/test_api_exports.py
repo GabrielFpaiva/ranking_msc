@@ -133,3 +133,49 @@ class TestPdfExport:
         assert b"2025-11: score" in response.content
         assert b"2025-12: score" in response.content
         assert b"2026-01: score" not in response.content
+
+    def test_pdf_ignora_snapshot_historico_corrompido(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        snapshots = tmp_path / "snapshots"
+        reports = tmp_path / "reports"
+        snapshots.mkdir()
+        reports.mkdir()
+
+        monkeypatch.setattr(api_deps, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(api_deps, "absolute_reports_dir", lambda: reports)
+        from app.api.routes import exports as exports_module
+        from app.api.routes import recommendations as reco_module
+        from app.api.routes import run as run_module
+        from app.api.routes import score as score_module
+
+        for module in (run_module, score_module, reco_module, exports_module):
+            monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(run_module, "absolute_reports_dir", lambda: reports)
+        monkeypatch.setattr(exports_module, "absolute_reports_dir", lambda: reports)
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/run",
+            files={
+                "file": (
+                    "msc.csv",
+                    _build_msc_csv_bytes(competencia="2025-12"),
+                    "text/csv",
+                )
+            },
+        )
+        assert response.status_code == 200, response.text
+
+        corrupt_dir = snapshots / "2507507EX" / "2025-11"
+        corrupt_dir.mkdir(parents=True)
+        (corrupt_dir / "resultado_regras.parquet").write_text("nao-e-parquet", encoding="utf-8")
+
+        response = client.get(
+            "/api/exports/pdf",
+            params={"siconfi": "2507507EX", "competencia": "2025-12"},
+        )
+        assert response.status_code == 200
+        assert b"2025-12: score" in response.content

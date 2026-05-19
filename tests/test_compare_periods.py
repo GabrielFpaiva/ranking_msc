@@ -190,6 +190,20 @@ class TestLoadPeriodScore:
         assert period is not None
         assert period.total_pendencias == 2
 
+    def test_snapshot_corrompido_retorna_none(self, tmp_path: Path) -> None:
+        """Snapshot ilegível → período ignorado sem propagar exceção."""
+        target_dir = tmp_path / "250400" / "2024-01"
+        target_dir.mkdir(parents=True)
+        (target_dir / "resultado_regras.parquet").write_text("nao-e-parquet", encoding="utf-8")
+
+        period = _load_period_score(
+            siconfi="250400",
+            competencia="2024-01",
+            base_dir=tmp_path,
+            executed_rule_ids=[],
+        )
+        assert period is None
+
 
 # ---------------------------------------------------------------------------
 # compare_periods — integração leve
@@ -255,6 +269,19 @@ class TestComparePeriods:
         assert len(result.periods) == 2
         assert result.score_delta(0) is None
         assert result.score_delta(1) == pytest.approx(0.0)
+
+    def test_snapshot_corrompido_em_periodo_antigo_e_ignorado(self, tmp_path: Path) -> None:
+        """Período corrompido não impede retorno dos demais períodos válidos."""
+        _write_resultado_snapshot(
+            tmp_path, "250400", "2024-02",
+            pd.DataFrame(columns=FACT_RESULTADO_REGRAS_COLUMNS),
+        )
+        corrupt_dir = tmp_path / "250400" / "2024-01"
+        corrupt_dir.mkdir(parents=True)
+        (corrupt_dir / "resultado_regras.parquet").write_text("nao-e-parquet", encoding="utf-8")
+
+        result = compare_periods("250400", snapshots_dir=tmp_path, settings=_make_settings())
+        assert [p.competencia for p in result.periods] == ["2024-02"]
 
 
 # ---------------------------------------------------------------------------

@@ -35,6 +35,23 @@ def _load_snapshot_or_404(siconfi: str, competencia: str):
         ) from exc
 
 
+def _discover_pdf_history_competencias(siconfi: str, competencia: str) -> list[str]:
+    """Descobre apenas competências relevantes ao PDF solicitado."""
+    siconfi_dir = absolute_snapshots_dir() / siconfi
+    if not siconfi_dir.is_dir():
+        return [competencia]
+
+    competencias = sorted(
+        path.parent.name
+        for path in siconfi_dir.glob("*/resultado_regras.parquet")
+        if path.parent.name <= competencia
+    )
+    if competencia not in competencias:
+        competencias.append(competencia)
+        competencias.sort()
+    return competencias
+
+
 def _build_pdf_payload(siconfi: str, competencia: str) -> ExecutivePdfPayload:
     settings = get_settings()
     pendencias = _load_snapshot_or_404(siconfi, competencia)
@@ -45,6 +62,7 @@ def _build_pdf_payload(siconfi: str, competencia: str) -> ExecutivePdfPayload:
         siconfi=siconfi,
         snapshots_dir=absolute_snapshots_dir(),
         settings=settings,
+        competencias=_discover_pdf_history_competencias(siconfi, competencia),
     )
 
     prev = None
