@@ -118,7 +118,7 @@ class TestPassivos:
 
 
 class TestSuperavit:
-    def test_superavit_retorna_501_com_referencia_a_task(
+    def test_superavit_retorna_payload_informativo_com_referencia_a_task(
         self, populated: tuple[str, str]
     ) -> None:
         siconfi, competencia = populated
@@ -126,6 +126,7 @@ class TestSuperavit:
         response = client.get(
             "/api/superavit", params={"siconfi": siconfi, "competencia": competencia}
         )
-        assert response.status_code == 501
+        assert response.status_code == 200
         body = response.json()
-        assert "F0-04" in body["detail"]
+        assert body["code"] == "not_implemented"
+        assert body["see"] == "F0-04"
