@@ -34,7 +34,7 @@ from pathlib import Path
 
 from ranking_msc.config.settings import Settings
 from ranking_msc.engine.score_engine import ScoreResult, calculate_score
-from ranking_msc.exceptions import SnapshotNotFoundError
+from ranking_msc.exceptions import SnapshotError, SnapshotNotFoundError
 from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
 
 logger = logging.getLogger("ranking_msc")
@@ -202,6 +202,24 @@ def _load_period_score(
             "Snapshot ausente para siconfi=%s competencia=%s — período ignorado.",
             siconfi,
             competencia,
+        )
+        return None
+    except SnapshotError as exc:
+        logger.warning(
+            "Snapshot inválido para siconfi=%s competencia=%s — período ignorado: %s",
+            siconfi,
+            competencia,
+            exc,
+        )
+        return None
+    except Exception as exc:
+        logger.warning(
+            "Falha inesperada ao ler snapshot para siconfi=%s competencia=%s "
+            "— período ignorado: %s: %s",
+            siconfi,
+            competencia,
+            type(exc).__name__,
+            exc,
         )
         return None
 
