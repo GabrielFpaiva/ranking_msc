@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
 import { Drawer } from './Drawer';
-import { useMCRA } from '../store/mcra';
+import { useMCRA } from '../store/useMCRA';
 import type { ContaDetail } from '../types';
 
 interface ContaDetailDrawerProps {

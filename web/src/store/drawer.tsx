@@ -1,21 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-type DrawerKind = 'rule' | 'conta';
-
-interface DrawerState {
-  kind: DrawerKind;
-  payload: string;
-}
-
-interface DrawerContextValue {
-  state: DrawerState | null;
-  openRule: (ruleId: string) => void;
-  openConta: (conta: string) => void;
-  close: () => void;
-}
-
-const DrawerContext = createContext<DrawerContextValue | null>(null);
+import { DrawerContext } from './drawer-context';
+import type { DrawerContextValue, DrawerState } from './drawer-context';
 
 export function DrawerProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<DrawerState | null>(null);
@@ -39,10 +26,4 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
   );
 
   return <DrawerContext.Provider value={value}>{children}</DrawerContext.Provider>;
-}
-
-export function useDrawer(): DrawerContextValue {
-  const ctx = useContext(DrawerContext);
-  if (!ctx) throw new Error('useDrawer must be used inside <DrawerProvider>');
-  return ctx;
 }

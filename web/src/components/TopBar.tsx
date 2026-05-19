@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom';
 
-import { useMCRA } from '../store/mcra';
+import { useMCRA } from '../store/useMCRA';
 
 const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
   '/inicio': { breadcrumb: 'Análise', title: 'Início' },
@@ -18,6 +18,7 @@ const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
 export function TopBar() {
   const { pathname } = useLocation();
   const { competencia, siconfi } = useMCRA();
+  const hasSelection = Boolean(siconfi && competencia);
   const { breadcrumb, title } = ROUTE_TITLES[pathname] ?? {
     breadcrumb: 'MCRA',
     title: 'PMJP',
@@ -44,17 +45,34 @@ export function TopBar() {
         >
           Reprocessar
         </button>
-        <button className="samid-btn samid-btn-ghost" type="button">
+        <a
+          className="samid-btn samid-btn-ghost"
+          href={
+            hasSelection
+              ? `/api/exports/excel?siconfi=${encodeURIComponent(siconfi!)}&competencia=${encodeURIComponent(competencia!)}`
+              : undefined
+          }
+          aria-disabled={!hasSelection}
+          onClick={(event) => {
+            if (!hasSelection) event.preventDefault();
+          }}
+        >
           Excel
-        </button>
-        <button
+        </a>
+        <a
           className="samid-btn samid-btn-gold"
-          type="button"
-          disabled
-          title="Exportar PDF — a ser implementado em F0-06"
+          href={
+            hasSelection
+              ? `/api/exports/pdf?siconfi=${encodeURIComponent(siconfi!)}&competencia=${encodeURIComponent(competencia!)}`
+              : undefined
+          }
+          aria-disabled={!hasSelection}
+          onClick={(event) => {
+            if (!hasSelection) event.preventDefault();
+          }}
         >
           Exportar PDF
-        </button>
+        </a>
         <button
           className="samid-icon-btn"
           type="button"

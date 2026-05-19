@@ -6,8 +6,8 @@ import { ScoreBadge } from '../components/ScoreBadge';
 import { Sev } from '../components/Sev';
 import { UploadDrop } from '../components/UploadDrop';
 import { ScoreChart } from '../components/charts/ScoreChart';
-import { useDrawer } from '../store/drawer';
-import { useMCRA } from '../store/mcra';
+import { useDrawer } from '../store/useDrawer';
+import { useMCRA } from '../store/useMCRA';
 import type { RunSummary, ScoreHistory } from '../types';
 
 export function Home() {
@@ -84,15 +84,13 @@ export function Home() {
                 >
                   ⬇ Exportar Excel
                 </a>
-                <button
-                  type="button"
-                  className="samid-btn samid-btn-disabled"
-                  disabled
-                  title="Exportação PDF será implementada em F0-06"
+                <a
+                  href={`/api/exports/pdf?siconfi=${encodeURIComponent(run.siconfi)}&competencia=${encodeURIComponent(run.competencia)}`}
+                  className="samid-btn samid-btn-gold"
                   id="btn-export-pdf"
                 >
                   📄 Exportar PDF
-                </button>
+                </a>
               </div>
             </>
           )}
