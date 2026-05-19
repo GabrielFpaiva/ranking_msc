@@ -6,8 +6,8 @@ import { ScoreBadge } from '../components/ScoreBadge';
 import { Sev } from '../components/Sev';
 import { UploadDrop } from '../components/UploadDrop';
 import { ScoreChart } from '../components/charts/ScoreChart';
-import { useDrawer } from '../store/drawer';
-import { useMCRA } from '../store/mcra';
+import { useDrawer } from '../store/useDrawer';
+import { useMCRA } from '../store/useMCRA';
 import type { RunSummary, ScoreHistory } from '../types';
 
 export function Home() {

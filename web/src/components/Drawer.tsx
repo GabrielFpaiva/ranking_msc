@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { useDrawer } from '../store/drawer';
+import { useDrawer } from '../store/useDrawer';
 
 interface DrawerProps {
   title: string;

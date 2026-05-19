@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { DimTag } from './DimTag';
 import { Drawer } from './Drawer';
 import { Sev } from './Sev';
-import { useMCRA } from '../store/mcra';
+import { useMCRA } from '../store/useMCRA';
 import type { HeatmapCell, RuleDetail } from '../types';
 
 interface RuleDetailDrawerProps {

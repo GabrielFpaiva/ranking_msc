@@ -1,16 +1,9 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { RunSummary } from '../types';
-
-interface MCRAContextValue {
-  siconfi: string | null;
-  competencia: string | null;
-  lastRun: RunSummary | null;
-  setCurrent: (siconfi: string, competencia: string) => void;
-  setLastRun: (summary: RunSummary) => void;
-  reset: () => void;
-}
+import { MCRAContext } from './mcra-context';
+import type { MCRAContextValue } from './mcra-context';
 
 const STORAGE_KEY = 'mcra-current';
 
@@ -42,8 +35,6 @@ function persist(state: PersistedState): void {
     // Storage full ou desabilitado — ignoramos.
   }
 }
-
-const MCRAContext = createContext<MCRAContextValue | null>(null);
 
 export function MCRAProvider({ children }: { children: ReactNode }) {
   const initial = loadPersisted();
@@ -77,10 +68,4 @@ export function MCRAProvider({ children }: { children: ReactNode }) {
   );
 
   return <MCRAContext.Provider value={value}>{children}</MCRAContext.Provider>;
-}
-
-export function useMCRA(): MCRAContextValue {
-  const ctx = useContext(MCRAContext);
-  if (!ctx) throw new Error('useMCRA must be used inside <MCRAProvider>');
-  return ctx;
 }
