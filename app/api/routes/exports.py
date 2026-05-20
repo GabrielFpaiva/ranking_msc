@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse
 from app.api.deps import absolute_reports_dir, absolute_snapshots_dir, get_settings
 from ranking_msc.engine.compare_periods import compare_periods
 from ranking_msc.engine.score_engine import calculate_score
-from ranking_msc.exceptions import SnapshotNotFoundError
+from ranking_msc.exceptions import SnapshotCorruptError, SnapshotNotFoundError
 from ranking_msc.outputs.aggregations import derive_recommendations
 from ranking_msc.outputs.executive_pdf import ExecutivePdfPayload, write_executive_pdf
 from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
@@ -32,6 +32,11 @@ def _load_snapshot_or_404(siconfi: str, competencia: str):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Snapshot não encontrado para {siconfi}/{competencia}.",
+        ) from exc
+    except SnapshotCorruptError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Snapshot inválido para {siconfi}/{competencia}: {exc}",
         ) from exc
 
 
@@ -50,7 +55,6 @@ def _discover_pdf_history_competencias(siconfi: str, competencia: str) -> list[s
         competencias.append(competencia)
         competencias.sort()
     return competencias
-
 
 def _build_pdf_payload(siconfi: str, competencia: str) -> ExecutivePdfPayload:
     settings = get_settings()

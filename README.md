@@ -107,7 +107,6 @@ make validate
 ```
 
 Esse comando executa:
-### Rodar testes
 
 - `ruff check src/ tests/ app/`
 - `mypy src/ app/api/`

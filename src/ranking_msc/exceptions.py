@@ -36,6 +36,10 @@ class SnapshotError(RankingMSCError):
     """Falha ao gravar ou ler snapshot Parquet de uma competência."""
 
 
+class SnapshotCorruptError(SnapshotError):
+    """Snapshot existente, mas inválido ou corrompido para leitura."""
+
+
 class SnapshotNotFoundError(SnapshotError):
     """Snapshot de competência não encontrado em disco."""
 
