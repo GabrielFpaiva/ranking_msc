@@ -108,8 +108,6 @@ make validate
 
 Esse comando executa:
 
-### Rodar testes
-
 - `ruff check src/ tests/ app/`
 - `mypy src/ app/api/`
 - `pytest --cov=ranking_msc --cov-report=term-missing --cov-fail-under=80`
