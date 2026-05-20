@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from ranking_msc.exceptions import SnapshotError
+from ranking_msc.exceptions import SnapshotCorruptError, SnapshotError
 from ranking_msc.outputs.snapshot import read_snapshot, write_snapshot_atomic
 
 
@@ -150,12 +150,12 @@ def test_read_snapshot_ausente_levanta_snapshoterror(local_snapshot_dir: Path) -
 
 
 def test_read_snapshot_corrompido_levanta_snapshoterror(local_snapshot_dir: Path) -> None:
-    """Converte parquet invalido em SnapshotError no boundary de leitura."""
+    """Converte parquet invalido em SnapshotCorruptError no boundary de leitura."""
     target_dir = local_snapshot_dir / "2024-01"
     target_dir.mkdir(parents=True, exist_ok=True)
     (target_dir / "resultado_regras.parquet").write_text("nao-e-parquet", encoding="utf-8")
 
-    with pytest.raises(SnapshotError, match="Falha ao ler snapshot da competência 2024-01"):
+    with pytest.raises(SnapshotCorruptError, match="Snapshot corrompido para competência 2024-01"):
         read_snapshot(
             competencia="2024-01",
             base_dir=local_snapshot_dir,
