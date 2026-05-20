@@ -88,7 +88,7 @@ def read_snapshot(
 
     try:
         df = pd.read_parquet(path)
-    except OSError as exc:
+    except Exception as exc:
         raise SnapshotError(
             f"Falha ao ler snapshot da competência {competencia}: {exc}"
         ) from exc

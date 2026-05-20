@@ -147,3 +147,17 @@ def test_read_snapshot_ausente_levanta_snapshoterror(local_snapshot_dir: Path) -
             base_dir=local_snapshot_dir,
             label="resultado_regras",
         )
+
+
+def test_read_snapshot_corrompido_levanta_snapshoterror(local_snapshot_dir: Path) -> None:
+    """Converte parquet invalido em SnapshotError no boundary de leitura."""
+    target_dir = local_snapshot_dir / "2024-01"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "resultado_regras.parquet").write_text("nao-e-parquet", encoding="utf-8")
+
+    with pytest.raises(SnapshotError, match="Falha ao ler snapshot da competência 2024-01"):
+        read_snapshot(
+            competencia="2024-01",
+            base_dir=local_snapshot_dir,
+            label="resultado_regras",
+        )
