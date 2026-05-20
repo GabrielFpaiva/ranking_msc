@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from pyarrow.lib import ArrowInvalid
+from pyarrow.lib import ArrowException, ArrowIOError
 
 from ranking_msc.exceptions import SnapshotCorruptError, SnapshotError, SnapshotNotFoundError
 
@@ -91,7 +91,7 @@ def read_snapshot(
 
     try:
         df = pd.read_parquet(path)
-    except ArrowInvalid as exc:
+    except (ArrowException, ArrowIOError) as exc:
         raise SnapshotCorruptError(
             f"Snapshot corrompido para competência {competencia}: {exc}"
         ) from exc
