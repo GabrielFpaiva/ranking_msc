@@ -100,6 +100,41 @@ make frontend-build
 
 O FastAPI serve `web/dist/` como estático em `/` e as rotas em `/api/*`.
 
+### Rodar com Docker Compose
+
+Pré-requisito: Docker com `docker compose` disponível.
+
+```bash
+# Sobe a stack local já com build
+docker compose up --build
+
+# Ou via Makefile
+make docker-up
+```
+
+A aplicação fica acessível em `http://localhost:8000`, servindo:
+
+- frontend React já buildado em `/`
+- API FastAPI em `/api/*`
+
+Volumes montados por padrão:
+
+- `./data:/app/data`
+- `./config:/app/config`
+
+Comportamento do container:
+
+- se `config/settings.yaml` não existir, o entrypoint copia `config/settings.yaml.example`;
+- diretórios `data/snapshots`, `data/reports` e `data/logs` são criados automaticamente.
+
+Para derrubar a stack:
+
+```bash
+docker compose down
+# ou
+make docker-down
+```
+
 ### Validar localmente
 
 ```bash
