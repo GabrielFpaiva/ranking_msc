@@ -1,7 +1,7 @@
 # Backlog Consolidado — Ranking MSC
 
-> **Atualizado:** 2026-05-13
-> **Estado atual:** 78 regras implementadas · 923 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-02 ✅)
+> **Atualizado:** 2026-05-22
+> **Estado atual:** 78 regras implementadas · 923 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01, F5-02, F5-03 e F5-05 ✅)
 
 ---
 
@@ -258,7 +258,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F5-02 | Cutover Panel — remover `web_app_legacy.py` + deps | 1 | — | ✅ Concluído | F0-05 |
 | F5-03 | Exportar PDF — Visão Executiva HTML→PDF | 6 | — | ✅ Concluído | F0-06 / F5-06(xlsx) |
 | F5-04 | Autenticação multiusuário (JWT + namespacing) | 8 | — | ❌ A Fazer | F0-07 |
-| F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ❌ A Fazer | F0-08 / F5-07(xlsx) |
+| F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ✅ Concluído | F0-08 / F5-07(xlsx) |
 | F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ❌ A Fazer | F5-08(xlsx) |
 | F5-07 | Manual do usuário + guia de operação | 6 | — | ❌ A Fazer | F5-09(xlsx) |
 | F5-08 | Documentar settings.yaml + variáveis de ambiente prod | 2 | F5-05 | ❌ A Fazer | Novo |
@@ -413,12 +413,11 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ### 🔵 Prioridade 3 — Produção (Fase 5)
 
-14. **F5-03** — Exportar PDF — ~6h
-15. **F5-04** — Autenticação multiusuário — ~8h
-16. **F5-05** — Deploy Docker — ~8h
-17. **F5-06** — Testes E2E — ~4h
-18. **F5-07** — Manual do usuário — ~6h
-19. **F5-08** — Docs settings prod — ~2h
+14. **F5-06** — Testes E2E — ~4h
+15. **F5-08** — Docs settings prod — ~2h
+16. **F5-04** — Autenticação multiusuário — ~8h
+17. **F5-07** — Manual do usuário — ~6h
+18. **F5-10** — Treinamento / demo — ~4h
 20. **F5-09** — Bug fixes buffer — ~4h
 
 ### ⚪ Prioridade 4 — Entrega + Nice-to-have
@@ -454,8 +453,8 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F5-03 | Aba Score e ranking visual | ✅ Absorvido pela Fase 0 |
 | F5-04 | Pendências com filtros interativos | ✅ Absorvido pela Fase 0 |
 | F5-05 | Evolução temporal | ✅ Absorvido pela Fase 0 |
-| F5-06 | Export do relatório | 🟡 Excel OK, PDF pendente → F5-03 novo |
-| F5-07 | Deploy local Docker | ❌ Pendente → F5-05 novo |
+| F5-06 | Export do relatório | ✅ Excel e PDF entregues → F5-03 novo concluído |
+| F5-07 | Deploy local Docker | ✅ Entregue → F5-05 novo concluído |
 | F5-08 | Testes E2E deploy | ❌ Pendente → F5-06 novo |
 | F5-09 | Manual do usuário | ❌ Pendente → F5-07 novo |
 | F5-10 | Buffer bugs/ajustes | 🟡 Parcial → F5-09 novo |

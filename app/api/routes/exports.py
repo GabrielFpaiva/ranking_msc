@@ -35,7 +35,7 @@ def _load_snapshot_or_404(siconfi: str, competencia: str):
         ) from exc
     except SnapshotCorruptError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail=f"Snapshot inválido para {siconfi}/{competencia}: {exc}",
         ) from exc
 
