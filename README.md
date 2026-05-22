@@ -256,11 +256,13 @@ rules:
 
 | Documento | Uso |
 |---|---|
-| `README.md` | Visão geral, setup e comandos |
-| `CLAUDE.md` | Convenções operacionais do repositório |
+| `README.md` | Visão geral, setup, comandos e superfície pública da API |
+| `CLAUDE.md` | Convenções operacionais permanentes do repositório |
 | `doc/backlog.md` | Status consolidado, pendências e prioridades |
-| `doc/fase0_plan.md` | Referência das entregas/pêndencias do frontend |
 | `doc/modelo_pontuacao.md` | Regra de negócio do score |
+| `doc/governanca_documental.md` | Política documental e revisão de aderência arquitetural |
+| `doc/fase0_plan.md` | Registro histórico da entrega de bootstrap/frontend |
+| `doc/legacy_inventory.md` | Registro histórico da remoção do legado Panel |
 
 ---
 
