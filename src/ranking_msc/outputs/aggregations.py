@@ -23,7 +23,7 @@ import pandas as pd
 
 from ranking_msc.exceptions import SnapshotNotFoundError
 from ranking_msc.outputs.snapshot import read_snapshot
-from ranking_msc.rules.base import RULE_REGISTRY
+from ranking_msc.rules.base import RULE_REGISTRY, ic_mask_informada
 
 logger = logging.getLogger("ranking_msc")
 
@@ -541,7 +541,7 @@ def aggregate_superavit_rows(
     base = df.copy()
     base["conta_contabil"] = base["conta_contabil"].astype(str).str.strip()
     base["fr"] = base["fr"].fillna("").astype(str).str.strip()
-    base = base[base["fr"] != ""]
+    base = base[ic_mask_informada(base["fr"])].copy()
     if base.empty:
         return SuperavitSummary(
             items=[],
