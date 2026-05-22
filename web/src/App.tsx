@@ -8,7 +8,6 @@ import { Executivo } from './screens/Executivo';
 import { Home } from './screens/Home';
 import { Passivos } from './screens/Passivos';
 import { Pendencias } from './screens/Pendencias';
-import { Ranking } from './screens/Ranking';
 import { Regras } from './screens/Regras';
 import { Superavit } from './screens/Superavit';
 
@@ -26,7 +25,6 @@ export function App() {
         <Route path="passivos" element={<Passivos />} />
         <Route path="superavit" element={<Superavit />} />
         <Route path="comparar" element={<Comparar />} />
-        <Route path="ranking" element={<Ranking />} />
         <Route path="*" element={<Navigate to="/inicio" replace />} />
       </Route>
     </Routes>

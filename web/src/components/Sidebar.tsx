@@ -28,7 +28,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/executivo', label: 'Executivo' },
       { to: '/comparar', label: 'Comparar' },
-      { to: '/ranking', label: 'Ranking' },
     ],
   },
 ];

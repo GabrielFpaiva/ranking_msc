@@ -26,7 +26,6 @@ from app.api.routes import exports as exports_routes
 from app.api.routes import log as log_routes
 from app.api.routes import passivos as passivos_routes
 from app.api.routes import pendencias as pendencias_routes
-from app.api.routes import ranking as ranking_routes
 from app.api.routes import recommendations as recommendations_routes
 from app.api.routes import rules as rules_routes
 from app.api.routes import run as run_routes
@@ -52,7 +51,6 @@ app.include_router(compare_routes.router)
 app.include_router(exports_routes.router)
 app.include_router(recommendations_routes.router)
 app.include_router(log_routes.router)
-app.include_router(ranking_routes.router)
 
 # CORS: liberado para dev (Vite no :5173). Em prod o front é servido pelo
 # próprio FastAPI então same-origin elimina a necessidade.

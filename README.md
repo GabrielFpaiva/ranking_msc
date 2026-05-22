@@ -281,13 +281,15 @@ rules:
 | GET | `/api/contas/:codigo` | Detalhe de uma conta contábil |
 | GET | `/api/caixa` | Listagem de contas de caixa |
 | GET | `/api/passivos` | Listagem de passivos |
-| GET | `/api/superavit` | Superávit financeiro (501 — F0-04) |
+| GET | `/api/superavit` | Resultado financeiro por FR |
 | GET | `/api/compare` | Diff de score entre 2 competências |
 | GET | `/api/recommendations` | Ações recomendadas (Executivo) |
 | GET | `/api/log` | Tail do log JSONL |
-| GET | `/api/ranking` | Ranking Regional (501 — F0-03) |
 | GET | `/api/exports/excel` | Download do relatório Excel |
 | GET | `/api/health` | Healthcheck |
+
+> `Ranking Regional` permanece fora da superfície pública até a integração de uma
+> base benchmark externa comparável entre entes.
 
 ---
 

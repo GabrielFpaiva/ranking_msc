@@ -349,9 +349,9 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ### Backlog Executável — Ranking Regional (F0-03)
 
-> Objetivo: substituir o `501` atual da rota `/api/ranking` por uma visão
-> comparativa do PMJP frente a outros entes, baseada em uma fonte benchmark
-> externa ou consolidada.
+> Objetivo: recolocar o ranking regional na superfície pública quando existir
+> uma visão comparativa real do PMJP frente a outros entes, baseada em uma
+> fonte benchmark externa ou consolidada.
 
 | ID | Task | Entrega | Dep. | Estimativa | Status |
 |---|---|---|---|---|---|
@@ -360,10 +360,10 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | R3 | Criar loader/serviço da base regional | Módulo novo em `src/ranking_msc/io/` ou `src/ranking_msc/outputs/` para leitura/normalização do benchmark | R2 | 3-5h | ❌ A Fazer |
 | R4 | Implementar agregação de ranking | Cálculo de posição do PMJP, total de entes, mediana, top 10 e vizinhos | R3 | 2-4h | ❌ A Fazer |
 | R5 | Criar schema da API | Modelos novos em `app/api/schemas.py` para payload do ranking | R4 | 1h | ❌ A Fazer |
-| R6 | Implementar rota `/api/ranking` | Substituir `501` em `app/api/routes/ranking.py` por resposta funcional | R4, R5 | 1-2h | ❌ A Fazer |
+| R6 | Implementar rota `/api/ranking` | Reintroduzir a rota pública com resposta funcional quando a base benchmark existir | R4, R5 | 1-2h | ❌ A Fazer |
 | R7 | Tipar integração do frontend | Atualizar `web/src/types.ts` e `web/src/api/client.ts` para consumir payload tipado | R5, R6 | 1h | ❌ A Fazer |
-| R8 | Implementar tela funcional | Substituir placeholder em `web/src/screens/Ranking.tsx` por posição, mediana e tabela comparativa | R7 | 2-4h | ❌ A Fazer |
-| R9 | Cobrir com testes | Testes do loader, agregação e API; ajuste do teste que hoje espera `501` | R3-R8 | 2-4h | ❌ A Fazer |
+| R8 | Implementar tela funcional | Reintroduzir a tela pública de ranking com posição, mediana e tabela comparativa | R7 | 2-4h | ❌ A Fazer |
+| R9 | Cobrir com testes | Testes do loader, agregação e API; ajuste dos contratos ao reexpor a feature | R3-R8 | 2-4h | ❌ A Fazer |
 
 **Resumo técnico:**
 
