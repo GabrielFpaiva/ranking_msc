@@ -150,3 +150,25 @@ class TestSuperavit:
             "/api/superavit", params={"siconfi": "0000000XX", "competencia": "1999-01"}
         )
         assert response.status_code == 404
+
+
+    def test_superavit_422_quando_pcasp_nao_tem_metadados_exigidos(
+        self, populated: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        siconfi, competencia = populated
+        from app.api.routes import superavit as superavit_module
+
+        monkeypatch.setattr(
+            superavit_module,
+            "load_pcasp",
+            lambda *args, **kwargs: __import__("pandas").DataFrame([{
+                "conta_contabil": "111110100"
+            }]),
+        )
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/superavit", params={"siconfi": siconfi, "competencia": competencia}
+        )
+        assert response.status_code == 422
+        assert "faltam colunas" in response.json()["detail"]

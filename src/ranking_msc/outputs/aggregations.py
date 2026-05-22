@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ranking_msc.exceptions import SnapshotNotFoundError
+from ranking_msc.exceptions import ConfigError, SnapshotNotFoundError
 from ranking_msc.outputs.snapshot import read_snapshot
 from ranking_msc.rules.base import RULE_REGISTRY, ic_mask_informada
 
@@ -531,6 +531,14 @@ def aggregate_superavit_rows(
             total_resultado_financeiro=0.0,
             linhas_consideradas=0,
             contas_consideradas=0,
+        )
+
+    required_pcasp_columns = {"conta_contabil", "nat_saldo", "ind_sf"}
+    missing_pcasp_columns = sorted(required_pcasp_columns.difference(pcasp.columns))
+    if missing_pcasp_columns:
+        raise ConfigError(
+            "Tabela PCASP incompleta para derivar o superávit por FR: "
+            f"faltam colunas {missing_pcasp_columns}."
         )
 
     pcasp_view = pcasp.loc[:, ["conta_contabil", "nat_saldo", "ind_sf"]].copy()

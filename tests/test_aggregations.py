@@ -5,7 +5,9 @@ Testes de ranking_msc.outputs.aggregations.
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
+from ranking_msc.exceptions import ConfigError
 from ranking_msc.outputs.aggregations import (
     SuperavitSummary,
     TopRule,
@@ -213,3 +215,20 @@ class TestAggregateSuperavitRows:
         assert out.total_ativo_financeiro == 300.0
         assert out.total_passivo_financeiro == 0.0
         assert out.total_resultado_financeiro == 300.0
+
+
+    def test_erro_controlado_quando_pcasp_nao_tem_colunas_exigidas(self) -> None:
+        df = pd.DataFrame(
+            [
+                {
+                    "conta_contabil": "111110100",
+                    "fr": "1500",
+                    "saldo_final_debito": 300.0,
+                    "saldo_final_credito": 0.0,
+                }
+            ]
+        )
+        pcasp = pd.DataFrame([{"conta_contabil": "111110100"}])
+
+        with pytest.raises(ConfigError, match="faltam colunas"):
+            aggregate_superavit_rows(df, pcasp=pcasp)
