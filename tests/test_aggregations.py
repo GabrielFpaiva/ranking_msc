@@ -216,7 +216,6 @@ class TestAggregateSuperavitRows:
         assert out.total_passivo_financeiro == 0.0
         assert out.total_resultado_financeiro == 300.0
 
-
     def test_erro_controlado_quando_pcasp_esta_vazio(self) -> None:
         df = pd.DataFrame(
             [
