@@ -30,6 +30,9 @@ logger = logging.getLogger("ranking_msc")
 
 _SEVERIDADE_RANK: dict[str, int] = {"ERRO": 3, "ALERTA": 2, "INFO": 1}
 
+# Valores considerados "não informados" para FR — mesma semântica de IC validation.
+_FR_UNINFORMED: frozenset[str] = frozenset({"", "0", "nan"})
+
 
 @dataclass(frozen=True)
 class TopRule:
@@ -549,7 +552,7 @@ def aggregate_superavit_rows(
     base = df.copy()
     base["conta_contabil"] = base["conta_contabil"].astype(str).str.strip()
     base["fr"] = base["fr"].fillna("").astype(str).str.strip()
-    base = base[base["fr"] != ""]
+    base = base[~base["fr"].str.lower().isin(_FR_UNINFORMED)]
     if base.empty:
         return SuperavitSummary(
             items=[],

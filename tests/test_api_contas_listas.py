@@ -150,3 +150,22 @@ class TestSuperavit:
             "/api/superavit", params={"siconfi": "0000000XX", "competencia": "1999-01"}
         )
         assert response.status_code == 404
+
+    def test_superavit_500_quando_config_error_na_agregacao(
+        self, monkeypatch: pytest.MonkeyPatch, populated: tuple[str, str]
+    ) -> None:
+        from app.api.routes import superavit as superavit_module
+
+        from ranking_msc.exceptions import ConfigError
+
+        siconfi, competencia = populated
+        monkeypatch.setattr(
+            superavit_module,
+            "aggregate_superavit",
+            lambda *_a, **_kw: (_ for _ in ()).throw(ConfigError("colunas ausentes")),
+        )
+        client = TestClient(app)
+        response = client.get(
+            "/api/superavit", params={"siconfi": siconfi, "competencia": competencia}
+        )
+        assert response.status_code == 500

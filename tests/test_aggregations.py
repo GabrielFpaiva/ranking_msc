@@ -197,3 +197,22 @@ class TestAggregateSuperavitRows:
         pcasp_so_conta = pd.DataFrame([{"conta_contabil": "111110200"}])
         with pytest.raises(ConfigError, match="ind_sf|nat_saldo"):
             aggregate_superavit_rows(df, pcasp=pcasp_so_conta)
+
+    def test_fr_placeholder_excluido_do_agrupamento(self) -> None:
+        pcasp = pd.DataFrame(
+            [{"conta_contabil": "111110200", "nat_saldo": "Devedora", "ind_sf": "Financeiro"}]
+        )
+        for placeholder in ("0", "nan", "NAN", "Nan"):
+            df = pd.DataFrame(
+                [
+                    {
+                        "conta_contabil": "111110200",
+                        "fr": placeholder,
+                        "saldo_final_debito": 500.0,
+                        "saldo_final_credito": 0.0,
+                    }
+                ]
+            )
+            out = aggregate_superavit_rows(df, pcasp=pcasp)
+            assert out.items == [], f"FR={placeholder!r} deveria ser excluído"
+            assert out.total_ativo_financeiro == 0.0
