@@ -172,3 +172,24 @@ class TestSuperavit:
         )
         assert response.status_code == 422
         assert "faltam colunas" in response.json()["detail"]
+
+    def test_superavit_422_quando_pcasp_esta_vazio(
+        self, populated: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        siconfi, competencia = populated
+        from app.api.routes import superavit as superavit_module
+
+        monkeypatch.setattr(
+            superavit_module,
+            "load_pcasp",
+            lambda *args, **kwargs: __import__("pandas").DataFrame(
+                columns=["conta_contabil", "nat_saldo", "ind_sf"]
+            ),
+        )
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/superavit", params={"siconfi": siconfi, "competencia": competencia}
+        )
+        assert response.status_code == 422
+        assert "PCASP vazia" in response.json()["detail"]

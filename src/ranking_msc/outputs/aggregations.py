@@ -523,7 +523,7 @@ def aggregate_superavit_rows(
     - classifica ativo/passivo pelo ``nat_saldo`` do PCASP;
     - exclui ``Financeiro/Permanente`` e demais classificações.
     """
-    if df.empty or pcasp.empty:
+    if df.empty:
         return SuperavitSummary(
             items=[],
             total_ativo_financeiro=0.0,
@@ -531,6 +531,11 @@ def aggregate_superavit_rows(
             total_resultado_financeiro=0.0,
             linhas_consideradas=0,
             contas_consideradas=0,
+        )
+
+    if pcasp.empty:
+        raise ConfigError(
+            "Tabela PCASP vazia para derivar o superávit por FR."
         )
 
     required_pcasp_columns = {"conta_contabil", "nat_saldo", "ind_sf"}

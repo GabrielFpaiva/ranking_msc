@@ -217,6 +217,22 @@ class TestAggregateSuperavitRows:
         assert out.total_resultado_financeiro == 300.0
 
 
+    def test_erro_controlado_quando_pcasp_esta_vazio(self) -> None:
+        df = pd.DataFrame(
+            [
+                {
+                    "conta_contabil": "111110100",
+                    "fr": "1500",
+                    "saldo_final_debito": 300.0,
+                    "saldo_final_credito": 0.0,
+                }
+            ]
+        )
+        pcasp = pd.DataFrame(columns=["conta_contabil", "nat_saldo", "ind_sf"])
+
+        with pytest.raises(ConfigError, match="PCASP vazia"):
+            aggregate_superavit_rows(df, pcasp=pcasp)
+
     def test_erro_controlado_quando_pcasp_nao_tem_colunas_exigidas(self) -> None:
         df = pd.DataFrame(
             [
