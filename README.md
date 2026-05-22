@@ -344,6 +344,9 @@ python scripts/run_pipeline.py --csv ref/amostras/msc_2025-11.csv
 # Testes
 pytest
 
+# Cenário E2E API-first do fluxo principal
+pytest tests/test_e2e_main_flow.py
+
 # Lint + type check
 ruff check src/ tests/ app/
 mypy src/ app/api/
