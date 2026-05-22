@@ -444,6 +444,14 @@ class TestScoreEstabilidadeHistorica:
 # ---------------------------------------------------------------------------
 
 
+class TestComparePeriodsArchitecture:
+    def test_engine_usa_leitores_de_io_e_nao_outputs_snapshot(self) -> None:
+        import ranking_msc.engine.compare_periods as module
+
+        assert module.read_snapshot.__module__ == "ranking_msc.io.snapshot_store"
+        assert module.read_scoring_metadata.__module__ == "ranking_msc.io.snapshot_store"
+
+
 class TestReadScoringMetadataValidacao:
     """Verifica que read_scoring_metadata rejeita payloads estruturalmente inválidos."""
 

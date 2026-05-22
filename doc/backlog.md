@@ -273,6 +273,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F0-02 | Recommendations engine (heurísticas avançadas) | 6 | ❌ A Fazer |
 | F0-03 | Ranking Regional — fonte de dados (dataset de outros entes) | 10 | ❌ A Fazer |
 | F0-04 | Superávit financeiro por FR (derivação contábil) | 6 | ✅ Concluído |
+| #98 | Separar `compare_periods` de `outputs.snapshot` | 4 | ✅ Concluído |
 
 ### Backlog Executável — Superávit por FR (F0-04)
 
