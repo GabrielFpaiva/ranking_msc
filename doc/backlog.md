@@ -256,7 +256,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 |---|---|---|---|---|---|
 | F5-01 | CI completo — adicionar lint+build TS no GitHub Action | 2 | — | ✅ Concluído | F0-01 |
 | F5-02 | Cutover Panel — remover `web_app_legacy.py` + deps | 1 | — | ✅ Concluído | F0-05 |
-| F5-03 | Exportar PDF — Visão Executiva HTML→PDF | 6 | — | ❌ A Fazer | F0-06 / F5-06(xlsx) |
+| F5-03 | Exportar PDF — Visão Executiva HTML→PDF | 6 | — | ✅ Concluído | F0-06 / F5-06(xlsx) |
 | F5-04 | Autenticação multiusuário (JWT + namespacing) | 8 | — | ❌ A Fazer | F0-07 |
 | F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ❌ A Fazer | F0-08 / F5-07(xlsx) |
 | F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ❌ A Fazer | F5-08(xlsx) |
@@ -272,7 +272,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 |---|---|---|---|
 | F0-02 | Recommendations engine (heurísticas avançadas) | 6 | ❌ A Fazer |
 | F0-03 | Ranking Regional — fonte de dados (dataset de outros entes) | 10 | ❌ A Fazer |
-| F0-04 | Superávit financeiro por FR (derivação contábil) | 6 | ❌ A Fazer |
+| F0-04 | Superávit financeiro por FR (derivação contábil) | 6 | ✅ Concluído |
 
 ### Backlog Executável — Superávit por FR (F0-04)
 
@@ -282,13 +282,13 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 | ID | Task | Entrega | Dep. | Estimativa | Status |
 |---|---|---|---|---|---|
-| S1 | Definir regra contábil do cálculo | Lista fechada de contas/prefixos de ativo financeiro e passivo financeiro, com convenção de sinal validada | — | 2-4h | ❌ A Fazer |
-| S2 | Implementar agregador puro no motor | Função nova em `src/ranking_msc/outputs/aggregations.py` para agrupar por `FR` e calcular ativo, passivo e resultado | S1 | 3-5h | ❌ A Fazer |
-| S3 | Criar schema da API | Modelos novos em `app/api/schemas.py` para payload do superávit | S2 | 1h | ❌ A Fazer |
-| S4 | Implementar rota `/api/superavit` | Substituir `501` em `app/api/routes/superavit.py` por resposta funcional | S2, S3 | 1-2h | ❌ A Fazer |
-| S5 | Tipar integração do frontend | Atualizar `web/src/types.ts` e `web/src/api/client.ts` para consumir payload tipado | S3, S4 | 1h | ❌ A Fazer |
-| S6 | Implementar tela funcional | Substituir placeholder em `web/src/screens/Superavit.tsx` por total + tabela por FR | S5 | 2-4h | ❌ A Fazer |
-| S7 | Cobrir com testes | Testes unitários do agregador + API + ajuste do teste que hoje espera `501` | S2-S6 | 2-4h | ❌ A Fazer |
+| S1 | Definir regra contábil do cálculo | Lista fechada de contas/prefixos de ativo financeiro e passivo financeiro, com convenção de sinal validada | — | 2-4h | ✅ Concluído |
+| S2 | Implementar agregador puro no motor | Função nova em `src/ranking_msc/outputs/aggregations.py` para agrupar por `FR` e calcular ativo, passivo e resultado | S1 | 3-5h | ✅ Concluído |
+| S3 | Criar schema da API | Modelos novos em `app/api/schemas.py` para payload do superávit | S2 | 1h | ✅ Concluído |
+| S4 | Implementar rota `/api/superavit` | Substituir `501` em `app/api/routes/superavit.py` por resposta funcional | S2, S3 | 1-2h | ✅ Concluído |
+| S5 | Tipar integração do frontend | Atualizar `web/src/types.ts` e `web/src/api/client.ts` para consumir payload tipado | S3, S4 | 1h | ✅ Concluído |
+| S6 | Implementar tela funcional | Substituir placeholder em `web/src/screens/Superavit.tsx` por total + tabela por FR | S5 | 2-4h | ✅ Concluído |
+| S7 | Cobrir com testes | Testes unitários do agregador + API + ajuste do teste que hoje espera `501` | S2-S6 | 2-4h | ✅ Concluído |
 
 **Especificação S1 — regra contábil proposta**
 
@@ -341,6 +341,8 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 - Arquivos principais: `app/api/routes/superavit.py`, `app/api/schemas.py`,
   `src/ranking_msc/outputs/aggregations.py`, `web/src/types.ts`,
   `web/src/api/client.ts`, `web/src/screens/Superavit.tsx`.
+- Status atual: backend, frontend e testes do `superavit` concluídos; eventual
+  refinamento futuro depende apenas de validação contábil fina com a equipe.
 - Risco principal: definição contábil incorreta dos blocos de ativo/passivo
   financeiro.
 - Faixa estimada total: **10-20h**.
@@ -369,6 +371,8 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
   `web/src/types.ts`, `web/src/api/client.ts`, `web/src/screens/Ranking.tsx`,
   mais um módulo novo para leitura/agregação da base benchmark.
 - Risco principal: indisponibilidade ou má definição da base comparativa.
+- Status de execução: permanece bloqueado até definição e obtenção da base
+  benchmark externa. Não há implementação parcial iniciada nesta frente.
 - Faixa estimada total: **13-28h** fora o esforço político/operacional para
   obtenção da base.
 

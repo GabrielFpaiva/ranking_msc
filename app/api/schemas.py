@@ -231,6 +231,24 @@ class ContaListOut(BaseModel):
     groups: list[ContaListGroupOut]
 
 
+class SuperavitRowOut(BaseModel):
+    fr: str
+    ativo_financeiro: float
+    passivo_financeiro: float
+    resultado_financeiro: float
+
+
+class SuperavitOut(BaseModel):
+    siconfi: str
+    competencia: str
+    total_ativo_financeiro: float
+    total_passivo_financeiro: float
+    total_resultado_financeiro: float
+    linhas_consideradas: int
+    contas_consideradas: int
+    items: list[SuperavitRowOut]
+
+
 # ---------------------------------------------------------------------------
 # Visões — Executivo, Comparar, Execução, Ranking (fatia E)
 # ---------------------------------------------------------------------------

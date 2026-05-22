@@ -167,6 +167,24 @@ export interface ContaList {
   groups: ContaListGroup[];
 }
 
+export interface SuperavitRow {
+  fr: string;
+  ativo_financeiro: number;
+  passivo_financeiro: number;
+  resultado_financeiro: number;
+}
+
+export interface SuperavitData {
+  siconfi: string;
+  competencia: string;
+  total_ativo_financeiro: number;
+  total_passivo_financeiro: number;
+  total_resultado_financeiro: number;
+  linhas_consideradas: number;
+  contas_consideradas: number;
+  items: SuperavitRow[];
+}
+
 // ---------- Visões / Executivo / Comparar / Log (fatia E) ----------
 
 export interface Recommendation {
