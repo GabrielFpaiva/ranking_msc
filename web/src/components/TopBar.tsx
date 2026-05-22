@@ -12,7 +12,6 @@ const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
   '/superavit': { breadcrumb: 'Contas', title: 'Superávit' },
   '/executivo': { breadcrumb: 'Visões', title: 'Visão Executiva' },
   '/comparar': { breadcrumb: 'Visões', title: 'Comparar Competências' },
-  '/ranking': { breadcrumb: 'Visões', title: 'Ranking Regional' },
 };
 
 export function TopBar() {

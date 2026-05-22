@@ -16,6 +16,7 @@ import type {
   RunSummary,
   Score,
   ScoreHistory,
+  SuperavitData,
 } from '../types';
 
 const BASE = '/api';
@@ -120,8 +121,10 @@ export const api = {
       jsonOrThrow<ContaList>(r),
     ),
 
-  superavit: (siconfi: string, competencia: string): Promise<Response> =>
-    fetch(`${BASE}/superavit${qs({ siconfi, competencia })}`),
+  superavit: (siconfi: string, competencia: string): Promise<SuperavitData> =>
+    fetch(`${BASE}/superavit${qs({ siconfi, competencia })}`).then((r) =>
+      jsonOrThrow<SuperavitData>(r),
+    ),
 
   recommendations: (siconfi: string, competencia: string): Promise<Recommendations> =>
     fetch(`${BASE}/recommendations${qs({ siconfi, competencia })}`).then((r) =>
@@ -138,7 +141,6 @@ export const api = {
   } = {}): Promise<LogPage> =>
     fetch(`${BASE}/log${qs(params)}`).then((r) => jsonOrThrow<LogPage>(r)),
 
-  ranking: (): Promise<Response> => fetch(`${BASE}/ranking`),
 };
 
 export { ApiError };

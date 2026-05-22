@@ -21,9 +21,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from ranking_msc.exceptions import SnapshotNotFoundError
+from ranking_msc.exceptions import ConfigError, SnapshotNotFoundError
 from ranking_msc.outputs.snapshot import read_snapshot
-from ranking_msc.rules.base import RULE_REGISTRY
+from ranking_msc.rules.base import RULE_REGISTRY, ic_mask_informada
 
 logger = logging.getLogger("ranking_msc")
 
@@ -480,6 +480,163 @@ def accounts_by_prefix(
             )
         )
     return sorted(out, key=lambda r: r.conta_contabil)
+
+
+# ---------------------------------------------------------------------------
+# Superávit financeiro por FR
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SuperavitRow:
+    """Linha agregada do resultado financeiro para uma FR."""
+
+    fr: str
+    ativo_financeiro: float
+    passivo_financeiro: float
+    resultado_financeiro: float
+
+
+@dataclass(frozen=True)
+class SuperavitSummary:
+    """Resumo consolidado do resultado financeiro por FR."""
+
+    items: list[SuperavitRow]
+    total_ativo_financeiro: float
+    total_passivo_financeiro: float
+    total_resultado_financeiro: float
+    linhas_consideradas: int
+    contas_consideradas: int
+
+
+def aggregate_superavit_rows(
+    df: pd.DataFrame,
+    *,
+    pcasp: pd.DataFrame,
+) -> SuperavitSummary:
+    """Deriva o resultado financeiro por FR a partir do snapshot normalizado.
+
+    Regras de negócio:
+    - considera apenas linhas com ``fr`` preenchida;
+    - considera apenas contas com match no PCASP;
+    - considera apenas contas com ``ind_sf == "Financeiro"``;
+    - classifica ativo/passivo pelo ``nat_saldo`` do PCASP;
+    - exclui ``Financeiro/Permanente`` e demais classificações.
+    """
+    if df.empty:
+        return SuperavitSummary(
+            items=[],
+            total_ativo_financeiro=0.0,
+            total_passivo_financeiro=0.0,
+            total_resultado_financeiro=0.0,
+            linhas_consideradas=0,
+            contas_consideradas=0,
+        )
+
+    if pcasp.empty:
+        raise ConfigError(
+            "Tabela PCASP vazia para derivar o superávit por FR."
+        )
+
+    required_pcasp_columns = {"conta_contabil", "nat_saldo", "ind_sf"}
+    missing_pcasp_columns = sorted(required_pcasp_columns.difference(pcasp.columns))
+    if missing_pcasp_columns:
+        raise ConfigError(
+            "Tabela PCASP incompleta para derivar o superávit por FR: "
+            f"faltam colunas {missing_pcasp_columns}."
+        )
+
+    pcasp_view = pcasp.loc[:, ["conta_contabil", "nat_saldo", "ind_sf"]].copy()
+    pcasp_view["conta_contabil"] = pcasp_view["conta_contabil"].astype(str).str.strip()
+    pcasp_view["nat_saldo"] = pcasp_view["nat_saldo"].astype(str).str.strip()
+    pcasp_view["ind_sf"] = pcasp_view["ind_sf"].astype(str).str.strip()
+
+    base = df.copy()
+    base["conta_contabil"] = base["conta_contabil"].astype(str).str.strip()
+    base["fr"] = base["fr"].fillna("").astype(str).str.strip()
+    base = base[ic_mask_informada(base["fr"])].copy()
+    if base.empty:
+        return SuperavitSummary(
+            items=[],
+            total_ativo_financeiro=0.0,
+            total_passivo_financeiro=0.0,
+            total_resultado_financeiro=0.0,
+            linhas_consideradas=0,
+            contas_consideradas=0,
+        )
+
+    merged = base.merge(pcasp_view, on="conta_contabil", how="left")
+    merged = merged[
+        (merged["ind_sf"] == "Financeiro")
+        & (merged["nat_saldo"].isin(["Devedora", "Credora"]))
+    ].copy()
+    if merged.empty:
+        return SuperavitSummary(
+            items=[],
+            total_ativo_financeiro=0.0,
+            total_passivo_financeiro=0.0,
+            total_resultado_financeiro=0.0,
+            linhas_consideradas=0,
+            contas_consideradas=0,
+        )
+
+    merged["ativo_financeiro"] = 0.0
+    merged["passivo_financeiro"] = 0.0
+
+    mask_ativo = merged["nat_saldo"] == "Devedora"
+    mask_passivo = merged["nat_saldo"] == "Credora"
+    merged.loc[mask_ativo, "ativo_financeiro"] = (
+        merged.loc[mask_ativo, "saldo_final_debito"].astype(float)
+        - merged.loc[mask_ativo, "saldo_final_credito"].astype(float)
+    )
+    merged.loc[mask_passivo, "passivo_financeiro"] = (
+        merged.loc[mask_passivo, "saldo_final_credito"].astype(float)
+        - merged.loc[mask_passivo, "saldo_final_debito"].astype(float)
+    )
+
+    grouped = (
+        merged.groupby("fr", as_index=False)
+        .agg(
+            ativo_financeiro=("ativo_financeiro", "sum"),
+            passivo_financeiro=("passivo_financeiro", "sum"),
+        )
+        .assign(
+            resultado_financeiro=lambda x: x["ativo_financeiro"] - x["passivo_financeiro"],
+        )
+        .sort_values(by=["resultado_financeiro", "fr"], ascending=[False, True])
+        .reset_index(drop=True)
+    )
+
+    items = [
+        SuperavitRow(
+            fr=str(row["fr"]),
+            ativo_financeiro=float(row["ativo_financeiro"]),
+            passivo_financeiro=float(row["passivo_financeiro"]),
+            resultado_financeiro=float(row["resultado_financeiro"]),
+        )
+        for _, row in grouped.iterrows()
+    ]
+    return SuperavitSummary(
+        items=items,
+        total_ativo_financeiro=float(grouped["ativo_financeiro"].sum()),
+        total_passivo_financeiro=float(grouped["passivo_financeiro"].sum()),
+        total_resultado_financeiro=float(grouped["resultado_financeiro"].sum()),
+        linhas_consideradas=int(len(merged)),
+        contas_consideradas=int(merged["conta_contabil"].nunique()),
+    )
+
+
+def aggregate_superavit(
+    snapshots_dir: Path,
+    siconfi: str,
+    competencia: str,
+    *,
+    pcasp: pd.DataFrame,
+) -> SuperavitSummary:
+    """Lê o snapshot da competência e deriva o resultado financeiro por FR."""
+    base = snapshots_dir / siconfi
+    df = read_snapshot(competencia, base_dir=base, label="msc_normalizado")
+    return aggregate_superavit_rows(df, pcasp=pcasp)
 
 
 # ---------------------------------------------------------------------------

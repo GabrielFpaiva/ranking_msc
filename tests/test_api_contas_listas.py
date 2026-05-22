@@ -16,7 +16,7 @@ from tests.conftest import _build_msc_csv_bytes  # type: ignore[attr-defined]
 
 
 def _csv_with_caixa_and_passivos() -> bytes:
-    """Gera CSV com contas em vários prefixos (1.1.1, 2.1, 2.2)."""
+    """Gera CSV com contas em vários prefixos e 2 FRs para superávit."""
     rows = [
         # Caixa (111)
         ["111110200", "10131", "PO", "1", "FP", "1500", "FR", "", "", "", "", "", "",
@@ -25,6 +25,9 @@ def _csv_with_caixa_and_passivos() -> bytes:
          "200.00", "period_change", "D"],
         ["111110200", "10131", "PO", "1", "FP", "1500", "FR", "", "", "", "", "", "",
          "1200.00", "ending_balance", "D"],
+        # Ativo financeiro adicional em outra FR
+        ["111110100", "10131", "PO", "1", "FP", "1700", "FR", "", "", "", "", "", "",
+         "300.00", "ending_balance", "D"],
         # Passivo Circulante (21)
         ["210000000", "10131", "PO", "2", "FP", "1500", "FR", "", "", "", "", "", "",
          "500.00", "beginning_balance", "C"],
@@ -32,6 +35,9 @@ def _csv_with_caixa_and_passivos() -> bytes:
          "100.00", "period_change", "C"],
         ["210000000", "10131", "PO", "2", "FP", "1500", "FR", "", "", "", "", "", "",
          "600.00", "ending_balance", "C"],
+        # Passivo financeiro elegível ao superávit
+        ["218810101", "10131", "PO", "2", "FP", "1500", "FR", "", "", "", "", "", "",
+         "450.00", "ending_balance", "C"],
         # Passivo Não-Circulante (22)
         ["220000000", "10131", "PO", "2", "FP", "1500", "FR", "", "", "", "", "", "",
          "300.00", "beginning_balance", "C"],
@@ -57,8 +63,9 @@ def populated(
     from app.api.routes import caixa as caixa_module
     from app.api.routes import passivos as passivos_module
     from app.api.routes import run as run_module
+    from app.api.routes import superavit as superavit_module
 
-    for module in (run_module, caixa_module, passivos_module):
+    for module in (run_module, caixa_module, passivos_module, superavit_module):
         monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots)
     monkeypatch.setattr(run_module, "absolute_reports_dir", lambda: reports)
 
@@ -118,7 +125,7 @@ class TestPassivos:
 
 
 class TestSuperavit:
-    def test_superavit_retorna_payload_informativo_com_referencia_a_task(
+    def test_superavit_retorna_resultado_financeiro_por_fr(
         self, populated: tuple[str, str]
     ) -> None:
         siconfi, competencia = populated
@@ -128,5 +135,61 @@ class TestSuperavit:
         )
         assert response.status_code == 200
         body = response.json()
-        assert body["code"] == "not_implemented"
-        assert body["see"] == "F0-04"
+        assert body["siconfi"] == siconfi
+        assert body["competencia"] == competencia
+        assert body["total_ativo_financeiro"] == 1500.0
+        assert body["total_passivo_financeiro"] == 450.0
+        assert body["total_resultado_financeiro"] == 1050.0
+        assert [item["fr"] for item in body["items"]] == ["1500", "1700"]
+        by_fr = {item["fr"]: item for item in body["items"]}
+        assert by_fr["1500"]["resultado_financeiro"] == 750.0
+
+    def test_superavit_404_quando_snapshot_ausente(self) -> None:
+        client = TestClient(app)
+        response = client.get(
+            "/api/superavit", params={"siconfi": "0000000XX", "competencia": "1999-01"}
+        )
+        assert response.status_code == 404
+
+
+    def test_superavit_422_quando_pcasp_nao_tem_metadados_exigidos(
+        self, populated: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        siconfi, competencia = populated
+        from app.api.routes import superavit as superavit_module
+
+        monkeypatch.setattr(
+            superavit_module,
+            "load_pcasp",
+            lambda *args, **kwargs: __import__("pandas").DataFrame([{
+                "conta_contabil": "111110100"
+            }]),
+        )
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/superavit", params={"siconfi": siconfi, "competencia": competencia}
+        )
+        assert response.status_code == 422
+        assert "faltam colunas" in response.json()["detail"]
+
+    def test_superavit_422_quando_pcasp_esta_vazio(
+        self, populated: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        siconfi, competencia = populated
+        from app.api.routes import superavit as superavit_module
+
+        monkeypatch.setattr(
+            superavit_module,
+            "load_pcasp",
+            lambda *args, **kwargs: __import__("pandas").DataFrame(
+                columns=["conta_contabil", "nat_saldo", "ind_sf"]
+            ),
+        )
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/superavit", params={"siconfi": siconfi, "competencia": competencia}
+        )
+        assert response.status_code == 422
+        assert "PCASP vazia" in response.json()["detail"]
