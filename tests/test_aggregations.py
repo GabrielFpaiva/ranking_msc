@@ -5,7 +5,9 @@ Testes de ranking_msc.outputs.aggregations.
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
+from ranking_msc.exceptions import ConfigError
 from ranking_msc.outputs.aggregations import (
     SuperavitSummary,
     TopRule,
@@ -174,3 +176,24 @@ class TestAggregateSuperavitRows:
         assert out.items == []
         assert out.total_resultado_financeiro == 0.0
         assert out.contas_consideradas == 0
+
+    def test_pcasp_sem_colunas_obrigatorias_levanta_config_error(self) -> None:
+        df = pd.DataFrame(
+            [
+                {
+                    "conta_contabil": "111110200",
+                    "fr": "1500",
+                    "saldo_final_debito": 100.0,
+                    "saldo_final_credito": 0.0,
+                }
+            ]
+        )
+        pcasp_sem_ind_sf = pd.DataFrame(
+            [{"conta_contabil": "111110200", "nat_saldo": "Devedora"}]
+        )
+        with pytest.raises(ConfigError, match="ind_sf"):
+            aggregate_superavit_rows(df, pcasp=pcasp_sem_ind_sf)
+
+        pcasp_so_conta = pd.DataFrame([{"conta_contabil": "111110200"}])
+        with pytest.raises(ConfigError, match="ind_sf|nat_saldo"):
+            aggregate_superavit_rows(df, pcasp=pcasp_so_conta)

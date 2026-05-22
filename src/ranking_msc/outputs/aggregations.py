@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ranking_msc.exceptions import SnapshotNotFoundError
+from ranking_msc.exceptions import ConfigError, SnapshotNotFoundError
 from ranking_msc.outputs.snapshot import read_snapshot
 from ranking_msc.rules.base import RULE_REGISTRY
 
@@ -523,6 +523,14 @@ def aggregate_superavit_rows(
     - classifica ativo/passivo pelo ``nat_saldo`` do PCASP;
     - exclui ``Financeiro/Permanente`` e demais classificações.
     """
+    required_pcasp_cols = {"nat_saldo", "ind_sf"}
+    missing = required_pcasp_cols - set(pcasp.columns)
+    if missing:
+        raise ConfigError(
+            f"Tabela PCASP sem colunas obrigatórias para derivação do superávit: "
+            f"{sorted(missing)}. Colunas presentes: {sorted(pcasp.columns.tolist())}"
+        )
+
     if df.empty or pcasp.empty:
         return SuperavitSummary(
             items=[],
