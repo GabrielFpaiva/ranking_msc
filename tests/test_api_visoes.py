@@ -1,6 +1,6 @@
 """
 Testes dos endpoints da fatia E:
-recommendations, compare, log, ranking.
+recommendations, compare e log.
 """
 
 from __future__ import annotations
@@ -177,10 +177,7 @@ class TestLog:
 
 
 class TestRanking:
-    def test_ranking_retorna_payload_informativo_com_referencia_a_task(self) -> None:
+    def test_ranking_404_fora_da_superficie_publica(self) -> None:
         client = TestClient(app)
         r = client.get("/api/ranking")
-        assert r.status_code == 200
-        body = r.json()
-        assert body["code"] == "not_implemented"
-        assert body["see"] == "F0-03"
+        assert r.status_code == 404

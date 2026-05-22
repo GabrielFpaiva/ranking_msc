@@ -17,7 +17,7 @@ O pipeline principal é:
 CSV MSC → read_msc_csv() → normalize_ic() → run_engine(regras) → snapshot + Excel + log
 ```
 
-O estado de referência do projeto fica em `doc/backlog.md`.
+O estado de referência do projeto fica em `doc/backlog.md`. A política documental e a revisão arquitetural corrente ficam em `doc/governanca_documental.md`.
 
 Resumo atual:
 

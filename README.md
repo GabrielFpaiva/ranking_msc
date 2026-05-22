@@ -100,6 +100,41 @@ make frontend-build
 
 O FastAPI serve `web/dist/` como estático em `/` e as rotas em `/api/*`.
 
+### Rodar com Docker Compose
+
+Pré-requisito: Docker com `docker compose` disponível.
+
+```bash
+# Sobe a stack local já com build
+docker compose up --build
+
+# Ou via Makefile
+make docker-up
+```
+
+A aplicação fica acessível em `http://localhost:8000`, servindo:
+
+- frontend React já buildado em `/`
+- API FastAPI em `/api/*`
+
+Volumes montados por padrão:
+
+- `./data:/app/data`
+- `./config:/app/config`
+
+Comportamento do container:
+
+- se `config/settings.yaml` não existir, o entrypoint copia `config/settings.yaml.example`;
+- diretórios `data/snapshots`, `data/reports` e `data/logs` são criados automaticamente.
+
+Para derrubar a stack:
+
+```bash
+docker compose down
+# ou
+make docker-down
+```
+
 ### Validar localmente
 
 ```bash
@@ -107,7 +142,6 @@ make validate
 ```
 
 Esse comando executa:
-### Rodar testes
 
 - `ruff check src/ tests/ app/`
 - `mypy src/ app/api/`
@@ -257,11 +291,13 @@ rules:
 
 | Documento | Uso |
 |---|---|
-| `README.md` | Visão geral, setup e comandos |
-| `CLAUDE.md` | Convenções operacionais do repositório |
+| `README.md` | Visão geral, setup, comandos e superfície pública da API |
+| `CLAUDE.md` | Convenções operacionais permanentes do repositório |
 | `doc/backlog.md` | Status consolidado, pendências e prioridades |
-| `doc/fase0_plan.md` | Referência das entregas/pêndencias do frontend |
 | `doc/modelo_pontuacao.md` | Regra de negócio do score |
+| `doc/governanca_documental.md` | Política documental e revisão de aderência arquitetural |
+| `doc/fase0_plan.md` | Registro histórico da entrega de bootstrap/frontend |
+| `doc/legacy_inventory.md` | Registro histórico da remoção do legado Panel |
 
 ---
 
@@ -281,13 +317,15 @@ rules:
 | GET | `/api/contas/:codigo` | Detalhe de uma conta contábil |
 | GET | `/api/caixa` | Listagem de contas de caixa |
 | GET | `/api/passivos` | Listagem de passivos |
-| GET | `/api/superavit` | Superávit financeiro (501 — F0-04) |
+| GET | `/api/superavit` | Resultado financeiro por FR |
 | GET | `/api/compare` | Diff de score entre 2 competências |
 | GET | `/api/recommendations` | Ações recomendadas (Executivo) |
 | GET | `/api/log` | Tail do log JSONL |
-| GET | `/api/ranking` | Ranking Regional (501 — F0-03) |
 | GET | `/api/exports/excel` | Download do relatório Excel |
 | GET | `/api/health` | Healthcheck |
+
+> `Ranking Regional` permanece fora da superfície pública até a integração de uma
+> base benchmark externa comparável entre entes.
 
 ---
 

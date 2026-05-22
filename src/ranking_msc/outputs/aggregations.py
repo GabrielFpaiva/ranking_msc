@@ -23,15 +23,12 @@ import pandas as pd
 
 from ranking_msc.exceptions import ConfigError, SnapshotNotFoundError
 from ranking_msc.outputs.snapshot import read_snapshot
-from ranking_msc.rules.base import RULE_REGISTRY
+from ranking_msc.rules.base import RULE_REGISTRY, ic_mask_informada
 
 logger = logging.getLogger("ranking_msc")
 
 
 _SEVERIDADE_RANK: dict[str, int] = {"ERRO": 3, "ALERTA": 2, "INFO": 1}
-
-# Valores considerados "não informados" para FR — mesma semântica de IC validation.
-_FR_UNINFORMED: frozenset[str] = frozenset({"", "0", "nan"})
 
 
 @dataclass(frozen=True)
@@ -526,15 +523,7 @@ def aggregate_superavit_rows(
     - classifica ativo/passivo pelo ``nat_saldo`` do PCASP;
     - exclui ``Financeiro/Permanente`` e demais classificações.
     """
-    required_pcasp_cols = {"nat_saldo", "ind_sf"}
-    missing = required_pcasp_cols - set(pcasp.columns)
-    if missing:
-        raise ConfigError(
-            f"Tabela PCASP sem colunas obrigatórias para derivação do superávit: "
-            f"{sorted(missing)}. Colunas presentes: {sorted(pcasp.columns.tolist())}"
-        )
-
-    if df.empty or pcasp.empty:
+    if df.empty:
         return SuperavitSummary(
             items=[],
             total_ativo_financeiro=0.0,
@@ -542,6 +531,19 @@ def aggregate_superavit_rows(
             total_resultado_financeiro=0.0,
             linhas_consideradas=0,
             contas_consideradas=0,
+        )
+
+    if pcasp.empty:
+        raise ConfigError(
+            "Tabela PCASP vazia para derivar o superávit por FR."
+        )
+
+    required_pcasp_columns = {"conta_contabil", "nat_saldo", "ind_sf"}
+    missing_pcasp_columns = sorted(required_pcasp_columns.difference(pcasp.columns))
+    if missing_pcasp_columns:
+        raise ConfigError(
+            "Tabela PCASP incompleta para derivar o superávit por FR: "
+            f"faltam colunas {missing_pcasp_columns}."
         )
 
     pcasp_view = pcasp.loc[:, ["conta_contabil", "nat_saldo", "ind_sf"]].copy()
@@ -552,7 +554,7 @@ def aggregate_superavit_rows(
     base = df.copy()
     base["conta_contabil"] = base["conta_contabil"].astype(str).str.strip()
     base["fr"] = base["fr"].fillna("").astype(str).str.strip()
-    base = base[~base["fr"].str.lower().isin(_FR_UNINFORMED)]
+    base = base[ic_mask_informada(base["fr"])].copy()
     if base.empty:
         return SuperavitSummary(
             items=[],

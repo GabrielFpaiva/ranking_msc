@@ -16,7 +16,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from ranking_msc.exceptions import SnapshotError, SnapshotNotFoundError
+from pyarrow.lib import ArrowException, ArrowIOError
+
+from ranking_msc.exceptions import SnapshotCorruptError, SnapshotError, SnapshotNotFoundError
 
 logger = logging.getLogger("ranking_msc")
 
@@ -80,7 +82,8 @@ def read_snapshot(
 
     Raises:
         SnapshotNotFoundError: se o arquivo não existir em disco.
-        SnapshotError: se houver falha de leitura (I/O, permissão, Parquet corrompido).
+        SnapshotCorruptError: se o arquivo existir, mas estiver corrompido/inválido.
+        SnapshotError: se houver falha operacional de leitura (I/O, permissão, engine).
     """
     path = Path(base_dir) / competencia / f"{label}.parquet"
     if not path.exists():
@@ -88,7 +91,11 @@ def read_snapshot(
 
     try:
         df = pd.read_parquet(path)
-    except OSError as exc:
+    except (ArrowException, ArrowIOError) as exc:
+        raise SnapshotCorruptError(
+            f"Snapshot corrompido para competência {competencia}: {exc}"
+        ) from exc
+    except Exception as exc:
         raise SnapshotError(
             f"Falha ao ler snapshot da competência {competencia}: {exc}"
         ) from exc

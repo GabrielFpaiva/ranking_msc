@@ -141,7 +141,6 @@ export const api = {
   } = {}): Promise<LogPage> =>
     fetch(`${BASE}/log${qs(params)}`).then((r) => jsonOrThrow<LogPage>(r)),
 
-  ranking: (): Promise<Response> => fetch(`${BASE}/ranking`),
 };
 
 export { ApiError };

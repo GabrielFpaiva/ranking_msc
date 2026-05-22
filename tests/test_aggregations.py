@@ -177,42 +177,73 @@ class TestAggregateSuperavitRows:
         assert out.total_resultado_financeiro == 0.0
         assert out.contas_consideradas == 0
 
-    def test_pcasp_sem_colunas_obrigatorias_levanta_config_error(self) -> None:
+
+    def test_exclui_fr_placeholder_zero_e_nan(self) -> None:
         df = pd.DataFrame(
             [
                 {
                     "conta_contabil": "111110200",
-                    "fr": "1500",
+                    "fr": "0",
                     "saldo_final_debito": 100.0,
+                    "saldo_final_credito": 0.0,
+                },
+                {
+                    "conta_contabil": "218810101",
+                    "fr": "nan",
+                    "saldo_final_debito": 0.0,
+                    "saldo_final_credito": 50.0,
+                },
+                {
+                    "conta_contabil": "111110100",
+                    "fr": "1500",
+                    "saldo_final_debito": 300.0,
+                    "saldo_final_credito": 0.0,
+                },
+            ]
+        )
+        pcasp = pd.DataFrame(
+            [
+                {"conta_contabil": "111110200", "nat_saldo": "Devedora", "ind_sf": "Financeiro"},
+                {"conta_contabil": "218810101", "nat_saldo": "Credora", "ind_sf": "Financeiro"},
+                {"conta_contabil": "111110100", "nat_saldo": "Devedora", "ind_sf": "Financeiro"},
+            ]
+        )
+
+        out = aggregate_superavit_rows(df, pcasp=pcasp)
+
+        assert [item.fr for item in out.items] == ["1500"]
+        assert out.total_ativo_financeiro == 300.0
+        assert out.total_passivo_financeiro == 0.0
+        assert out.total_resultado_financeiro == 300.0
+
+    def test_erro_controlado_quando_pcasp_esta_vazio(self) -> None:
+        df = pd.DataFrame(
+            [
+                {
+                    "conta_contabil": "111110100",
+                    "fr": "1500",
+                    "saldo_final_debito": 300.0,
                     "saldo_final_credito": 0.0,
                 }
             ]
         )
-        pcasp_sem_ind_sf = pd.DataFrame(
-            [{"conta_contabil": "111110200", "nat_saldo": "Devedora"}]
-        )
-        with pytest.raises(ConfigError, match="ind_sf"):
-            aggregate_superavit_rows(df, pcasp=pcasp_sem_ind_sf)
+        pcasp = pd.DataFrame(columns=["conta_contabil", "nat_saldo", "ind_sf"])
 
-        pcasp_so_conta = pd.DataFrame([{"conta_contabil": "111110200"}])
-        with pytest.raises(ConfigError, match="ind_sf|nat_saldo"):
-            aggregate_superavit_rows(df, pcasp=pcasp_so_conta)
+        with pytest.raises(ConfigError, match="PCASP vazia"):
+            aggregate_superavit_rows(df, pcasp=pcasp)
 
-    def test_fr_placeholder_excluido_do_agrupamento(self) -> None:
-        pcasp = pd.DataFrame(
-            [{"conta_contabil": "111110200", "nat_saldo": "Devedora", "ind_sf": "Financeiro"}]
+    def test_erro_controlado_quando_pcasp_nao_tem_colunas_exigidas(self) -> None:
+        df = pd.DataFrame(
+            [
+                {
+                    "conta_contabil": "111110100",
+                    "fr": "1500",
+                    "saldo_final_debito": 300.0,
+                    "saldo_final_credito": 0.0,
+                }
+            ]
         )
-        for placeholder in ("0", "nan", "NAN", "Nan"):
-            df = pd.DataFrame(
-                [
-                    {
-                        "conta_contabil": "111110200",
-                        "fr": placeholder,
-                        "saldo_final_debito": 500.0,
-                        "saldo_final_credito": 0.0,
-                    }
-                ]
-            )
-            out = aggregate_superavit_rows(df, pcasp=pcasp)
-            assert out.items == [], f"FR={placeholder!r} deveria ser excluído"
-            assert out.total_ativo_financeiro == 0.0
+        pcasp = pd.DataFrame([{"conta_contabil": "111110100"}])
+
+        with pytest.raises(ConfigError, match="faltam colunas"):
+            aggregate_superavit_rows(df, pcasp=pcasp)

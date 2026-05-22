@@ -12,6 +12,8 @@ from app.api import deps as api_deps
 from app.api.main import app
 from fastapi.testclient import TestClient
 
+from ranking_msc.exceptions import SnapshotError
+
 from tests.conftest import _build_msc_csv_bytes  # type: ignore[attr-defined]
 
 
@@ -88,6 +90,66 @@ class TestPdfExport:
             params={"siconfi": "0000000XX", "competencia": "1999-01"},
         )
         assert response.status_code == 404
+
+    def test_pdf_422_quando_snapshot_atual_corrompido(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        snapshots = tmp_path / "snapshots"
+        reports = tmp_path / "reports"
+        snapshots.mkdir()
+        reports.mkdir()
+
+        monkeypatch.setattr(api_deps, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(api_deps, "absolute_reports_dir", lambda: reports)
+        from app.api.routes import exports as exports_module
+
+        monkeypatch.setattr(exports_module, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(exports_module, "absolute_reports_dir", lambda: reports)
+
+        corrupt_dir = snapshots / "2507507EX" / "2025-12"
+        corrupt_dir.mkdir(parents=True)
+        (corrupt_dir / "resultado_regras.parquet").write_text("nao-e-parquet", encoding="utf-8")
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/exports/pdf",
+            params={"siconfi": "2507507EX", "competencia": "2025-12"},
+        )
+
+        assert response.status_code == 422
+        assert "Snapshot inválido para 2507507EX/2025-12" in response.json()["detail"]
+
+    def test_pdf_500_quando_snapshot_atual_tem_falha_operacional_de_leitura(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        snapshots = tmp_path / "snapshots"
+        reports = tmp_path / "reports"
+        snapshots.mkdir()
+        reports.mkdir()
+
+        monkeypatch.setattr(api_deps, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(api_deps, "absolute_reports_dir", lambda: reports)
+        from app.api.routes import exports as exports_module
+
+        monkeypatch.setattr(exports_module, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(exports_module, "absolute_reports_dir", lambda: reports)
+
+        def _raise_operational_failure(*args: object, **kwargs: object) -> object:
+            raise SnapshotError("Falha de permissão ao ler arquivo Parquet")
+
+        monkeypatch.setattr(exports_module, "read_snapshot", _raise_operational_failure)
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get(
+            "/api/exports/pdf",
+            params={"siconfi": "2507507EX", "competencia": "2025-12"},
+        )
+
+        assert response.status_code == 500
 
     def test_pdf_historico_nao_inclui_competencias_futuras(
         self,

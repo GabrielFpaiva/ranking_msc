@@ -48,16 +48,16 @@ def get_superavit(
             competencia,
             pcasp=pcasp,
         )
+    except ConfigError as exc:
+        logger.warning("PCASP incompleto para superavit: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
     except SnapshotNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Snapshot não encontrado para {siconfi}/{competencia}.",
-        ) from exc
-    except ConfigError as exc:
-        logger.exception("Erro de configuração ao derivar superávit: %s/%s.", siconfi, competencia)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro de configuração ao derivar o superávit por FR.",
         ) from exc
 
     return SuperavitOut(

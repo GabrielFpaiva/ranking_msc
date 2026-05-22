@@ -1,7 +1,7 @@
 VENV := .venv/bin
 PYTHON := $(VENV)/python
 
-.PHONY: bootstrap config dirs dev-backend dev-frontend lint typecheck test frontend-lint frontend-typecheck frontend-build validate ci
+.PHONY: bootstrap config dirs dev-backend dev-frontend lint typecheck test frontend-lint frontend-typecheck frontend-build validate ci docker-up docker-down
 
 bootstrap:
 	python3 -m venv .venv
@@ -44,3 +44,10 @@ frontend-build:
 validate: lint typecheck test frontend-lint frontend-typecheck frontend-build
 
 ci: validate
+
+
+docker-up:
+	docker compose up --build
+
+docker-down:
+	docker compose down

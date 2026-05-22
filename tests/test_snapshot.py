@@ -14,8 +14,9 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from pyarrow.lib import ArrowIOError
 
-from ranking_msc.exceptions import SnapshotError
+from ranking_msc.exceptions import SnapshotCorruptError, SnapshotError
 from ranking_msc.outputs.snapshot import read_snapshot, write_snapshot_atomic
 
 
@@ -142,6 +143,42 @@ def test_write_snapshot_atomic_remove_tmp_quando_gravacao_falha(
 def test_read_snapshot_ausente_levanta_snapshoterror(local_snapshot_dir: Path) -> None:
     """Levanta SnapshotError quando arquivo parquet nao existe."""
     with pytest.raises(SnapshotError, match="Snapshot não encontrado"):
+        read_snapshot(
+            competencia="2024-01",
+            base_dir=local_snapshot_dir,
+            label="resultado_regras",
+        )
+
+
+def test_read_snapshot_corrompido_levanta_snapshoterror(local_snapshot_dir: Path) -> None:
+    """Converte parquet invalido em SnapshotCorruptError no boundary de leitura."""
+    target_dir = local_snapshot_dir / "2024-01"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "resultado_regras.parquet").write_text("nao-e-parquet", encoding="utf-8")
+
+    with pytest.raises(SnapshotCorruptError, match="Snapshot corrompido para competência 2024-01"):
+        read_snapshot(
+            competencia="2024-01",
+            base_dir=local_snapshot_dir,
+            label="resultado_regras",
+        )
+
+
+def test_read_snapshot_arrowioerror_corrompido_levanta_snapshotcorrupterror(
+    local_snapshot_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Classifica ArrowIOError de parquet truncado/corrompido como SnapshotCorruptError."""
+    target_dir = local_snapshot_dir / "2024-01"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "resultado_regras.parquet").write_text("placeholder", encoding="utf-8")
+
+    def _broken_read_parquet(*args: object, **kwargs: object) -> pd.DataFrame:
+        raise ArrowIOError("Corrupt footer")
+
+    monkeypatch.setattr(pd, "read_parquet", _broken_read_parquet)
+
+    with pytest.raises(SnapshotCorruptError, match="Snapshot corrompido para competência 2024-01"):
         read_snapshot(
             competencia="2024-01",
             base_dir=local_snapshot_dir,
