@@ -13,7 +13,6 @@ from app.api.main import app
 from fastapi.testclient import TestClient
 
 from ranking_msc.exceptions import SnapshotError
-
 from tests.conftest import _build_msc_csv_bytes  # type: ignore[attr-defined]
 
 

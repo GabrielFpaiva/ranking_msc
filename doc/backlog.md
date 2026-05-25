@@ -1,7 +1,7 @@
 # Backlog Consolidado — Ranking MSC
 
-> **Atualizado:** 2026-05-22
-> **Estado atual:** 78 regras implementadas · 923 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01, F5-02, F5-03 e F5-05 ✅)
+> **Atualizado:** 2026-05-25
+> **Estado atual:** 78 regras implementadas · 944 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01, F5-02, F5-03 e F5-05 ✅) · gate `validate` verde na branch corrente
 
 ---
 
@@ -18,7 +18,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 |---|---|---|---|
 | Fase 2 | Infraestrutura + 5 regras piloto + Pipeline | ✅ Concluída | 190 testes |
 | Fase 3 | Catálogo expandido → 35 regras | ✅ Concluída | 471 testes |
-| Fase 4 | Scoring + Batch + Compare + regras restantes | ✅ Concluída | 923 testes |
+| Fase 4 | Scoring + Batch + Compare + regras restantes | ✅ Concluída | 944 testes |
 | Fase 0 | Frontend MCRA (React+FastAPI replacing Panel) | ✅ Concluída | 8 commits |
 | Fase 5 | Produção (export, auth, deploy, docs, entrega) | 📋 Backlog | — |
 
@@ -262,7 +262,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ❌ A Fazer | F5-08(xlsx) |
 | F5-07 | Manual do usuário + guia de operação | 6 | — | ❌ A Fazer | F5-09(xlsx) |
 | F5-08 | Documentar settings.yaml + variáveis de ambiente prod | 2 | F5-05 | ❌ A Fazer | Novo |
-| F5-09 | Buffer: correção de bugs e ajustes finais | 4 | — | 🟡 Parcial | F5-10(xlsx) |
+| F5-09 | Buffer: correção de bugs e ajustes finais (`validate` restaurado em 2026-05-25) | 4 | — | 🟡 Parcial | F5-10(xlsx) |
 | F5-10 | Treinamento / demo para equipe contábil | 4 | F5-07 | ❌ A Fazer | F5-11(xlsx) |
 | F5-11 | Entrega final + handoff operacional | 2 | tudo | ❌ A Fazer | F5-12(xlsx) |
 
@@ -404,30 +404,24 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ## Prioridade Sugerida (Próximos Passos)
 
-### 🟡 Prioridade 1 — Qualidade + Fechamento documental
+### 🟡 Prioridade 1 — Hardening de Produção
 
-(Todas as tasks originais concluídas)
+1. **F5-06** — Testes E2E no ambiente de deploy — ~4h
+2. **F5-08** — Documentar `settings.yaml` + variáveis de ambiente de produção — ~2h
+3. **F5-04** — Autenticação multiusuário (JWT + namespacing) — ~8h
+4. **F5-09** — Buffer de bugs e ajustes finais — manter aberto até fechar os itens acima
 
-### 🟢 Prioridade 2 — Infra + Polish
+### 🟢 Prioridade 2 — Operação e Entrega
 
-(F5-02 cutover Panel concluído)
+5. **F5-07** — Manual do usuário + guia de operação — ~6h
+6. **F5-10** — Treinamento / demo para equipe contábil — ~4h
+7. **F5-11** — Entrega final + handoff operacional — ~2h
 
-### 🔵 Prioridade 3 — Produção (Fase 5)
+### 🔵 Prioridade 3 — Nice-to-have
 
-14. **F5-06** — Testes E2E — ~4h
-15. **F5-08** — Docs settings prod — ~2h
-16. **F5-04** — Autenticação multiusuário — ~8h
-17. **F5-07** — Manual do usuário — ~6h
-18. **F5-10** — Treinamento / demo — ~4h
-20. **F5-09** — Bug fixes buffer — ~4h
-
-### ⚪ Prioridade 4 — Entrega + Nice-to-have
-
-21. **F5-10** — Treinamento equipe contábil — ~4h
-22. **F5-11** — Entrega final + handoff — ~2h
-23. **F0-02** — Recommendations engine — ~6h
-25. **F0-03** — Ranking Regional — ~10h
-26. **F0-04** — Superávit por FR — ~6h
+8. **F0-02** — Recommendations engine — ~6h
+9. **F0-03** — Ranking Regional — ~10h
+10. Refinamento contábil do superávit por FR, se a equipe exigir tratar contas `Financeiro/Permanente`
 
 ---
 
@@ -436,8 +430,9 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | Métrica | Valor |
 |---|---|
 | Regras implementadas | 78 / 78 (100%) |
-| Testes coletados | 923 |
+| Testes coletados | 944 |
 | Cobertura de categorias | 15/15 com ≥1 regra |
+| Gate `validate` | Verde em 2026-05-25 (`ruff` + `mypy` + `pytest` + frontend lint/typecheck/build) |
 | Frontend telas | 10/10 navegáveis |
 | Endpoints API | 19 |
 | Lint (ruff + mypy + tsc + eslint) | ✅ OK (ESLint com 2 warnings de Fast Refresh) |

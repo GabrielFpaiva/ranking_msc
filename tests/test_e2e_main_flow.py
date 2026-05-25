@@ -94,7 +94,9 @@ class TestMainFlowE2E:
         heatmap_body = heatmap_response.json()
         assert competencia in heatmap_body["competencias"]
         assert len(heatmap_body["regras"]) > 0
-        assert len(heatmap_body["cells"]) == len(heatmap_body["regras"]) * len(heatmap_body["competencias"])
+        assert len(heatmap_body["cells"]) == (
+            len(heatmap_body["regras"]) * len(heatmap_body["competencias"])
+        )
 
         excel_response = client.get(
             "/api/exports/excel",
