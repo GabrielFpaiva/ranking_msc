@@ -1,6 +1,8 @@
 // Wrapper fino sobre fetch para o backend FastAPI.
 // Em dev usa o proxy do Vite (/api → :8000). Em prod é same-origin.
 
+import { authStore } from '../store/auth';
+
 import type {
   Compare,
   Competencia,
@@ -32,6 +34,23 @@ class ApiError extends Error {
   }
 }
 
+function authHeaders(): HeadersInit {
+  const token = authStore.getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function fetchAuth(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const res = await fetch(input, {
+    ...init,
+    headers: { ...authHeaders(), ...(init.headers as Record<string, string> | undefined) },
+  });
+  if (res.status === 401) {
+    authStore.clearToken();
+    window.location.href = '/login';
+  }
+  return res;
+}
+
 async function jsonOrThrow<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let detail = res.statusText;
@@ -44,6 +63,21 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
     throw new ApiError(res.status, detail);
   }
   return (await res.json()) as T;
+}
+
+export async function apiLogin(username: string, password: string): Promise<void> {
+  const form = new URLSearchParams({ username, password, grant_type: 'password' });
+  const res = await fetch(`${BASE}/auth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: form.toString(),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new ApiError(res.status, body.detail ?? 'Credenciais inválidas');
+  }
+  const data = (await res.json()) as { access_token: string };
+  authStore.setToken(data.access_token);
 }
 
 function qs(params: Record<string, string | number | undefined | null>): string {
@@ -59,21 +93,21 @@ export const api = {
     fetch(`${BASE}/health`).then((r) => jsonOrThrow<{ status: string; rules_enabled: string }>(r)),
 
   competencias: (siconfi?: string): Promise<Competencia[]> =>
-    fetch(`${BASE}/competencias${qs({ siconfi })}`).then((r) => jsonOrThrow<Competencia[]>(r)),
+    fetchAuth(`${BASE}/competencias${qs({ siconfi })}`).then((r) => jsonOrThrow<Competencia[]>(r)),
 
   run: (file: File): Promise<RunSummary> => {
     const form = new FormData();
     form.append('file', file);
-    return fetch(`${BASE}/run`, { method: 'POST', body: form }).then((r) =>
+    return fetchAuth(`${BASE}/run`, { method: 'POST', body: form }).then((r) =>
       jsonOrThrow<RunSummary>(r),
     );
   },
 
   score: (siconfi: string, competencia: string): Promise<Score> =>
-    fetch(`${BASE}/score${qs({ siconfi, competencia })}`).then((r) => jsonOrThrow<Score>(r)),
+    fetchAuth(`${BASE}/score${qs({ siconfi, competencia })}`).then((r) => jsonOrThrow<Score>(r)),
 
   scoreHistory: (siconfi: string, meses = 6): Promise<ScoreHistory> =>
-    fetch(`${BASE}/score-history${qs({ siconfi, meses })}`).then((r) =>
+    fetchAuth(`${BASE}/score-history${qs({ siconfi, meses })}`).then((r) =>
       jsonOrThrow<ScoreHistory>(r),
     ),
 
@@ -86,19 +120,19 @@ export const api = {
     offset?: number;
     limit?: number;
   }): Promise<PendenciasPage> =>
-    fetch(`${BASE}/pendencias${qs(params)}`).then((r) => jsonOrThrow<PendenciasPage>(r)),
+    fetchAuth(`${BASE}/pendencias${qs(params)}`).then((r) => jsonOrThrow<PendenciasPage>(r)),
 
   rules: (): Promise<Rule[]> =>
-    fetch(`${BASE}/rules`).then((r) => jsonOrThrow<Rule[]>(r)),
+    fetchAuth(`${BASE}/rules`).then((r) => jsonOrThrow<Rule[]>(r)),
 
   rule: (ruleId: string): Promise<RuleDetail> =>
-    fetch(`${BASE}/rules/${encodeURIComponent(ruleId)}`).then((r) => jsonOrThrow<RuleDetail>(r)),
+    fetchAuth(`${BASE}/rules/${encodeURIComponent(ruleId)}`).then((r) => jsonOrThrow<RuleDetail>(r)),
 
   heatmap: (siconfi: string, meses = 6): Promise<Heatmap> =>
-    fetch(`${BASE}/heatmap${qs({ siconfi, meses })}`).then((r) => jsonOrThrow<Heatmap>(r)),
+    fetchAuth(`${BASE}/heatmap${qs({ siconfi, meses })}`).then((r) => jsonOrThrow<Heatmap>(r)),
 
   ruleHistory: (siconfi: string, ruleId: string, meses = 6): Promise<RuleHistory> =>
-    fetch(
+    fetchAuth(
       `${BASE}/rule-history/${encodeURIComponent(ruleId)}${qs({ siconfi, meses })}`,
     ).then((r) => jsonOrThrow<RuleHistory>(r)),
 
@@ -107,40 +141,63 @@ export const api = {
     siconfi: string,
     competencia: string,
   ): Promise<ContaDetail> =>
-    fetch(
+    fetchAuth(
       `${BASE}/contas/${encodeURIComponent(contaContabil)}${qs({ siconfi, competencia })}`,
     ).then((r) => jsonOrThrow<ContaDetail>(r)),
 
   caixa: (siconfi: string, competencia: string): Promise<ContaList> =>
-    fetch(`${BASE}/caixa${qs({ siconfi, competencia })}`).then((r) =>
+    fetchAuth(`${BASE}/caixa${qs({ siconfi, competencia })}`).then((r) =>
       jsonOrThrow<ContaList>(r),
     ),
 
   passivos: (siconfi: string, competencia: string): Promise<ContaList> =>
-    fetch(`${BASE}/passivos${qs({ siconfi, competencia })}`).then((r) =>
+    fetchAuth(`${BASE}/passivos${qs({ siconfi, competencia })}`).then((r) =>
       jsonOrThrow<ContaList>(r),
     ),
 
   superavit: (siconfi: string, competencia: string): Promise<SuperavitData> =>
-    fetch(`${BASE}/superavit${qs({ siconfi, competencia })}`).then((r) =>
+    fetchAuth(`${BASE}/superavit${qs({ siconfi, competencia })}`).then((r) =>
       jsonOrThrow<SuperavitData>(r),
     ),
 
   recommendations: (siconfi: string, competencia: string): Promise<Recommendations> =>
-    fetch(`${BASE}/recommendations${qs({ siconfi, competencia })}`).then((r) =>
+    fetchAuth(`${BASE}/recommendations${qs({ siconfi, competencia })}`).then((r) =>
       jsonOrThrow<Recommendations>(r),
     ),
 
   compare: (siconfi: string, a: string, b: string): Promise<Compare> =>
-    fetch(`${BASE}/compare${qs({ siconfi, a, b })}`).then((r) => jsonOrThrow<Compare>(r)),
+    fetchAuth(`${BASE}/compare${qs({ siconfi, a, b })}`).then((r) => jsonOrThrow<Compare>(r)),
 
   log: (params: {
     execucao_id?: string;
     level?: string;
     limit?: number;
   } = {}): Promise<LogPage> =>
-    fetch(`${BASE}/log${qs(params)}`).then((r) => jsonOrThrow<LogPage>(r)),
+    fetchAuth(`${BASE}/log${qs(params)}`).then((r) => jsonOrThrow<LogPage>(r)),
 
+  exportExcel: async (siconfi: string, competencia: string): Promise<void> => {
+    const url = `${BASE}/exports/excel${qs({ siconfi, competencia })}`;
+    const res = await fetchAuth(url);
+    if (!res.ok) {
+      let detail = res.statusText;
+      try {
+        const body = (await res.json()) as { detail?: string };
+        if (body?.detail) detail = body.detail;
+      } catch {
+        // body não é JSON
+      }
+      throw new ApiError(res.status, detail);
+    }
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = `pendencias_${siconfi}_${competencia}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(objUrl), 100);
+  },
 };
 
 export { ApiError };

@@ -19,8 +19,12 @@ Estrutura esperada do YAML (ver config/settings.yaml.example):
       enabled: ["R082", "R083", ...]     # lista de regras ativas
       fail_fast: false                    # interrompe ao primeiro ERRO?
     security:
-      max_concurrent_jobs: 3             # limite de processamentos simultâneos
-      allowed_users: []                   # vazio = todos permitidos
+      secret_key: "gere-com-openssl-rand-hex-32"
+      algorithm: "HS256"
+      access_token_expire_minutes: 480
+      users:
+        - username: "admin"
+          hashed_password: "$2b$12$..."  # passlib.hash.bcrypt.hash("senha")
 
 Uso:
     from ranking_msc.config.settings import load_settings
@@ -30,7 +34,9 @@ Uso:
 
 from __future__ import annotations
 
+import dataclasses
 import os
+import warnings
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
@@ -81,15 +87,20 @@ class RulesSettings:
 
 
 @dataclass(frozen=True)
-class SecuritySettings:
-    """Configuração de segurança e concorrência.
+class UserSettings:
+    """Credenciais de um usuário cadastrado no sistema."""
+    username: str
+    hashed_password: str
 
-    # TODO (multiusuário): quando o servidor rodar com múltiplos
-    # usuários simultâneos, usar ``max_concurrent_jobs`` para limitar
-    # processamentos paralelos via semáforo ou fila.
-    """
+
+@dataclass(frozen=True)
+class SecuritySettings:
+    """Configuração de segurança, autenticação JWT e concorrência."""
     max_concurrent_jobs: int = 3
-    allowed_users: list[str] = field(default_factory=list)
+    secret_key: str = "change-me-in-production"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 480  # 8 horas
+    users: list[UserSettings] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -111,13 +122,32 @@ def _parse_section(raw: dict[str, Any], cls: type[Any], section: str) -> Any:
     filtered = {k: v for k, v in raw.items() if k in valid_fields}
     unknown = set(raw) - valid_fields
     if unknown:
-        # Avisa, mas não impede — facilita evolução do YAML
-        import warnings
         warnings.warn(
             f"Chaves desconhecidas em '{section}': {unknown}",
             stacklevel=3,
         )
     return cls(**filtered)
+
+
+def _parse_users(users_raw: list[Any]) -> list[UserSettings]:
+    """Converte lista de dicts YAML em lista de UserSettings."""
+    result = []
+    for u in users_raw or []:
+        if isinstance(u, dict) and "username" in u and "hashed_password" in u:
+            result.append(
+                UserSettings(username=u["username"], hashed_password=u["hashed_password"])
+            )
+    return result
+
+
+def _validate_security(security: SecuritySettings) -> None:
+    """Emite aviso se secret_key estiver com valor padrão inseguro."""
+    if not security.secret_key or security.secret_key == "change-me-in-production":
+        warnings.warn(
+            "security.secret_key está com valor padrão inseguro. "
+            "Gere uma chave com: openssl rand -hex 32",
+            stacklevel=4,
+        )
 
 
 def load_settings(path: Path | str | None = None) -> Settings:
@@ -149,9 +179,18 @@ def load_settings(path: Path | str | None = None) -> Settings:
     except yaml.YAMLError as exc:
         raise ConfigError(f"YAML inválido em {path}: {exc}") from exc
 
+    # SecuritySettings requer tratamento especial: "users" é lista de objetos aninhados.
+    raw_security = dict(raw.get("security", {}))
+    users_raw = raw_security.pop("users", [])
+    security = _parse_section(raw_security, SecuritySettings, "security")
+    users = _parse_users(users_raw)
+    security = dataclasses.replace(security, users=users)
+
+    _validate_security(security)
+
     return Settings(
         app=_parse_section(raw.get("app", {}), AppSettings, "app"),
         paths=_parse_section(raw.get("paths", {}), PathsSettings, "paths"),
         rules=_parse_section(raw.get("rules", {}), RulesSettings, "rules"),
-        security=_parse_section(raw.get("security", {}), SecuritySettings, "security"),
+        security=security,
     )

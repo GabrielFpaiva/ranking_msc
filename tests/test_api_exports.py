@@ -65,6 +65,27 @@ class TestExcelExport:
             == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
+    def test_excel_404_quando_arquivo_ausente(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """404 quando o pipeline ainda não gerou o Excel para o ente/competência."""
+        reports = tmp_path / "reports"
+        reports.mkdir()
+        monkeypatch.setattr(api_deps, "absolute_reports_dir", lambda: reports)
+        from app.api.routes import exports as exports_module
+
+        monkeypatch.setattr(exports_module, "absolute_reports_dir", lambda: reports)
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/exports/excel",
+            params={"siconfi": "9999999XX", "competencia": "2099-01"},
+        )
+        assert response.status_code == 404
+        assert "Execute o pipeline" in response.json()["detail"]
+
 
 class TestPdfExport:
     def test_gera_pdf_executivo_on_demand(
