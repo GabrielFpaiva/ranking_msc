@@ -190,7 +190,8 @@ Observações importantes:
 
 - `config/settings.yaml` real não deve ser commitado.
 - Caminhos relativos são resolvidos a partir da raiz do projeto `/app` no container e da raiz do repositório em dev local.
-- Em CLI (`scripts/run_pipeline.py`, `scripts/run_batch.py`, `scripts/compare_periods.py`), `--output-dir` sobrescreve os diretórios `snapshots/`, `reports/` e `logs/` sob um novo diretório base.
+- Em `scripts/run_pipeline.py` e `scripts/run_batch.py`, `--output-dir` sobrescreve os diretórios `snapshots/`, `reports/` e `logs/` sob um novo diretório base.
+- Em `scripts/compare_periods.py`, `--output-dir` controla apenas o diretório de saída do Excel consolidado; a leitura de snapshots continua vindo de `settings.paths.snapshots_dir` ou de `--snapshots-dir`, e os logs continuam em `settings.paths.logs_dir`.
 
 #### Variáveis de ambiente
 
@@ -199,20 +200,22 @@ Variáveis efetivamente suportadas hoje:
 | Variável | Onde funciona | Default | Efeito |
 |---|---|---|---|
 | `PORT` | container / `docker-compose` | `8000` | porta do `uvicorn` no entrypoint |
-| `RANKING_MSC_CONFIG` | loader Python quando `load_settings()` é chamado sem path explícito | `config/settings.yaml` | troca o arquivo de configuração usado por scripts/uso programático |
+| `RANKING_MSC_CONFIG` | loader Python quando `load_settings()` é chamado sem path explícito | `config/settings.yaml` | útil apenas em uso programático que não passe path explícito |
 
-Limitação atual da API FastAPI:
+Limitações atuais de resolução de config:
 
 - `app/api/deps.py` carrega explicitamente `PROJECT_ROOT / config/settings.yaml`;
-- portanto, a variável `RANKING_MSC_CONFIG` **não altera** a configuração da API web hoje;
-- para mudar a configuração do servidor web, use o arquivo `config/settings.yaml` montado no volume `./config:/app/config`.
+- `scripts/run_pipeline.py`, `scripts/run_batch.py` e `scripts/compare_periods.py` resolvem `config/settings.yaml` ou `--config` antes de chamar `load_settings()`;
+- portanto, a variável `RANKING_MSC_CONFIG` **não altera** a configuração da API web nem o comportamento padrão das CLIs atuais;
+- para mudar a configuração do servidor web, use o arquivo `config/settings.yaml` montado no volume `./config:/app/config`;
+- para mudar a configuração das CLIs, use `--config /caminho/para/settings.yaml`.
 
 #### Dev vs produção vs Docker
 
 | Ambiente | Como a config é resolvida | Paths de dados mais comuns | Observações |
 |---|---|---|---|
 | Dev local | `config/settings.yaml` na raiz do repo | `./data/*` | `make bootstrap` já cria tudo |
-| CLI local | `config/settings.yaml` ou `--config` | `./data/*` ou `--output-dir/*` | útil para batch e compare |
+| CLI local | `config/settings.yaml` ou `--config` | `./data/*`, `--output-dir/*` (pipeline/batch) ou diretório custom de Excel consolidado (compare) | `compare_periods` usa `--snapshots-dir` para mudar a origem dos snapshots |
 | Docker Compose | `/app/config/settings.yaml` via volume | `/app/data/*` mapeado de `./data` | `PORT=8000` por padrão |
 | Produção sem compose | arquivo local `config/settings.yaml` | conforme `paths.*` | garantir permissão de escrita em logs/reports/snapshots |
 
