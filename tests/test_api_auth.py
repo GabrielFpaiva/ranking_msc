@@ -345,3 +345,33 @@ class TestSecurityHardening:
         sec = _make_settings_with_user("alice", "correta")
         # bob não existe — deve executar dummy bcrypt e retornar None
         assert authenticate_user(sec, "bob", "qualquer") is None
+
+    def test_secret_valido_sem_usuarios_levanta_configerror(self) -> None:
+        """secret_key válido com users=[] levanta ConfigError (lockout total)."""
+        from ranking_msc.config.settings import SecuritySettings, _validate_security
+        from ranking_msc.exceptions import ConfigError
+
+        sec = SecuritySettings(
+            secret_key="chave-valida-suficientemente-longa-32x",
+            algorithm="HS256",
+            access_token_expire_minutes=60,
+            users=[],
+        )
+        with pytest.raises(ConfigError, match="users"):
+            _validate_security(sec)
+
+    def test_hashed_password_nao_str_levanta_configerror(self) -> None:
+        """hashed_password com valor não-str levanta ConfigError no load."""
+        from ranking_msc.config.settings import _parse_users
+        from ranking_msc.exceptions import ConfigError
+
+        with pytest.raises(ConfigError, match="hashed_password"):
+            _parse_users([{"username": "admin", "hashed_password": 12345}])
+
+    def test_username_null_levanta_configerror(self) -> None:
+        """username nulo levanta ConfigError no load."""
+        from ranking_msc.config.settings import _parse_users
+        from ranking_msc.exceptions import ConfigError
+
+        with pytest.raises(ConfigError, match="username"):
+            _parse_users([{"username": None, "hashed_password": "$2b$12$abc"}])

@@ -150,6 +150,12 @@ def _parse_users(users_raw: list[Any]) -> list[UserSettings]:
                 f"security.users[{index}]: campos obrigatórios ausentes: {missing}. "
                 "Verifique o settings.yaml."
             )
+        for key in ("username", "hashed_password"):
+            if not isinstance(u[key], str):
+                raise ConfigError(
+                    f"security.users[{index}].{key}: esperado str, "
+                    f"encontrado {type(u[key]).__name__}. Verifique o settings.yaml."
+                )
         result.append(
             UserSettings(username=u["username"], hashed_password=u["hashed_password"])
         )
@@ -160,15 +166,20 @@ _INSECURE_SECRETS = {"", "change-me-in-production"}
 
 
 def _validate_security(security: SecuritySettings) -> None:
-    """Valida secret_key; falha com ConfigError se usuários estiverem configurados.
+    """Valida a configuração de segurança JWT.
 
-    Quando ``security.users`` está preenchido (auth JWT ativo), uma chave padrão
-    conhecida é perigosa — qualquer pessoa que conheça o valor pode forjar tokens.
-    Nesse caso levanta ConfigError para impedir inicialização em estado inseguro.
+    Matriz de validação:
+      insecure_secret + no users  → warn  (dev/não configurado)
+      insecure_secret + users     → ConfigError (chave pública + usuários ativos)
+      valid_secret    + no users  → ConfigError (auth ativa mas sem usuários = lockout)
+      valid_secret    + users     → OK
 
-    Se não há usuários configurados (modo dev/test), emite apenas um aviso.
+    Raises:
+        ConfigError: em qualquer combinação que resulte em estado inutilizável ou inseguro.
     """
-    if security.secret_key in _INSECURE_SECRETS:
+    insecure = security.secret_key in _INSECURE_SECRETS
+
+    if insecure:
         msg = (
             "security.secret_key está com valor padrão inseguro. "
             "Gere uma chave com: openssl rand -hex 32"
@@ -176,6 +187,14 @@ def _validate_security(security: SecuritySettings) -> None:
         if security.users:
             raise ConfigError(msg)
         warnings.warn(msg, stacklevel=4)
+        return
+
+    if not security.users:
+        raise ConfigError(
+            "security.users está vazio mas a autenticação JWT está ativa "
+            "(secret_key configurado). Nenhum login é possível. "
+            "Adicione ao menos um usuário em security.users no settings.yaml."
+        )
 
 
 def load_settings(path: Path | str | None = None) -> Settings:
