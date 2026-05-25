@@ -135,6 +135,98 @@ docker compose down
 make docker-down
 ```
 
+### Configuração e variáveis de ambiente
+
+#### Arquivo `config/settings.yaml`
+
+O arquivo real de configuração é `config/settings.yaml`.
+Se ele não existir:
+
+- `make bootstrap` copia `config/settings.yaml.example`;
+- o container também copia `config/settings.yaml.example` no startup.
+
+Estrutura suportada hoje:
+
+```yaml
+app:
+  title: "Ranking MSC — Validação Contábil"
+  debug: false
+  esfera: "municipal"
+
+paths:
+  data_dir: "./data"
+  snapshots_dir: "./data/snapshots"
+  reports_dir: "./data/reports"
+  logs_dir: "./data/logs"
+  ref_dir: "./ref"
+
+rules:
+  enabled: ["R001", "R002", "..."]
+  fail_fast: false
+
+security:
+  max_concurrent_jobs: 3
+  allowed_users: []
+```
+
+Campos e efeito operacional:
+
+| Seção | Campo | Obrigatório | Default | Efeito |
+|---|---|---|---|---|
+| `app` | `title` | não | `Ranking MSC` | título lógico da aplicação |
+| `app` | `debug` | não | `false` | flag de debug da app |
+| `app` | `esfera` | não | `municipal` | base para regras como `R039` |
+| `paths` | `data_dir` | não | `./data` | diretório raiz lógico de dados |
+| `paths` | `snapshots_dir` | não | `./data/snapshots` | leitura e escrita de snapshots |
+| `paths` | `reports_dir` | não | `./data/reports` | saída dos relatórios Excel |
+| `paths` | `logs_dir` | não | `./data/logs` | destino do `ranking_msc.jsonl` |
+| `paths` | `ref_dir` | não | `./ref` | tabelas de referência do motor |
+| `rules` | `enabled` | não | `[]` | lista de regras executadas |
+| `rules` | `fail_fast` | não | `false` | interrompe no primeiro erro fatal |
+| `security` | `max_concurrent_jobs` | não | `3` | reservado para hardening multiusuário |
+| `security` | `allowed_users` | não | `[]` | reservado para auth/autorização futura |
+
+Observações importantes:
+
+- `config/settings.yaml` real não deve ser commitado.
+- Caminhos relativos são resolvidos a partir da raiz do projeto `/app` no container e da raiz do repositório em dev local.
+- Em CLI (`scripts/run_pipeline.py`, `scripts/run_batch.py`, `scripts/compare_periods.py`), `--output-dir` sobrescreve os diretórios `snapshots/`, `reports/` e `logs/` sob um novo diretório base.
+
+#### Variáveis de ambiente
+
+Variáveis efetivamente suportadas hoje:
+
+| Variável | Onde funciona | Default | Efeito |
+|---|---|---|---|
+| `PORT` | container / `docker-compose` | `8000` | porta do `uvicorn` no entrypoint |
+| `RANKING_MSC_CONFIG` | loader Python quando `load_settings()` é chamado sem path explícito | `config/settings.yaml` | troca o arquivo de configuração usado por scripts/uso programático |
+
+Limitação atual da API FastAPI:
+
+- `app/api/deps.py` carrega explicitamente `PROJECT_ROOT / config/settings.yaml`;
+- portanto, a variável `RANKING_MSC_CONFIG` **não altera** a configuração da API web hoje;
+- para mudar a configuração do servidor web, use o arquivo `config/settings.yaml` montado no volume `./config:/app/config`.
+
+#### Dev vs produção vs Docker
+
+| Ambiente | Como a config é resolvida | Paths de dados mais comuns | Observações |
+|---|---|---|---|
+| Dev local | `config/settings.yaml` na raiz do repo | `./data/*` | `make bootstrap` já cria tudo |
+| CLI local | `config/settings.yaml` ou `--config` | `./data/*` ou `--output-dir/*` | útil para batch e compare |
+| Docker Compose | `/app/config/settings.yaml` via volume | `/app/data/*` mapeado de `./data` | `PORT=8000` por padrão |
+| Produção sem compose | arquivo local `config/settings.yaml` | conforme `paths.*` | garantir permissão de escrita em logs/reports/snapshots |
+
+#### Checklist mínimo de produção
+
+Antes de subir em ambiente operacional, confirme:
+
+- `config/settings.yaml` presente e revisado para o ente correto (`app.esfera`);
+- diretórios de `snapshots`, `reports` e `logs` com permissão de escrita;
+- volume de `./config` e `./data` montado, se usar Docker;
+- `ref/` presente no artefato de deploy;
+- porta exposta compatível com o reverse proxy ou intranet;
+- `make validate` verde na revisão que será publicada.
+
 ### Validar localmente
 
 ```bash
