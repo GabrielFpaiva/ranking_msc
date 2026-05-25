@@ -138,6 +138,18 @@ class TestAuthMe:
         )
         assert response.status_code == 401
 
+    def test_token_sub_inexistente_retorna_401(self, clean_client: TestClient) -> None:
+        """Token válido mas cujo sub não existe na lista de usuários retorna 401."""
+        from app.api.auth import create_access_token
+
+        settings = _make_settings_with_user()
+        token = create_access_token("usuario-que-nao-existe", settings)
+        response = clean_client.get(
+            "/api/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 401
+
 
 # ---------------------------------------------------------------------------
 # Proteção de rotas existentes

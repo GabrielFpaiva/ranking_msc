@@ -1,4 +1,6 @@
-import { Navigate, Route, Routes, type JSX } from 'react-router-dom';
+import type { ReactElement } from 'react';
+
+import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { Layout } from './components/Layout';
 import { Caixa } from './screens/Caixa';
@@ -13,7 +15,7 @@ import { Regras } from './screens/Regras';
 import { Superavit } from './screens/Superavit';
 import { authStore } from './store/auth';
 
-function ProtectedRoute({ children }: { children: JSX.Element }): JSX.Element {
+function ProtectedRoute({ children }: { children: ReactElement }): ReactElement {
   if (!authStore.isAuthenticated()) {
     return <Navigate to="/login" replace />;
   }

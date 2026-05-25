@@ -45,7 +45,7 @@ def authenticate_user(
     Returns:
         ``UserSettings`` do usuário autenticado, ou ``None`` se credenciais inválidas.
     """
-    user = _find_user(settings, username)
+    user = find_user(settings, username)
     if user is None:
         return None
     if not verify_password(password, user.hashed_password):
@@ -53,8 +53,8 @@ def authenticate_user(
     return user
 
 
-def _find_user(settings: SecuritySettings, username: str) -> UserSettings | None:
-    """Busca usuário por username na lista de usuários cadastrados."""
+def find_user(settings: SecuritySettings, username: str) -> UserSettings | None:
+    """Busca usuário por username na lista de usuários configurados."""
     for user in settings.users:
         if user.username == username:
             return user
