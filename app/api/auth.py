@@ -17,6 +17,11 @@ from jose import JWTError, jwt
 
 from ranking_msc.config.settings import SecuritySettings, UserSettings
 
+# Hash dummy usado quando o username não existe — garante que ambos os caminhos
+# de falha (usuário ausente e senha errada) executem bcrypt, neutralizando o
+# side channel de timing que permitiria enumerar usernames por latência.
+_DUMMY_HASH: str = bcrypt.hashpw(b"dummy-timing-equalization", bcrypt.gensalt()).decode("utf-8")
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica se a senha em texto claro bate com o hash bcrypt.
@@ -47,6 +52,7 @@ def authenticate_user(
     """
     user = find_user(settings, username)
     if user is None:
+        verify_password(password, _DUMMY_HASH)  # equaliza timing — não autentica
         return None
     if not verify_password(password, user.hashed_password):
         return None

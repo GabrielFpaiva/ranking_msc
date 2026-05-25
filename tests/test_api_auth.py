@@ -298,3 +298,50 @@ class TestParseUsers:
         result = _parse_users([{"username": "alice", "hashed_password": "$2b$12$abc"}])
         assert len(result) == 1
         assert result[0].username == "alice"
+
+
+# ---------------------------------------------------------------------------
+# Segurança: secret_key padrão + timing equalization
+# ---------------------------------------------------------------------------
+
+
+class TestSecurityHardening:
+    def test_secret_key_padrao_com_usuarios_levanta_configerror(self) -> None:
+        """secret_key padrão com users configurados levanta ConfigError na inicialização."""
+        from ranking_msc.config.settings import SecuritySettings, UserSettings
+        from ranking_msc.exceptions import ConfigError
+
+        sec = SecuritySettings(
+            secret_key="change-me-in-production",
+            algorithm="HS256",
+            access_token_expire_minutes=60,
+            users=[UserSettings(username="admin", hashed_password=get_password_hash("x"))],
+        )
+        with pytest.raises(ConfigError, match="secret_key"):
+            from ranking_msc.config.settings import _validate_security
+            _validate_security(sec)
+
+    def test_secret_key_padrao_sem_usuarios_emite_aviso(self) -> None:
+        """secret_key padrão sem users emite UserWarning (modo dev), não ConfigError."""
+        import warnings as _warnings
+
+        from ranking_msc.config.settings import SecuritySettings, _validate_security
+
+        sec = SecuritySettings(
+            secret_key="change-me-in-production",
+            algorithm="HS256",
+            access_token_expire_minutes=60,
+            users=[],
+        )
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            _validate_security(sec)
+        assert any("secret_key" in str(w.message) for w in caught)
+
+    def test_username_inexistente_retorna_none_sem_excecao(self) -> None:
+        """Username desconhecido retorna None mesmo executando bcrypt (timing equalization)."""
+        from app.api.auth import authenticate_user
+
+        sec = _make_settings_with_user("alice", "correta")
+        # bob não existe — deve executar dummy bcrypt e retornar None
+        assert authenticate_user(sec, "bob", "qualquer") is None

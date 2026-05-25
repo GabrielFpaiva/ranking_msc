@@ -156,14 +156,26 @@ def _parse_users(users_raw: list[Any]) -> list[UserSettings]:
     return result
 
 
+_INSECURE_SECRETS = {"", "change-me-in-production"}
+
+
 def _validate_security(security: SecuritySettings) -> None:
-    """Emite aviso se secret_key estiver com valor padrão inseguro."""
-    if not security.secret_key or security.secret_key == "change-me-in-production":
-        warnings.warn(
+    """Valida secret_key; falha com ConfigError se usuários estiverem configurados.
+
+    Quando ``security.users`` está preenchido (auth JWT ativo), uma chave padrão
+    conhecida é perigosa — qualquer pessoa que conheça o valor pode forjar tokens.
+    Nesse caso levanta ConfigError para impedir inicialização em estado inseguro.
+
+    Se não há usuários configurados (modo dev/test), emite apenas um aviso.
+    """
+    if security.secret_key in _INSECURE_SECRETS:
+        msg = (
             "security.secret_key está com valor padrão inseguro. "
-            "Gere uma chave com: openssl rand -hex 32",
-            stacklevel=4,
+            "Gere uma chave com: openssl rand -hex 32"
         )
+        if security.users:
+            raise ConfigError(msg)
+        warnings.warn(msg, stacklevel=4)
 
 
 def load_settings(path: Path | str | None = None) -> Settings:
