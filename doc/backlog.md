@@ -1,7 +1,7 @@
 # Backlog Consolidado — Ranking MSC
 
 > **Atualizado:** 2026-05-25
-> **Estado atual:** 78 regras implementadas · 944 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01, F5-02, F5-03, F5-05 e F5-08 ✅) · gate `validate` verde na branch corrente
+> **Estado atual:** 78 regras implementadas · 944 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01, F5-02, F5-03 e F5-05 ✅) · gate `validate` verde na branch corrente
 
 ---
 
@@ -261,7 +261,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ✅ Concluído | F0-08 / F5-07(xlsx) |
 | F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ❌ A Fazer | F5-08(xlsx) |
 | F5-07 | Manual do usuário + guia de operação | 6 | — | ❌ A Fazer | F5-09(xlsx) |
-| F5-08 | Documentar settings.yaml + variáveis de ambiente prod | 2 | F5-05 | ✅ Concluído | Novo |
+| F5-08 | Documentar settings.yaml + variáveis de ambiente prod | 2 | F5-05 | ❌ A Fazer | Novo |
 | F5-09 | Buffer: correção de bugs e ajustes finais (`validate` restaurado em 2026-05-25) | 4 | — | 🟡 Parcial | F5-10(xlsx) |
 | F5-10 | Treinamento / demo para equipe contábil | 4 | F5-07 | ❌ A Fazer | F5-11(xlsx) |
 | F5-11 | Entrega final + handoff operacional | 2 | tudo | ❌ A Fazer | F5-12(xlsx) |
@@ -407,20 +407,21 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 ### 🟡 Prioridade 1 — Hardening de Produção
 
 1. **F5-06** — Testes E2E no ambiente de deploy — ~4h
-2. **F5-04** — Autenticação multiusuário (JWT + namespacing) — ~8h
-3. **F5-09** — Buffer de bugs e ajustes finais — manter aberto até fechar os itens acima
+2. **F5-08** — Documentar `settings.yaml` + variáveis de ambiente de produção — ~2h
+3. **F5-04** — Autenticação multiusuário (JWT + namespacing) — ~8h
+4. **F5-09** — Buffer de bugs e ajustes finais — manter aberto até fechar os itens acima
 
 ### 🟢 Prioridade 2 — Operação e Entrega
 
-4. **F5-07** — Manual do usuário + guia de operação — ~6h
-5. **F5-10** — Treinamento / demo para equipe contábil — ~4h
-6. **F5-11** — Entrega final + handoff operacional — ~2h
+5. **F5-07** — Manual do usuário + guia de operação — ~6h
+6. **F5-10** — Treinamento / demo para equipe contábil — ~4h
+7. **F5-11** — Entrega final + handoff operacional — ~2h
 
 ### 🔵 Prioridade 3 — Nice-to-have
 
-7. **F0-02** — Recommendations engine — ~6h
-8. **F0-03** — Ranking Regional — ~10h
-9. Refinamento contábil do superávit por FR, se a equipe exigir tratar contas `Financeiro/Permanente`
+8. **F0-02** — Recommendations engine — ~6h
+9. **F0-03** — Ranking Regional — ~10h
+10. Refinamento contábil do superávit por FR, se a equipe exigir tratar contas `Financeiro/Permanente`
 
 ---
 
