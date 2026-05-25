@@ -88,6 +88,17 @@ function qs(params: Record<string, string | number | undefined | null>): string 
   return '?' + entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join('&');
 }
 
+function _triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
 export const api = {
   health: (): Promise<{ status: string; rules_enabled: string }> =>
     fetch(`${BASE}/health`).then((r) => jsonOrThrow<{ status: string; rules_enabled: string }>(r)),
@@ -175,6 +186,23 @@ export const api = {
   } = {}): Promise<LogPage> =>
     fetchAuth(`${BASE}/log${qs(params)}`).then((r) => jsonOrThrow<LogPage>(r)),
 
+  exportExcel: async (siconfi: string, competencia: string): Promise<void> => {
+    const res = await fetchAuth(`${BASE}/exports/excel${qs({ siconfi, competencia })}`);
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { detail?: string };
+      throw new ApiError(res.status, body.detail ?? res.statusText);
+    }
+    _triggerBlobDownload(await res.blob(), `pendencias_${siconfi}_${competencia}.xlsx`);
+  },
+
+  exportPdf: async (siconfi: string, competencia: string): Promise<void> => {
+    const res = await fetchAuth(`${BASE}/exports/pdf${qs({ siconfi, competencia })}`);
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { detail?: string };
+      throw new ApiError(res.status, body.detail ?? res.statusText);
+    }
+    _triggerBlobDownload(await res.blob(), `executivo_${siconfi}_${competencia}.pdf`);
+  },
 };
 
 export { ApiError };

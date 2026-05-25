@@ -1,5 +1,8 @@
+import { useState } from 'react';
+
 import { useLocation } from 'react-router-dom';
 
+import { api } from '../api/client';
 import { useMCRA } from '../store/useMCRA';
 
 const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
@@ -22,6 +25,16 @@ export function TopBar() {
     breadcrumb: 'MCRA',
     title: 'PMJP',
   };
+  const [exportBusy, setExportBusy] = useState<'excel' | 'pdf' | null>(null);
+
+  function triggerExport(type: 'excel' | 'pdf') {
+    if (!siconfi || !competencia || exportBusy) return;
+    setExportBusy(type);
+    const call = type === 'excel'
+      ? api.exportExcel(siconfi, competencia)
+      : api.exportPdf(siconfi, competencia);
+    call.catch(() => undefined).finally(() => setExportBusy(null));
+  }
 
   return (
     <header className="samid-topbar">
@@ -44,34 +57,22 @@ export function TopBar() {
         >
           Reprocessar
         </button>
-        <a
+        <button
+          type="button"
           className="samid-btn samid-btn-ghost"
-          href={
-            hasSelection
-              ? `/api/exports/excel?siconfi=${encodeURIComponent(siconfi!)}&competencia=${encodeURIComponent(competencia!)}`
-              : undefined
-          }
-          aria-disabled={!hasSelection}
-          onClick={(event) => {
-            if (!hasSelection) event.preventDefault();
-          }}
+          disabled={!hasSelection || exportBusy !== null}
+          onClick={() => triggerExport('excel')}
         >
-          Excel
-        </a>
-        <a
+          {exportBusy === 'excel' ? 'Gerando…' : 'Excel'}
+        </button>
+        <button
+          type="button"
           className="samid-btn samid-btn-gold"
-          href={
-            hasSelection
-              ? `/api/exports/pdf?siconfi=${encodeURIComponent(siconfi!)}&competencia=${encodeURIComponent(competencia!)}`
-              : undefined
-          }
-          aria-disabled={!hasSelection}
-          onClick={(event) => {
-            if (!hasSelection) event.preventDefault();
-          }}
+          disabled={!hasSelection || exportBusy !== null}
+          onClick={() => triggerExport('pdf')}
         >
-          Exportar PDF
-        </a>
+          {exportBusy === 'pdf' ? 'Gerando…' : 'Exportar PDF'}
+        </button>
         <button
           className="samid-icon-btn"
           type="button"
