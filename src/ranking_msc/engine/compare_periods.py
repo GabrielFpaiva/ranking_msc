@@ -35,7 +35,7 @@ from pathlib import Path
 from ranking_msc.config.settings import Settings
 from ranking_msc.engine.score_engine import ScoreResult, calculate_score
 from ranking_msc.exceptions import SnapshotError, SnapshotNotFoundError
-from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
+from ranking_msc.io import read_scoring_metadata, read_snapshot
 
 logger = logging.getLogger("ranking_msc")
 
