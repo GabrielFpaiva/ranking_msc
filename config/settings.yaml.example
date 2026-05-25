@@ -101,4 +101,14 @@ rules:
 
 security:
   max_concurrent_jobs: 3              # máximo de processamentos simultâneos
-  allowed_users: []                   # vazio = todos; ou lista de logins
+
+  # JWT — gere a chave com: openssl rand -hex 32
+  secret_key: "change-me-in-production"
+  algorithm: "HS256"
+  access_token_expire_minutes: 480    # 8 horas
+
+  # Usuários cadastrados. Gere o hash com:
+  #   python -c "import bcrypt; print(bcrypt.hashpw(b'sua-senha', bcrypt.gensalt()).decode())"
+  users:
+    - username: "admin"
+      hashed_password: "$2b$12$SUBSTITUA_PELO_HASH_REAL"

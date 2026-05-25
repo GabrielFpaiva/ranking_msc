@@ -8,13 +8,32 @@ Fixtures compartilhadas entre todos os módulos de teste.
 from __future__ import annotations
 
 import io
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from pathlib import Path
 
 import pytest
 
 from ranking_msc.config.settings import Settings
 from ranking_msc.engine.executor import EngineContext
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _bypass_auth_for_api_tests() -> Generator[None, None, None]:
+    """Substitui get_current_user nas rotas FastAPI por retorno fixo "test-user".
+
+    Permite que os testes de API existentes continuem funcionando sem token JWT.
+    Testes específicos de autenticação (test_api_auth.py) removem esta
+    substituição temporariamente via monkeypatch ou dependency_overrides local.
+    """
+    try:
+        from app.api.deps import get_current_user
+        from app.api.main import app as _api_app
+
+        _api_app.dependency_overrides[get_current_user] = lambda: "test-user"
+        yield
+        _api_app.dependency_overrides.pop(get_current_user, None)
+    except ImportError:
+        yield  # fastapi não instalado — testes de API serão ignorados por falha de import
 
 
 @pytest.fixture

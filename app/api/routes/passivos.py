@@ -8,14 +8,18 @@ Saldo apresentado com natureza credora positiva (sinal invertido).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import absolute_snapshots_dir
+from app.api.deps import absolute_snapshots_dir, get_current_user
 from app.api.schemas import ContaListGroupOut, ContaListOut, ContaResumoOut
 from ranking_msc.exceptions import SnapshotNotFoundError
 from ranking_msc.outputs.aggregations import accounts_by_prefix
 
-router = APIRouter(prefix="/api", tags=["contas"])
+router = APIRouter(
+    prefix="/api",
+    tags=["contas"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get(

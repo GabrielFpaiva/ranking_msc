@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, type JSX } from 'react-router-dom';
 
 import { Layout } from './components/Layout';
 import { Caixa } from './screens/Caixa';
@@ -6,15 +6,32 @@ import { Comparar } from './screens/Comparar';
 import { Execucao } from './screens/Execucao';
 import { Executivo } from './screens/Executivo';
 import { Home } from './screens/Home';
+import { Login } from './screens/Login';
 import { Passivos } from './screens/Passivos';
 import { Pendencias } from './screens/Pendencias';
 import { Regras } from './screens/Regras';
 import { Superavit } from './screens/Superavit';
+import { authStore } from './store/auth';
+
+function ProtectedRoute({ children }: { children: JSX.Element }): JSX.Element {
+  if (!authStore.isAuthenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
 
 export function App() {
   return (
     <Routes>
-      <Route path="/" element={<Layout />}>
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Navigate to="/inicio" replace />} />
         <Route path="inicio" element={<Home />} />
         <Route path="executivo" element={<Executivo />} />

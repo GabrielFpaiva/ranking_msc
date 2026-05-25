@@ -13,12 +13,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import PROJECT_ROOT, get_settings
+from app.api.deps import PROJECT_ROOT, get_current_user, get_settings
 from app.api.schemas import LogEntryOut, LogPageOut
 
-router = APIRouter(prefix="/api", tags=["log"])
+router = APIRouter(
+    prefix="/api",
+    tags=["log"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def reverse_readline(filename: Path, buf_size: int = 8192):
