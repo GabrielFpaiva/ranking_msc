@@ -7,10 +7,13 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-
 from pyarrow.lib import ArrowException, ArrowIOError
 
-from ranking_msc.exceptions import SnapshotCorruptError, SnapshotError, SnapshotNotFoundError
+from ranking_msc.exceptions import (
+    SnapshotCorruptError,
+    SnapshotError,
+    SnapshotNotFoundError,
+)
 
 logger = logging.getLogger("ranking_msc")
 
