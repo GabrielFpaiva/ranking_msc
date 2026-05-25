@@ -9,15 +9,19 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import PROJECT_ROOT, absolute_snapshots_dir, get_settings
+from app.api.deps import PROJECT_ROOT, absolute_snapshots_dir, get_current_user, get_settings
 from app.api.schemas import SuperavitOut, SuperavitRowOut
 from ranking_msc.exceptions import ConfigError, SnapshotNotFoundError
 from ranking_msc.io.ref_loader import load_pcasp
 from ranking_msc.outputs.aggregations import aggregate_superavit
 
-router = APIRouter(prefix="/api", tags=["contas"])
+router = APIRouter(
+    prefix="/api",
+    tags=["contas"],
+    dependencies=[Depends(get_current_user)],
+)
 logger = logging.getLogger("ranking_msc")
 
 

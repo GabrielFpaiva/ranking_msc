@@ -11,9 +11,9 @@ from __future__ import annotations
 import inspect
 import re
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import absolute_snapshots_dir
+from app.api.deps import absolute_snapshots_dir, get_current_user
 from app.api.schemas import (
     HeatmapCellOut,
     HeatmapOut,
@@ -25,7 +25,11 @@ from app.api.schemas import (
 from ranking_msc.outputs.aggregations import build_heatmap, rule_history
 from ranking_msc.rules.base import RULE_REGISTRY
 
-router = APIRouter(prefix="/api", tags=["rules"])
+router = APIRouter(
+    prefix="/api",
+    tags=["rules"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get(

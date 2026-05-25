@@ -10,12 +10,16 @@ Estrutura no disco:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import absolute_snapshots_dir
+from app.api.deps import absolute_snapshots_dir, get_current_user
 from app.api.schemas import CompetenciaOut
 
-router = APIRouter(prefix="/api", tags=["competencias"])
+router = APIRouter(
+    prefix="/api",
+    tags=["competencias"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get(

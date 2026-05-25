@@ -19,8 +19,12 @@ Estrutura esperada do YAML (ver config/settings.yaml.example):
       enabled: ["R082", "R083", ...]     # lista de regras ativas
       fail_fast: false                    # interrompe ao primeiro ERRO?
     security:
-      max_concurrent_jobs: 3             # limite de processamentos simultâneos
-      allowed_users: []                   # vazio = todos permitidos
+      secret_key: "gere-com-openssl-rand-hex-32"
+      algorithm: "HS256"
+      access_token_expire_minutes: 480
+      users:
+        - username: "admin"
+          hashed_password: "$2b$12$..."  # passlib.hash.bcrypt.hash("senha")
 
 Uso:
     from ranking_msc.config.settings import load_settings
@@ -30,7 +34,9 @@ Uso:
 
 from __future__ import annotations
 
+import dataclasses
 import os
+import warnings
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
@@ -81,15 +87,20 @@ class RulesSettings:
 
 
 @dataclass(frozen=True)
-class SecuritySettings:
-    """Configuração de segurança e concorrência.
+class UserSettings:
+    """Credenciais de um usuário cadastrado no sistema."""
+    username: str
+    hashed_password: str
 
-    # TODO (multiusuário): quando o servidor rodar com múltiplos
-    # usuários simultâneos, usar ``max_concurrent_jobs`` para limitar
-    # processamentos paralelos via semáforo ou fila.
-    """
+
+@dataclass(frozen=True)
+class SecuritySettings:
+    """Configuração de segurança, autenticação JWT e concorrência."""
     max_concurrent_jobs: int = 3
-    allowed_users: list[str] = field(default_factory=list)
+    secret_key: str = "change-me-in-production"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 480  # 8 horas
+    users: list[UserSettings] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -111,13 +122,79 @@ def _parse_section(raw: dict[str, Any], cls: type[Any], section: str) -> Any:
     filtered = {k: v for k, v in raw.items() if k in valid_fields}
     unknown = set(raw) - valid_fields
     if unknown:
-        # Avisa, mas não impede — facilita evolução do YAML
-        import warnings
         warnings.warn(
             f"Chaves desconhecidas em '{section}': {unknown}",
             stacklevel=3,
         )
     return cls(**filtered)
+
+
+def _parse_users(users_raw: list[Any]) -> list[UserSettings]:
+    """Converte lista de dicts YAML em lista de UserSettings.
+
+    Raises:
+        ConfigError: se alguma entrada em security.users estiver mal-formada
+            (ausência de 'username' ou 'hashed_password'). Falha explícita
+            evita que um typo no YAML remova usuários silenciosamente, tornando
+            todo login indiagnosticável.
+    """
+    result = []
+    for index, u in enumerate(users_raw or []):
+        if not isinstance(u, dict):
+            raise ConfigError(
+                f"security.users[{index}]: esperado dict, encontrado {type(u).__name__}."
+            )
+        missing = [k for k in ("username", "hashed_password") if k not in u]
+        if missing:
+            raise ConfigError(
+                f"security.users[{index}]: campos obrigatórios ausentes: {missing}. "
+                "Verifique o settings.yaml."
+            )
+        for key in ("username", "hashed_password"):
+            if not isinstance(u[key], str):
+                raise ConfigError(
+                    f"security.users[{index}].{key}: esperado str, "
+                    f"encontrado {type(u[key]).__name__}. Verifique o settings.yaml."
+                )
+        result.append(
+            UserSettings(username=u["username"], hashed_password=u["hashed_password"])
+        )
+    return result
+
+
+_INSECURE_SECRETS = {"", "change-me-in-production"}
+
+
+def _validate_security(security: SecuritySettings) -> None:
+    """Valida a configuração de segurança JWT.
+
+    Matriz de validação:
+      insecure_secret + no users  → warn  (dev/não configurado)
+      insecure_secret + users     → ConfigError (chave pública + usuários ativos)
+      valid_secret    + no users  → ConfigError (auth ativa mas sem usuários = lockout)
+      valid_secret    + users     → OK
+
+    Raises:
+        ConfigError: em qualquer combinação que resulte em estado inutilizável ou inseguro.
+    """
+    insecure = security.secret_key in _INSECURE_SECRETS
+
+    if insecure:
+        msg = (
+            "security.secret_key está com valor padrão inseguro. "
+            "Gere uma chave com: openssl rand -hex 32"
+        )
+        if security.users:
+            raise ConfigError(msg)
+        warnings.warn(msg, stacklevel=4)
+        return
+
+    if not security.users:
+        raise ConfigError(
+            "security.users está vazio mas a autenticação JWT está ativa "
+            "(secret_key configurado). Nenhum login é possível. "
+            "Adicione ao menos um usuário em security.users no settings.yaml."
+        )
 
 
 def load_settings(path: Path | str | None = None) -> Settings:
@@ -149,9 +226,18 @@ def load_settings(path: Path | str | None = None) -> Settings:
     except yaml.YAMLError as exc:
         raise ConfigError(f"YAML inválido em {path}: {exc}") from exc
 
+    # SecuritySettings requer tratamento especial: "users" é lista de objetos aninhados.
+    raw_security = dict(raw.get("security", {}))
+    users_raw = raw_security.pop("users", [])
+    security = _parse_section(raw_security, SecuritySettings, "security")
+    users = _parse_users(users_raw)
+    security = dataclasses.replace(security, users=users)
+
+    _validate_security(security)
+
     return Settings(
         app=_parse_section(raw.get("app", {}), AppSettings, "app"),
         paths=_parse_section(raw.get("paths", {}), PathsSettings, "paths"),
         rules=_parse_section(raw.get("rules", {}), RulesSettings, "rules"),
-        security=_parse_section(raw.get("security", {}), SecuritySettings, "security"),
+        security=security,
     )

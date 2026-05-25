@@ -16,6 +16,8 @@ export function Home() {
   const [history, setHistory] = useState<ScoreHistory | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [run, setRun] = useState<RunSummary | null>(lastRun);
+  const [exportBusy, setExportBusy] = useState<'excel' | 'pdf' | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!siconfi) return;
@@ -76,21 +78,41 @@ export function Home() {
                 </div>
               </div>
               <div className="samid-export-btns">
-                <a
-                  href={`/api/exports/excel?siconfi=${encodeURIComponent(run.siconfi)}&competencia=${encodeURIComponent(run.competencia)}`}
+                {exportError && (
+                  <p className="samid-error" role="alert">{exportError}</p>
+                )}
+                <button
+                  type="button"
                   className="samid-btn samid-btn-primary"
-                  download
+                  disabled={exportBusy !== null}
                   id="btn-export-excel"
+                  onClick={() => {
+                    setExportError(null);
+                    setExportBusy('excel');
+                    api
+                      .exportExcel(run.siconfi, run.competencia)
+                      .catch((err: Error) => setExportError(err.message))
+                      .finally(() => setExportBusy(null));
+                  }}
                 >
-                  ⬇ Exportar Excel
-                </a>
-                <a
-                  href={`/api/exports/pdf?siconfi=${encodeURIComponent(run.siconfi)}&competencia=${encodeURIComponent(run.competencia)}`}
+                  {exportBusy === 'excel' ? 'Gerando…' : '⬇ Exportar Excel'}
+                </button>
+                <button
+                  type="button"
                   className="samid-btn samid-btn-gold"
+                  disabled={exportBusy !== null}
                   id="btn-export-pdf"
+                  onClick={() => {
+                    setExportError(null);
+                    setExportBusy('pdf');
+                    api
+                      .exportPdf(run.siconfi, run.competencia)
+                      .catch((err: Error) => setExportError(err.message))
+                      .finally(() => setExportBusy(null));
+                  }}
                 >
-                  📄 Exportar PDF
-                </a>
+                  {exportBusy === 'pdf' ? 'Gerando…' : '📄 Exportar PDF'}
+                </button>
               </div>
             </>
           )}

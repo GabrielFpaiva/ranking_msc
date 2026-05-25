@@ -18,6 +18,8 @@ dependencies = [
     "fastapi>=0.110",         # API que serve o motor para o frontend MCRA
     "uvicorn[standard]>=0.27",
     "python-multipart>=0.0.9", # uploads multipart (POST /api/run)
+    "python-jose[cryptography]>=3.3", # JWT — autenticação F5-04
+    "bcrypt>=4.0",                    # hash de senhas — autenticação F5-04
 ]
 
 [project.optional-dependencies]
@@ -30,6 +32,7 @@ dev = [
     "types-openpyxl>=3.1.5",
     "types-PyYAML>=6.0",
     "httpx>=0.27",            # TestClient do FastAPI usa httpx
+    # bcrypt>=4.0 inclui stubs PEP 561 inline — sem pacote types-bcrypt necessário
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -60,4 +63,8 @@ mypy_path = "src"
 
 [[tool.mypy.overrides]]
 module = ["pyarrow.lib"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["jose", "jose.exceptions", "passlib.context"]
 ignore_missing_imports = true

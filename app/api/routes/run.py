@@ -12,11 +12,12 @@ from __future__ import annotations
 import io
 import logging
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.api.deps import (
     absolute_reports_dir,
     absolute_snapshots_dir,
+    get_current_user,
     get_logger,
     get_settings,
 )
@@ -36,7 +37,11 @@ from ranking_msc.outputs.reports import export_issues_excel
 from ranking_msc.outputs.snapshot import write_scoring_metadata, write_snapshot_atomic
 from ranking_msc.transform.ic_normalize import normalize_ic
 
-router = APIRouter(prefix="/api", tags=["run"])
+router = APIRouter(
+    prefix="/api",
+    tags=["run"],
+    dependencies=[Depends(get_current_user)],
+)
 
 logger = logging.getLogger("ranking_msc")
 
@@ -48,6 +53,7 @@ logger = logging.getLogger("ranking_msc")
 )
 async def run_pipeline(
     file: UploadFile = File(..., description="CSV MSC"),  # noqa: B008
+    current_user: str = Depends(get_current_user),  # noqa: B008
 ) -> RunSummaryOut:
     """Roda o motor sobre o CSV recebido e devolve o resumo da execução."""
     raw_bytes = await file.read()
@@ -91,6 +97,7 @@ async def run_pipeline(
         settings=settings,
         pre_pivot_issues=raw.pre_pivot_issues,
         snapshots_dir=snapshots_dir,
+        usuario=current_user,
     )
 
     try:

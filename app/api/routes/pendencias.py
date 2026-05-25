@@ -8,15 +8,19 @@ filtráveis por regra/severidade/conta.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import absolute_snapshots_dir
+from app.api.deps import absolute_snapshots_dir, get_current_user
 from app.api.schemas import PendenciaOut, PendenciasPageOut
 from ranking_msc.exceptions import SnapshotNotFoundError
 from ranking_msc.outputs.aggregations import filter_pendencias
 from ranking_msc.outputs.snapshot import read_snapshot
 
-router = APIRouter(prefix="/api", tags=["pendencias"])
+router = APIRouter(
+    prefix="/api",
+    tags=["pendencias"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get(

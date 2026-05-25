@@ -9,9 +9,9 @@ tendência de score).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import absolute_snapshots_dir, get_settings
+from app.api.deps import absolute_snapshots_dir, get_current_user, get_settings
 from app.api.schemas import RecommendationOut, RecommendationsOut
 from ranking_msc.engine.compare_periods import compare_periods
 from ranking_msc.engine.score_engine import calculate_score
@@ -19,7 +19,11 @@ from ranking_msc.exceptions import SnapshotNotFoundError
 from ranking_msc.outputs.aggregations import derive_recommendations
 from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
 
-router = APIRouter(prefix="/api", tags=["recommendations"])
+router = APIRouter(
+    prefix="/api",
+    tags=["recommendations"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get(
