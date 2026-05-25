@@ -130,13 +130,29 @@ def _parse_section(raw: dict[str, Any], cls: type[Any], section: str) -> Any:
 
 
 def _parse_users(users_raw: list[Any]) -> list[UserSettings]:
-    """Converte lista de dicts YAML em lista de UserSettings."""
+    """Converte lista de dicts YAML em lista de UserSettings.
+
+    Raises:
+        ConfigError: se alguma entrada em security.users estiver mal-formada
+            (ausência de 'username' ou 'hashed_password'). Falha explícita
+            evita que um typo no YAML remova usuários silenciosamente, tornando
+            todo login indiagnosticável.
+    """
     result = []
-    for u in users_raw or []:
-        if isinstance(u, dict) and "username" in u and "hashed_password" in u:
-            result.append(
-                UserSettings(username=u["username"], hashed_password=u["hashed_password"])
+    for index, u in enumerate(users_raw or []):
+        if not isinstance(u, dict):
+            raise ConfigError(
+                f"security.users[{index}]: esperado dict, encontrado {type(u).__name__}."
             )
+        missing = [k for k in ("username", "hashed_password") if k not in u]
+        if missing:
+            raise ConfigError(
+                f"security.users[{index}]: campos obrigatórios ausentes: {missing}. "
+                "Verifique o settings.yaml."
+            )
+        result.append(
+            UserSettings(username=u["username"], hashed_password=u["hashed_password"])
+        )
     return result
 
 

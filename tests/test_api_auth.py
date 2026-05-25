@@ -224,3 +224,65 @@ class TestAuthLogicaPura:
         sec = _make_settings_with_user("admin", "s3cr3t")
         assert authenticate_user(sec, "admin", "errado") is None
         assert authenticate_user(sec, "desconhecido", "s3cr3t") is None
+
+    def test_verify_password_hash_malformado_retorna_false(self) -> None:
+        """Hash malformado em settings.yaml retorna False em vez de propagar ValueError."""
+        from app.api.auth import verify_password
+
+        assert verify_password("qualquer-senha", "nao-e-um-hash-bcrypt") is False
+
+    def test_authenticate_user_hash_malformado_retorna_none(self) -> None:
+        """Usuário com hash inválido no settings retorna None — não propaga como 500."""
+        from app.api.auth import authenticate_user
+
+        sec = _make_settings_with_user()
+        import dataclasses
+
+        bad_user = dataclasses.replace(sec.users[0], hashed_password="hash-invalido")
+        sec_bad = dataclasses.replace(sec, users=[bad_user])
+        assert authenticate_user(sec_bad, "test", "secret") is None
+
+
+# ---------------------------------------------------------------------------
+# _parse_users — ConfigError em entradas mal-formadas
+# ---------------------------------------------------------------------------
+
+
+class TestParseUsers:
+    def test_entrada_sem_username_levanta_configerror(self) -> None:
+        """Entrada sem 'username' levanta ConfigError."""
+        from ranking_msc.config.settings import _parse_users
+        from ranking_msc.exceptions import ConfigError
+
+        with pytest.raises(ConfigError, match="username"):
+            _parse_users([{"hashed_password": "$2b$12$abc"}])
+
+    def test_entrada_sem_hashed_password_levanta_configerror(self) -> None:
+        """Entrada sem 'hashed_password' levanta ConfigError."""
+        from ranking_msc.config.settings import _parse_users
+        from ranking_msc.exceptions import ConfigError
+
+        with pytest.raises(ConfigError, match="hashed_password"):
+            _parse_users([{"username": "admin"}])
+
+    def test_entrada_nao_dict_levanta_configerror(self) -> None:
+        """Entrada que não é dict levanta ConfigError."""
+        from ranking_msc.config.settings import _parse_users
+        from ranking_msc.exceptions import ConfigError
+
+        with pytest.raises(ConfigError):
+            _parse_users(["apenas-uma-string"])
+
+    def test_lista_vazia_retorna_lista_vazia(self) -> None:
+        """Lista vazia (sem usuários configurados) é válida."""
+        from ranking_msc.config.settings import _parse_users
+
+        assert _parse_users([]) == []
+
+    def test_entrada_valida_retorna_usersettings(self) -> None:
+        """Entrada bem-formada retorna UserSettings correto."""
+        from ranking_msc.config.settings import _parse_users
+
+        result = _parse_users([{"username": "alice", "hashed_password": "$2b$12$abc"}])
+        assert len(result) == 1
+        assert result[0].username == "alice"

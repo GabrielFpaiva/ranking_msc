@@ -19,8 +19,15 @@ from ranking_msc.config.settings import SecuritySettings, UserSettings
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifica se a senha em texto claro bate com o hash bcrypt."""
-    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    """Verifica se a senha em texto claro bate com o hash bcrypt.
+
+    Retorna False (em vez de propagar) se o hash estiver malformado — evita
+    que um settings.yaml corrompido converta falha de config em HTTP 500.
+    """
+    try:
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    except ValueError:
+        return False
 
 
 def get_password_hash(password: str) -> str:
