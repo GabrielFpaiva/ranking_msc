@@ -10,10 +10,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 
-from app.api.deps import absolute_reports_dir, absolute_snapshots_dir, get_settings
+from app.api.deps import (
+    absolute_reports_dir,
+    absolute_snapshots_dir,
+    get_current_user,
+    get_settings,
+)
 from ranking_msc.engine.compare_periods import compare_periods
 from ranking_msc.engine.score_engine import calculate_score
 from ranking_msc.exceptions import SnapshotCorruptError, SnapshotNotFoundError
@@ -21,7 +26,11 @@ from ranking_msc.outputs.aggregations import derive_recommendations
 from ranking_msc.outputs.executive_pdf import ExecutivePdfPayload, write_executive_pdf
 from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
 
-router = APIRouter(prefix="/api", tags=["exports"])
+router = APIRouter(
+    prefix="/api",
+    tags=["exports"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def _load_snapshot_or_404(siconfi: str, competencia: str):

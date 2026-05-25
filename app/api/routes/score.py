@@ -8,9 +8,9 @@ GET /api/score-history — histórico de score por competência (compare_periods
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import absolute_snapshots_dir, get_settings
+from app.api.deps import absolute_snapshots_dir, get_current_user, get_settings
 from app.api.schemas import (
     DimensionScoreOut,
     ScoreHistoryOut,
@@ -22,7 +22,11 @@ from ranking_msc.engine.score_engine import calculate_score
 from ranking_msc.exceptions import SnapshotNotFoundError
 from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
 
-router = APIRouter(prefix="/api", tags=["score"])
+router = APIRouter(
+    prefix="/api",
+    tags=["score"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get(

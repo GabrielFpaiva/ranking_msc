@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import PROJECT_ROOT, get_logger, get_settings
+from app.api.routes import auth as auth_routes
 from app.api.routes import caixa as caixa_routes
 from app.api.routes import compare as compare_routes
 from app.api.routes import competencias as competencias_routes
@@ -38,6 +39,7 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.include_router(auth_routes.router)
 app.include_router(run_routes.router)
 app.include_router(competencias_routes.router)
 app.include_router(score_routes.router)
