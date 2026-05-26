@@ -189,7 +189,8 @@ Campos e efeito operacional:
 Observações importantes:
 
 - `config/settings.yaml` real não deve ser commitado.
-- Caminhos relativos são resolvidos a partir da raiz do projeto `/app` no container e da raiz do repositório em dev local.
+- **Paths do `settings.yaml`** (ex: `paths.snapshots_dir`, `paths.reports_dir`) são resolvidos a partir da raiz do projeto (`/app` no container, raiz do repositório em dev local).
+- **Paths explícitos da CLI** (`--config`, `--output-dir`, `--snapshots-dir`) são resolvidos a partir do **diretório de trabalho atual** (`cwd`), não da raiz do projeto. Isso é relevante quando os scripts são invocados de fora da raiz do repositório (ex: cron, systemd). Veja `scripts/_cli_helpers.py` e `scripts/compare_periods.py` para detalhes da resolução.
 - Em `scripts/run_pipeline.py` e `scripts/run_batch.py`, `--output-dir` sobrescreve os diretórios `snapshots/`, `reports/` e `logs/` sob um novo diretório base.
 - Em `scripts/compare_periods.py`, `--output-dir` controla apenas o diretório de saída do Excel consolidado; a leitura de snapshots continua vindo de `settings.paths.snapshots_dir` ou de `--snapshots-dir`, e os logs continuam em `settings.paths.logs_dir`.
 
