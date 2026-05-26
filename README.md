@@ -166,7 +166,12 @@ rules:
 
 security:
   max_concurrent_jobs: 3
-  allowed_users: []
+  secret_key: "change-me-in-production"
+  algorithm: "HS256"
+  access_token_expire_minutes: 480
+  users:
+    - username: "admin"
+      hashed_password: "$2b$12$SUBSTITUA_PELO_HASH_REAL"
 ```
 
 Campos e efeito operacional:
@@ -184,7 +189,13 @@ Campos e efeito operacional:
 | `rules` | `enabled` | não | `[]` | lista de regras executadas |
 | `rules` | `fail_fast` | não | `false` | interrompe no primeiro erro fatal |
 | `security` | `max_concurrent_jobs` | não | `3` | reservado para hardening multiusuário |
-| `security` | `allowed_users` | não | `[]` | reservado para auth/autorização futura |
+| `security` | `secret_key` | sim* | `change-me-in-production` | chave de assinatura JWT (`HS256`) |
+| `security` | `algorithm` | não | `HS256` | algoritmo JWT usado no encode/decode |
+| `security` | `access_token_expire_minutes` | não | `480` | expiração do access token |
+| `security` | `users` | sim* | `[]` | usuários autorizados (username + hash bcrypt) |
+
+\* Em dev puro (sem login), `secret_key` padrão + `users=[]` é aceito com warning.
+Em uso autenticado, é obrigatório configurar chave forte e ao menos um usuário.
 
 Observações importantes:
 
@@ -404,6 +415,8 @@ rules:
 
 | Método | Rota | Descrição |
 |---|---|---|
+| POST | `/api/auth/token` | Login OAuth2 password flow (retorna JWT) |
+| GET | `/api/auth/me` | Retorna usuário autenticado |
 | POST | `/api/run` | Executa o pipeline sobre um CSV MSC |
 | GET | `/api/competencias` | Lista competências disponíveis |
 | GET | `/api/score` | Score de uma competência |
@@ -421,6 +434,7 @@ rules:
 | GET | `/api/recommendations` | Ações recomendadas (Executivo) |
 | GET | `/api/log` | Tail do log JSONL |
 | GET | `/api/exports/excel` | Download do relatório Excel |
+| GET | `/api/exports/pdf` | Download do relatório executivo em PDF |
 | GET | `/api/health` | Healthcheck |
 
 > `Ranking Regional` permanece fora da superfície pública até a integração de uma

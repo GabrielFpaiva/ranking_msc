@@ -1,7 +1,7 @@
 # Backlog Consolidado — Ranking MSC
 
-> **Atualizado:** 2026-05-25
-> **Estado atual:** 78 regras implementadas · 944 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01, F5-02, F5-03, F5-05 e F5-08 ✅) · gate `validate` verde na branch corrente
+> **Atualizado:** 2026-05-26
+> **Estado atual:** 78 regras implementadas · 944 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01, F5-02, F5-03, F5-05 e F5-08 ✅; F5-04 em hardening parcial) · gate `validate` verde na branch corrente
 
 ---
 
@@ -257,7 +257,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F5-01 | CI completo — adicionar lint+build TS no GitHub Action | 2 | — | ✅ Concluído | F0-01 |
 | F5-02 | Cutover Panel — remover `web_app_legacy.py` + deps | 1 | — | ✅ Concluído | F0-05 |
 | F5-03 | Exportar PDF — Visão Executiva HTML→PDF | 6 | — | ✅ Concluído | F0-06 / F5-06(xlsx) |
-| F5-04 | Autenticação multiusuário (JWT + namespacing) | 8 | — | ❌ A Fazer | F0-07 |
+| F5-04 | Autenticação multiusuário (JWT + namespacing) | 8 | — | 🟡 Parcial (JWT + login entregues; falta namespacing/concorrência) | F0-07 |
 | F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ✅ Concluído | F0-08 / F5-07(xlsx) |
 | F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ❌ A Fazer | F5-08(xlsx) |
 | F5-07 | Manual do usuário + guia de operação | 6 | — | ❌ A Fazer | F5-09(xlsx) |
@@ -387,7 +387,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | PCASP | 5 | 5 | 0 | — |
 | IC | 21 | 22 | 0 | F4-12 ✅ |
 | PO | 2 | 2 | 0 | F4-12 ✅ |
-| Fechamento | 5 | 6 | 1 | F3-16 (1) |
+| Fechamento | 6 | 6 | 0 | F3-16 ✅ |
 | Interconta | 4 | 4 | 0 | F4-14 ✅ |
 | Superávit | 3 | 3 | 0 | F4-14 ✅ |
 | Completude | 8 | 8 | 0 | F4-15 ✅ |
@@ -433,7 +433,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | Cobertura de categorias | 15/15 com ≥1 regra |
 | Gate `validate` | Verde em 2026-05-25 (`ruff` + `mypy` + `pytest` + frontend lint/typecheck/build) |
 | Frontend telas | 10/10 navegáveis |
-| Endpoints API | 19 |
+| Endpoints API | 21 |
 | Lint (ruff + mypy + tsc + eslint) | ✅ OK (ESLint com 2 warnings de Fast Refresh) |
 | Vite build | ✅ Passando |
 
