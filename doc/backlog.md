@@ -249,22 +249,25 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ### Fase 5 — Produção + Entrega 🟡 Em andamento
 
-> Os itens originais F5-01 a F5-06 do Excel (Dashboard Panel) foram absorvidos pela
-> Fase 0 (React+FastAPI). A Fase 5 agora foca em produção, entrega e fechamento.
+> Convenção única de nomenclatura:
+> - `F5-XX` = ID canônico atual (usado neste backlog para priorização e execução)
+> - `LEGACY-F5-XX` = ID legado da planilha Excel original (apenas rastreabilidade)
+> - Os itens originais F5-01 a F5-06 do Excel (Dashboard Panel) foram absorvidos pela Fase 0 (React+FastAPI).
+> - A Fase 5 canônica foca em produção, entrega e fechamento.
 
-| ID | Descrição | Horas | Dep. | Status | Origem |
+| ID Canônico | Descrição | Horas | Dep. | Status | Origem (ID legado) |
 |---|---|---|---|---|---|
 | F5-01 | CI completo — adicionar lint+build TS no GitHub Action | 2 | — | ✅ Concluído | F0-01 |
 | F5-02 | Cutover Panel — remover `web_app_legacy.py` + deps | 1 | — | ✅ Concluído | F0-05 |
-| F5-03 | Exportar PDF + Excel — Visão Executiva HTML→PDF + botão Excel em Pendências | 6 | — | ✅ Concluído (PR #107 adicionou export Excel na tela Pendências) | F0-06 / F5-06(xlsx) |
+| F5-03 | Exportar PDF + Excel — Visão Executiva HTML→PDF + botão Excel em Pendências | 6 | — | ✅ Concluído (PR #107 adicionou export Excel na tela Pendências) | F0-06 + LEGACY-F5-06 |
 | F5-04 | Autenticação multiusuário (JWT + login + proteção de rotas) | 8 | — | ✅ Concluído (PR #105 — JWT + login + auth fetch; namespacing/concorrência é nice-to-have futuro) | F0-07 |
-| F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ✅ Concluído | F0-08 / F5-07(xlsx) |
-| F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ❌ A Fazer | F5-08(xlsx) |
-| F5-07 | Manual do usuário + guia de operação | 6 | — | ❌ A Fazer | F5-09(xlsx) |
+| F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ✅ Concluído | F0-08 + LEGACY-F5-07 |
+| F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ❌ A Fazer | LEGACY-F5-08 |
+| F5-07 | Manual do usuário + guia de operação | 6 | — | ❌ A Fazer | LEGACY-F5-09 |
 | F5-08 | Documentar settings.yaml + variáveis de ambiente prod | 2 | F5-05 | ✅ Concluído | Novo |
-| F5-09 | Buffer: correção de bugs e ajustes finais (`validate` restaurado em 2026-05-25) | 4 | — | 🟡 Parcial | F5-10(xlsx) |
-| F5-10 | Treinamento / demo para equipe contábil | 4 | F5-07 | ❌ A Fazer | F5-11(xlsx) |
-| F5-11 | Entrega final + handoff operacional | 2 | tudo | ❌ A Fazer | F5-12(xlsx) |
+| F5-09 | Buffer: correção de bugs e ajustes finais (`validate` restaurado em 2026-05-25) | 4 | — | 🟡 Parcial | LEGACY-F5-10 |
+| F5-10 | Treinamento / demo para equipe contábil | 4 | F5-07 | ❌ A Fazer | LEGACY-F5-11 |
+| F5-11 | Entrega final + handoff operacional | 2 | tudo | ❌ A Fazer | LEGACY-F5-12 |
 
 ### Nice-to-have (sem fase atribuída)
 
@@ -387,7 +390,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | PCASP | 5 | 5 | 0 | — |
 | IC | 21 | 22 | 0 | F4-12 ✅ |
 | PO | 2 | 2 | 0 | F4-12 ✅ |
-| Fechamento | 5 | 6 | 1 | F3-16 (1) |
+| Fechamento | 6 | 6 | 0 | F3-16 ✅ |
 | Interconta | 4 | 4 | 0 | F4-14 ✅ |
 | Superávit | 3 | 3 | 0 | F4-14 ✅ |
 | Completude | 8 | 8 | 0 | F4-15 ✅ |
@@ -433,28 +436,28 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | Cobertura de categorias | 15/15 com ≥1 regra |
 | Gate `validate` | Verde em 2026-05-25 (`ruff` + `mypy` + `pytest` + frontend lint/typecheck/build) |
 | Frontend telas | 10/10 navegáveis |
-| Endpoints API | 19 |
+| Endpoints API | 21 |
 | Lint (ruff + mypy + tsc + eslint) | ✅ OK (ESLint com 2 warnings de Fast Refresh) |
 | Vite build | ✅ Passando |
 
 ---
 
-## Rastreabilidade — Fase 5 Excel Original vs. Atual
+## Rastreabilidade — Fase 5 LEGACY vs. Canônico Atual
 
-| ID Excel | Descrição Excel Original | Mapeamento Atual |
+| ID LEGACY (Excel) | Descrição Excel Original | Mapeamento Canônico Atual |
 |---|---|---|
-| F5-01 | Setup Dashboard Panel | ✅ Absorvido pela Fase 0 (React+FastAPI) |
-| F5-02 | Upload CSV via dashboard | ✅ Absorvido pela Fase 0 |
-| F5-03 | Aba Score e ranking visual | ✅ Absorvido pela Fase 0 |
-| F5-04 | Pendências com filtros interativos | ✅ Absorvido pela Fase 0 |
-| F5-05 | Evolução temporal | ✅ Absorvido pela Fase 0 |
-| F5-06 | Export do relatório | ✅ Excel e PDF entregues → F5-03 novo concluído |
-| F5-07 | Deploy local Docker | ✅ Entregue → F5-05 novo concluído |
-| F5-08 | Testes E2E deploy | ❌ Pendente → F5-06 novo |
-| F5-09 | Manual do usuário | ❌ Pendente → F5-07 novo |
-| F5-10 | Buffer bugs/ajustes | 🟡 Parcial → F5-09 novo |
-| F5-11 | Treinamento/demo | ❌ Pendente → F5-10 novo |
-| F5-12 | Entrega final + handoff | ❌ Pendente → F5-11 novo |
+| LEGACY-F5-01 | Setup Dashboard Panel | ✅ Absorvido pela Fase 0 (React+FastAPI) |
+| LEGACY-F5-02 | Upload CSV via dashboard | ✅ Absorvido pela Fase 0 |
+| LEGACY-F5-03 | Aba Score e ranking visual | ✅ Absorvido pela Fase 0 |
+| LEGACY-F5-04 | Pendências com filtros interativos | ✅ Absorvido pela Fase 0 |
+| LEGACY-F5-05 | Evolução temporal | ✅ Absorvido pela Fase 0 |
+| LEGACY-F5-06 | Export do relatório | ✅ Entregue no canônico F5-03 (PDF + Excel) |
+| LEGACY-F5-07 | Deploy local Docker | ✅ Entregue no canônico F5-05 |
+| LEGACY-F5-08 | Testes E2E deploy | ❌ Pendente no canônico F5-06 |
+| LEGACY-F5-09 | Manual do usuário | ❌ Pendente no canônico F5-07 |
+| LEGACY-F5-10 | Buffer bugs/ajustes | 🟡 Parcial no canônico F5-09 |
+| LEGACY-F5-11 | Treinamento/demo | ❌ Pendente no canônico F5-10 |
+| LEGACY-F5-12 | Entrega final + handoff | ❌ Pendente no canônico F5-11 |
 
 ---
 
