@@ -1,7 +1,7 @@
 # Backlog Consolidado — Ranking MSC
 
-> **Atualizado:** 2026-05-26
-> **Estado atual:** 78 regras implementadas · 944 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01→F5-05, F5-08 ✅; F5-06, F5-07, F5-10, F5-11 pendentes) · gate `validate` verde na branch corrente
+> **Atualizado:** 2026-05-27
+> **Estado atual:** 78 regras implementadas · 979 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01→F5-05, F5-07, F5-08 ✅; F5-06, F5-10, F5-11 pendentes) · gate `validate` verde na branch corrente
 
 ---
 
@@ -20,7 +20,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | Fase 3 | Catálogo expandido → 35 regras | ✅ Concluída | 471 testes |
 | Fase 4 | Scoring + Batch + Compare + regras restantes | ✅ Concluída | 944 testes |
 | Fase 0 | Frontend MCRA (React+FastAPI replacing Panel) | ✅ Concluída | 8 commits |
-| Fase 5 | Produção (export, auth, deploy, docs, entrega) | 📋 Backlog | — |
+| Fase 5 | Produção (export, auth, deploy, docs, entrega) | 🟡 Em andamento | — |
 
 ---
 
@@ -263,7 +263,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F5-04 | Autenticação multiusuário (JWT + login + proteção de rotas) | 8 | — | ✅ Concluído (PR #105 — JWT + login + auth fetch; namespacing/concorrência é nice-to-have futuro) | F0-07 |
 | F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ✅ Concluído | F0-08 + LEGACY-F5-07 |
 | F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ❌ A Fazer | LEGACY-F5-08 |
-| F5-07 | Manual do usuário + guia de operação | 6 | — | ❌ A Fazer | LEGACY-F5-09 |
+| F5-07 | Manual do usuário + guia de operação | 6 | — | ✅ Concluído | LEGACY-F5-09 |
 | F5-08 | Documentar settings.yaml + variáveis de ambiente prod | 2 | F5-05 | ✅ Concluído | Novo |
 | F5-09 | Buffer: correção de bugs e ajustes finais (`validate` restaurado em 2026-05-25) | 4 | — | 🟡 Parcial | LEGACY-F5-10 |
 | F5-10 | Treinamento / demo para equipe contábil | 4 | F5-07 | ❌ A Fazer | LEGACY-F5-11 |
@@ -414,9 +414,8 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ### 🟢 Prioridade 2 — Operação e Entrega
 
-3. **F5-07** — Manual do usuário + guia de operação — ~6h
-4. **F5-10** — Treinamento / demo para equipe contábil — ~4h
-5. **F5-11** — Entrega final + handoff operacional — ~2h
+3. **F5-10** — Treinamento / demo para equipe contábil — ~4h
+4. **F5-11** — Entrega final + handoff operacional — ~2h
 
 ### 🔵 Prioridade 3 — Nice-to-have
 
@@ -432,9 +431,9 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | Métrica | Valor |
 |---|---|
 | Regras implementadas | 78 / 78 (100%) |
-| Testes coletados | 944 |
+| Testes coletados | 979 |
 | Cobertura de categorias | 15/15 com ≥1 regra |
-| Gate `validate` | Verde em 2026-05-25 (`ruff` + `mypy` + `pytest` + frontend lint/typecheck/build) |
+| Gate `validate` | Verde em 2026-05-27 (`ruff` + `mypy` + `pytest` + frontend lint/typecheck/build) |
 | Frontend telas | 10/10 navegáveis |
 | Endpoints API | 21 |
 | Lint (ruff + mypy + tsc + eslint) | ✅ OK (ESLint com 2 warnings de Fast Refresh) |
@@ -454,7 +453,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | LEGACY-F5-06 | Export do relatório | ✅ Entregue no canônico F5-03 (PDF + Excel) |
 | LEGACY-F5-07 | Deploy local Docker | ✅ Entregue no canônico F5-05 |
 | LEGACY-F5-08 | Testes E2E deploy | ❌ Pendente no canônico F5-06 |
-| LEGACY-F5-09 | Manual do usuário | ❌ Pendente no canônico F5-07 |
+| LEGACY-F5-09 | Manual do usuário | ✅ Entregue no canônico F5-07 |
 | LEGACY-F5-10 | Buffer bugs/ajustes | 🟡 Parcial no canônico F5-09 |
 | LEGACY-F5-11 | Treinamento/demo | ❌ Pendente no canônico F5-10 |
 | LEGACY-F5-12 | Entrega final + handoff | ❌ Pendente no canônico F5-11 |
@@ -467,5 +466,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 - [README.md](../README.md) — Visão geral, setup e comandos
 - [CLAUDE.md](../CLAUDE.md) — Convenções operacionais do repositório
 - [fase0_plan.md](fase0_plan.md) — Plano do frontend e pendências F0-03/F0-04
+- [manual_usuario.md](manual_usuario.md) — Fluxo de uso para equipe contábil
+- [guia_operacao.md](guia_operacao.md) — Operação local, validações e troubleshooting
 - [modelo_pontuacao.md](modelo_pontuacao.md) — Modelo de scoring 0-100 (A-E)
 - [backlog_regras_msc_completo.xlsx](../backlog_regras_msc_completo.xlsx) — Planilha original do catálogo

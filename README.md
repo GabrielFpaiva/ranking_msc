@@ -331,6 +331,8 @@ ranking_msc/
 ├── doc/
 │   ├── backlog.md               # Backlog consolidado e status atual
 │   ├── fase0_plan.md            # Referência das pendências F0-03/F0-04
+│   ├── guia_operacao.md         # Operação local, validações e troubleshooting
+│   ├── manual_usuario.md        # Fluxo de uso para equipe contábil
 │   └── modelo_pontuacao.md      # Especificação do score
 ├── .claude/                     # Automação/skills locais do fluxo Claude
 ├── pyproject.toml
@@ -404,6 +406,8 @@ rules:
 | `README.md` | Visão geral, setup, comandos e superfície pública da API |
 | `CLAUDE.md` | Convenções operacionais permanentes do repositório |
 | `doc/backlog.md` | Status consolidado, pendências e prioridades |
+| `doc/manual_usuario.md` | Fluxo de uso, telas e exportações para a equipe contábil |
+| `doc/guia_operacao.md` | Setup, execução, validações, logs e rotina de sustentação |
 | `doc/modelo_pontuacao.md` | Regra de negócio do score |
 | `doc/governanca_documental.md` | Política documental e revisão de aderência arquitetural |
 | `doc/fase0_plan.md` | Registro histórico da entrega de bootstrap/frontend |
