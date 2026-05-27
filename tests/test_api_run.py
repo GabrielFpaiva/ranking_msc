@@ -17,6 +17,7 @@ from app.api import deps as api_deps
 from app.api.main import app
 from fastapi.testclient import TestClient
 
+from ranking_msc.engine.locks import acquire_execution_lock, release_execution_lock
 from tests.conftest import _build_msc_csv_bytes  # type: ignore[attr-defined]
 
 
@@ -94,3 +95,28 @@ class TestRunEndpoint:
             files={"file": ("bad.csv", b"linha solta sem metadata\n", "text/csv")},
         )
         assert response.status_code == 400
+
+    def test_run_mesmo_siconfi_competencia_em_andamento_retorna_409(
+        self,
+        isolated_dirs: tuple[Path, Path],
+    ) -> None:
+        """Lock por ente/competencia evita sobrescrita concorrente de snapshots."""
+        snapshots, _ = isolated_dirs
+        lock = acquire_execution_lock(
+            snapshots / ".locks",
+            siconfi="2507507EX",
+            competencia="2025-11",
+            usuario="outro-user",
+        )
+        client = TestClient(app)
+
+        try:
+            response = client.post(
+                "/api/run",
+                files={"file": ("msc.csv", _build_msc_csv_bytes(), "text/csv")},
+            )
+        finally:
+            release_execution_lock(lock)
+
+        assert response.status_code == 409
+        assert "em andamento" in response.json()["detail"]

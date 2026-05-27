@@ -54,6 +54,7 @@ class EngineContext:
     # Violações de Tipo_valor/Natureza_valor capturadas antes do pivot
     # pelo reader_msc. Usadas pelas regras R003 e R004.
     snapshots_dir: Path | None = None
+    lock_token: str | None = None
     # Diretório de snapshots resolvido pelo chamador (ex: CLI com --output-dir).
     # Quando definido, tem precedência sobre settings.paths.snapshots_dir.
     # Regras temporais (R054+) DEVEM usar este campo em vez de ler settings diretamente.
