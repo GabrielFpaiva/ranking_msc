@@ -1,0 +1,26 @@
+# Override aplicado em cima de docker-compose.yml para a suíte E2E (F5-06).
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d
+#
+# O orquestrador `scripts/run_e2e.py` cuida do ciclo de vida completo
+# (build → up → wait → pytest → down -v) e injeta um settings.yaml de
+# teste em tests/_e2e_workdir/config/.
+services:
+  app:
+    container_name: ranking_msc_app_e2e
+    ports:
+      - "8099:8000"
+    environment:
+      PORT: "8000"
+      RANKING_MSC_ENV: "e2e"
+    volumes:
+      - ./tests/_e2e_workdir/data:/app/data
+      - ./tests/_e2e_workdir/config:/app/config
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health', timeout=2).status == 200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: "no"

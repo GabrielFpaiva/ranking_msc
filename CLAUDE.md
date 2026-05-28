@@ -406,10 +406,11 @@ Exemplos:
 ### 5.4 Rodar testes
 
 ```bash
-pytest                           # tudo
+pytest                           # tudo (E2E ficam skipped por padrão)
 pytest tests/test_reader.py -v   # só um módulo
 pytest -k "test_r082"            # por nome
 pytest --cov=ranking_msc         # com cobertura
+python scripts/run_e2e.py        # suíte E2E F5-06 (sobe Docker, derruba ao fim)
 ```
 
 ---

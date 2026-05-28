@@ -1,7 +1,7 @@
 # Backlog Consolidado — Ranking MSC
 
-> **Atualizado:** 2026-05-27
-> **Estado atual:** 78 regras implementadas · 979 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01→F5-05, F5-07, F5-08 ✅; F5-06, F5-10, F5-11 pendentes) · gate `validate` verde na branch corrente
+> **Atualizado:** 2026-05-28
+> **Estado atual:** 78 regras implementadas · 979 testes coletados · **Fase 4 concluída (F4-01→F4-20)** · Fase 5 em andamento (F5-01→F5-06, F5-07, F5-08 ✅; F5-10, F5-11 pendentes) · gate `validate` verde na branch corrente
 
 ---
 
@@ -256,7 +256,7 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 | F5-03 | Exportar PDF + Excel — Visão Executiva HTML→PDF + botão Excel em Pendências | 6 | — | ✅ Concluído |
 | F5-04 | Autenticação multiusuário (JWT + login + proteção de rotas) | 8 | — | ✅ Concluído |
 | F5-05 | Deploy Docker (multi-stage + compose + .dockerignore) | 8 | — | ✅ Concluído |
-| F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ❌ A Fazer |
+| F5-06 | Testes end-to-end no ambiente de deploy | 4 | F5-05 | ✅ Concluído |
 | F5-07 | Manual do usuário + guia de operação | 6 | — | ✅ Concluído |
 | F5-08 | Documentar settings.yaml + variáveis de ambiente prod | 2 | F5-05 | ✅ Concluído |
 | F5-09 | Buffer: correção de bugs e ajustes finais | 4 | — | 🟡 Parcial |
@@ -403,13 +403,12 @@ O frontend React+FastAPI (Fase 0) está concluído. O motor Python está estáve
 
 ### 🟡 Prioridade 1 — Hardening de Produção
 
-1. **F5-06** — Testes E2E no ambiente de deploy — ~4h
-2. **F5-09** — Buffer de bugs e ajustes finais — manter aberto até fechar os itens acima
+1. **F5-09** — Buffer de bugs e ajustes finais — manter aberto até fechar a entrega
 
 ### 🟢 Prioridade 2 — Operação e Entrega
 
-3. **F5-10** — Treinamento / demo para equipe contábil — ~4h
-4. **F5-11** — Entrega final + handoff operacional — ~2h
+2. **F5-10** — Treinamento / demo para equipe contábil — ~4h
+3. **F5-11** — Entrega final + handoff operacional — ~2h
 
 ### 🔵 Prioridade 3 — Nice-to-have
 

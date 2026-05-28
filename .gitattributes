@@ -6,3 +6,8 @@
 *.csv  linguist-vendored
 
 ref/amostras/* linguist-vendored
+
+# Shell scripts e entrypoints precisam de LF mesmo em checkouts Windows,
+# senão `/bin/sh` no container falha com "no such file or directory".
+*.sh text eol=lf
+docker/entrypoint.sh text eol=lf
