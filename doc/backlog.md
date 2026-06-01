@@ -137,7 +137,8 @@ Checklist:
 ### UX-05 - Alinhar tela de login ao design MCRA
 
 - [ ] substituir estilos inline pelo kit visual existente;
-- [ ] alinhar cores, tipografia e identificacao institucional;
+- [x] alinhar cores e tipografia base aos tokens SAMID;
+- [ ] confirmar identificacao institucional;
 - [ ] revisar feedback de credenciais invalidas e expiracao de sessao.
 
 **Criterio de aceite:** login parece parte do mesmo produto e comunica falhas de forma clara.
