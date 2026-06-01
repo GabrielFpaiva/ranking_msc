@@ -64,3 +64,6 @@ htmlcov/
 .snapshot_test_tmp/
 graphify-out/
 docs/superpowers/
+
+# Relatórios mensais locais (não publicar)
+doc/relatorio-maio/
