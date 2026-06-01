@@ -22,9 +22,9 @@ Nao reabrir tarefas concluidas sem registrar um bug, uma nova necessidade ou uma
 | Motor MSC | Concluido | `78/78` regras implementadas e registradas |
 | Score e historico | Concluido | Score `0-100`, bandas `A-E`, historico e comparacao entre competencias |
 | Frontend oficial | Concluido com hardening visual pendente | React + FastAPI substituiu a interface Panel |
-| Exportacoes | Concluido | Excel de pendencias e PDF executivo |
-| Autenticacao | Concluido tecnicamente | JWT multiusuario; falta configurar credenciais reais no ambiente operacional |
-| Deploy | Concluido tecnicamente | Docker, compose e testes E2E de deploy |
+| Exportacoes | Concluido com decisao de escopo pendente | Excel de pendencias e PDF executivo; confirmar se o PDF tambem deve conter pendencias completas |
+| Autenticacao | Concluido com decisao de modelo pendente | JWT multiusuario implementado; confirmar se artefatos devem ser compartilhados por ente ou isolados por usuario |
+| Deploy | Concluido na aplicacao com publicacao pendente | Docker, compose e testes E2E prontos; definir reverse proxy e terminacao HTTP/TLS no ambiente alvo |
 | Superavit por FR | Concluido tecnicamente | Falta validacao contabil com dados reais da PMJP |
 | Ranking Regional | Fora do fechamento | Depende de base comparativa externa ainda nao definida |
 
@@ -78,6 +78,20 @@ Checklist:
 - [ ] backup e leitura dos logs.
 
 **Criterio de aceite:** fluxo completo executado no ambiente alvo sem erro bloqueador.
+
+### GO-04 - Definir topologia de publicacao
+
+A antiga task F0-08 citava `Docker + nginx`. O projeto entrega container e compose da aplicacao na porta `8000`, mas ainda nao define como a prefeitura publicara o servico.
+
+Checklist:
+
+- [ ] confirmar se a infraestrutura alvo ja possui reverse proxy institucional;
+- [ ] definir terminacao HTTP/TLS, hostname e porta publica;
+- [ ] decidir se nginx pertence a este repositorio ou a infraestrutura externa;
+- [ ] documentar a configuracao adotada no guia de operacao;
+- [ ] validar `/api/health`, login e upload atraves do endpoint publico.
+
+**Criterio de aceite:** topologia de publicacao definida, documentada e exercitada no ambiente alvo.
 
 ---
 
@@ -146,6 +160,26 @@ A antiga task F3-16 ficou parcialmente aberta porque o Excel nao possui aba sepa
 - [ ] confirmar com a equipe se a organizacao atual do Excel atende ao uso real;
 - [ ] encerrar formalmente a necessidade ou abrir task especifica de melhoria.
 
+### TECH-03 - Decidir isolamento multiusuario dos artefatos
+
+A antiga task F0-07 previa namespacing por usuario em snapshots. Hoje o login JWT identifica quem executou, e o lock evita escrita concorrente, mas snapshots e relatorios permanecem compartilhados por `siconfi + competencia`.
+
+- [ ] confirmar se usuarios da PMJP devem enxergar o mesmo conjunto institucional de artefatos;
+- [ ] se houver isolamento por usuario, definir impacto em snapshots, relatorios, comparacoes, exportacoes e locks;
+- [ ] encerrar formalmente o requisito antigo ou abrir task especifica de implementacao.
+
+**Criterio de aceite:** modelo de visibilidade institucional documentado e sem ambiguidade para producao.
+
+### TECH-04 - Decidir escopo do PDF de pendencias
+
+A antiga task F0-06 previa `Visao Executiva (1 pagina) + Pendencias completas`. Hoje o PDF entrega a visao executiva e o Excel entrega as pendencias completas.
+
+- [ ] confirmar se Excel completo + PDF executivo atende ao fluxo operacional;
+- [ ] se necessario, definir se as pendencias entram no mesmo PDF ou em exportacao separada;
+- [ ] encerrar formalmente o requisito antigo ou abrir task especifica de implementacao.
+
+**Criterio de aceite:** formato final de distribuicao aprovado pela equipe usuaria.
+
 ---
 
 ## P2 - Treinamento e Entrega
@@ -183,10 +217,11 @@ Estes itens nao bloqueiam a entrega e nao devem disputar prioridade com go-live,
 1. `GO-01` - configuracao operacional real;
 2. `GO-02` - validacao contabil do Superavit;
 3. `UX-01` a `UX-05` - rodada unica de hardening visual e intuitividade;
-4. `TECH-01` e `TECH-02` - limpeza e decisao final de escopo;
-5. `GO-03` - smoke test no ambiente alvo;
-6. `F5-10` - treinamento;
-7. `F5-11` - handoff e encerramento.
+4. `GO-04` - definir topologia de publicacao;
+5. `TECH-01` a `TECH-04` - limpeza e decisoes finais de escopo;
+6. `GO-03` - smoke test no ambiente alvo;
+7. `F5-10` - treinamento;
+8. `F5-11` - handoff e encerramento.
 
 ---
 
