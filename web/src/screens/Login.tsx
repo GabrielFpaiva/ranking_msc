@@ -36,6 +36,7 @@ export function Login() {
       }}
     >
       <form
+        aria-labelledby="login-title"
         onSubmit={(e) => void handleSubmit(e)}
         style={{
           width: 320,
@@ -52,6 +53,7 @@ export function Login() {
         <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ textAlign: 'center', marginBottom: '0.25rem' }}>
             <h1
+              id="login-title"
               style={{
                 fontSize: '1.1rem',
                 marginBottom: '0.25rem',
@@ -103,7 +105,7 @@ export function Login() {
           </label>
 
           {error && (
-            <p style={{ color: 'var(--samid-erro)', fontSize: '0.85rem', margin: 0 }}>
+            <p role="alert" style={{ color: 'var(--samid-erro)', fontSize: '0.85rem', margin: 0 }}>
               {error}
             </p>
           )}
@@ -111,6 +113,7 @@ export function Login() {
           <button
             type="submit"
             disabled={loading}
+            aria-busy={loading}
             style={{
               padding: '0.6rem',
               borderRadius: 4,
