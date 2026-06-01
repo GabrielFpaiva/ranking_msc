@@ -32,6 +32,8 @@ from ranking_msc.rules.r030 import R030
 from ranking_msc.rules.r033 import R033
 from ranking_msc.rules.r034 import R034
 from ranking_msc.rules.r035 import R035
+from ranking_msc.rules.r036 import R036
+from ranking_msc.rules.r037 import R037
 from ranking_msc.rules.r038 import R038
 from ranking_msc.rules.r053 import R053
 from ranking_msc.rules.r061 import R061
@@ -994,6 +996,108 @@ class TestR035:
         """DataFrame sem contas patrimoniais → nenhuma pendência."""
         df = _df_movimentos(["511000000"], [1000.00], [0.00])
         result = R035().execute(df, engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R036 — Débito = Crédito — Orçamentário (classes 5-6)
+# ---------------------------------------------------------------------------
+
+
+class TestR036:
+    def test_totais_equilibrados_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Total D == Total C em contas orçamentárias → nenhuma pendência."""
+        df = _df_movimentos(
+            ["511000000", "611000000"],
+            [300.00, 200.00],
+            [400.00, 100.00],
+        )
+        result = R036().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_totais_desequilibrados_gera_pendencia_erro(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Total D ≠ Total C (diferença > tolerância) → uma pendência ERRO."""
+        df = _df_movimentos(["511000000"], [1000.00], [400.00])
+        result = R036().execute(df, engine_context)
+
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R036"
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert "classes 5-6" in result.iloc[0]["conta_contabil"]
+
+    def test_contas_de_outras_classes_nao_contaminam(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Contas classes 1-4 e 7-8 com D ≠ C não afetam R036."""
+        df = _df_movimentos(
+            ["111110200", "211000000", "711000000"],
+            [100.00, 200.00, 300.00],
+            [0.00, 0.00, 0.00],
+        )
+        result = R036().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_df_sem_contas_orcamentarias_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """DataFrame sem contas orçamentárias → nenhuma pendência."""
+        df = _df_movimentos(["111110200"], [1000.00], [0.00])
+        result = R036().execute(df, engine_context)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# R037 — Débito = Crédito — Controle (classes 7-8)
+# ---------------------------------------------------------------------------
+
+
+class TestR037:
+    def test_totais_equilibrados_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Total D == Total C em contas de controle → nenhuma pendência."""
+        df = _df_movimentos(
+            ["711000000", "811000000"],
+            [600.00, 400.00],
+            [700.00, 300.00],
+        )
+        result = R037().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_totais_desequilibrados_gera_pendencia_erro(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Total D ≠ Total C (diferença > tolerância) → uma pendência ERRO."""
+        df = _df_movimentos(["711000000"], [1000.00], [300.00])
+        result = R037().execute(df, engine_context)
+
+        assert len(result) == 1
+        assert result.iloc[0]["regra_id"] == "R037"
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert "classes 7-8" in result.iloc[0]["conta_contabil"]
+
+    def test_contas_de_outras_classes_nao_contaminam(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Contas classes 1-6 com D ≠ C não afetam R037."""
+        df = _df_movimentos(
+            ["111110200", "311000000", "511000000"],
+            [100.00, 200.00, 300.00],
+            [0.00, 0.00, 0.00],
+        )
+        result = R037().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_df_sem_contas_controle_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """DataFrame sem contas de controle → nenhuma pendência."""
+        df = _df_movimentos(["511000000"], [1000.00], [0.00])
+        result = R037().execute(df, engine_context)
         assert len(result) == 0
 
 

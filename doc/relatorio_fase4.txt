@@ -1,0 +1,227 @@
+==============================================================================
+  RELATÓRIO DE CONCLUSÃO — FASE 4
+  Projeto: Ranking MSC (Motor de Validação Contábil SICONFI)
+  Data: 2026-05-30
+==============================================================================
+
+------------------------------------------------------------------------------
+1. VISÃO GERAL
+------------------------------------------------------------------------------
+
+A Fase 4 (Scoring + Cobertura Total) foi concluída com todas as 20 tasks
+entregues (F4-01 a F4-20). O motor Python atingiu 100% do catálogo de regras
+(78/78). O gate de qualidade (ruff + mypy + pytest) foi verificado verde em
+2026-05-27.
+
+Escopo da Fase 4:
+  - Modelo de pontuação (scoring 0-100, bandas A-E)
+  - Pipeline batch multi-competência
+  - Comparação temporal entre períodos
+  - 41 novas regras de validação
+  - Otimização de performance (vetorização)
+  - Tratamento robusto de encoding (UTF-8 / Latin-1 / CP1252)
+  - Extração de helpers CLI compartilhados
+  - Documentação técnica e handoff para a Fase 5
+
+
+------------------------------------------------------------------------------
+2. TASKS ENTREGUES (F4-01 a F4-20)
+------------------------------------------------------------------------------
+
+  ID     | Descrição                                         | Status
+  -------+---------------------------------------------------+--------
+  F4-01  | Modelo de pontuação (scoring 0-100)               | ✓ OK
+  F4-02  | score_engine.py (nota por dimensão + banda A-E)   | ✓ OK
+  F4-03  | Aba Score no Excel de pendências                  | ✓ OK
+  F4-04  | Batch — processar múltiplos CSVs                  | ✓ OK
+  F4-05  | compare_periods.py (evolução temporal)            | ✓ OK
+  F4-06  | Relatório consolidado multi-competência           | ✓ OK
+  F4-07  | Regras Estrutura R006–R009 (4 regras)             | ✓ OK
+  F4-08  | Benchmark de performance (>100k linhas)           | ✓ OK
+  F4-09  | Otimizar regras com operações vetorizadas         | ✓ OK
+  F4-10  | Encoding robusto (UTF-8/Latin-1/CP1252 auto)      | ✓ OK
+  F4-11  | Regras IC completude R033, R034, R038, R082       | ✓ OK
+  F4-12  | Regras domínio complementares (9 regras)          | ✓ OK
+  F4-13  | Regras Fechamento por classe R035–R037            | ✓ OK
+  F4-14  | Superávit + Interconta R053, R061, R062           | ✓ OK
+  F4-15  | Completude + Qualidade (7 regras)                 | ✓ OK
+  F4-16  | SIGEF — Saldo invertido R086–R088                 | ✓ OK
+  F4-17  | SIGEF — IC detalhamento R089–R093                 | ✓ OK
+  F4-18  | SIGEF — Temporal/Completude R083–R085             | ✓ OK
+  F4-19  | Extrair helpers CLI compartilhados                | ✓ OK
+  F4-20  | Documentação Fase 4 + handoff Fase 5              | ✓ OK
+
+
+------------------------------------------------------------------------------
+3. REGRAS IMPLEMENTADAS NA FASE 4 (41 regras)
+------------------------------------------------------------------------------
+
+  Grupo               | Regras                              | Qtd
+  --------------------+-------------------------------------+-----
+  Estrutura           | R006, R007, R008, R009              |  4
+  IC Completude       | R033, R034, R038, R082              |  4
+  IC Domínio          | R039, R044, R045, R046, R047, R048  |  6
+                      | R063, R064, R065                    |  3
+  Fechamento Classe   | R035, R036, R037                    |  3
+  Superávit/Interconta| R053, R061, R062                    |  3
+  Completude          | R066, R067, R068, R074              |  4
+  Qualidade           | R071, R072, R073                    |  3
+  SIGEF Saldo         | R086, R087, R088                    |  3
+  SIGEF IC            | R089, R090, R091, R092, R093        |  5
+  SIGEF Temporal      | R083, R084, R085                    |  3
+  --------------------+-------------------------------------+-----
+  TOTAL F4            |                                     | 41
+
+  Regras residuais implementadas junto à Fase 4 (Issue #80):
+    R0010 — Cabeçalho na primeira linha  (ERRO)
+    R0011 — Valor não-negativo           (ERRO)
+
+  Total acumulado ao fim da Fase 4: 78 / 78 (100% do catálogo)
+
+
+------------------------------------------------------------------------------
+4. NOVOS MÓDULOS CRIADOS
+------------------------------------------------------------------------------
+
+  Arquivo                                     | Linhas | Descrição
+  --------------------------------------------+--------+----------------------
+  src/ranking_msc/engine/score_engine.py      |   297  | Motor de pontuação
+  src/ranking_msc/engine/compare_periods.py   |   251  | Comparação temporal
+  src/ranking_msc/outputs/report_consolidado.py|  253  | Relatório multi-período
+  scripts/run_batch.py                        |   390  | CLI batch
+  scripts/benchmark.py                        |   237  | Benchmark de performance
+  scripts/_cli_helpers.py                     |   101  | Helpers compartilhados CLI
+  scripts/_vectorize_ic.py                    |    —   | Script de vetorização (IC)
+  scripts/_vectorize_simple.py                |    —   | Script de vetorização (simples)
+
+
+------------------------------------------------------------------------------
+5. ARQUIVOS DE TESTE CRIADOS NA FASE 4
+------------------------------------------------------------------------------
+
+  Arquivo                      | Testes | Cobertura
+  -----------------------------+--------+----------------------------------
+  test_r006_r009.py            |   29   | R006, R007, R008, R009
+  test_rules.py (incremento)   |   ~40  | R033, R034, R035, R038, R053,
+                               |        | R061, R062, R066-R068, R071-R074,
+                               |        | R082
+  test_rules_f4_12.py          |   54   | R039, R044-R048, R063-R065
+  test_r083.py                 |   10   | R083
+  test_r084.py                 |    8   | R084
+  test_r085.py                 |    8   | R085
+  test_r086.py                 |   12   | R086
+  test_r087.py                 |   12   | R087
+  test_r088.py                 |   12   | R088
+  test_r089_r093.py            |   43   | R089-R093
+  test_score_engine.py         |   23   | score_engine.py
+  test_compare_periods.py      |   28   | compare_periods.py
+  test_report_consolidado.py   |   18   | report_consolidado.py
+  test_run_batch.py            |   24   | run_batch.py
+  test_benchmark.py            |   16   | benchmark.py
+
+
+------------------------------------------------------------------------------
+6. MÉTRICAS DE QUALIDADE
+------------------------------------------------------------------------------
+
+  Métrica                        | Valor
+  -------------------------------+------------------------------------------
+  Tasks concluídas               | 20 / 20 (100%)
+  Regras implementadas F4        | 41 novas
+  Total de regras no motor       | 78 / 78 (100%)
+  Testes coletados (fim F4)      | 944  →  979 (acréscimo pós-F4 na Fase 5)
+  Regras habilitadas em settings | 78 / 78 (sem divergência com registry)
+  Lint — ruff check              | 0 erros
+  Tipos — mypy                   | OK (erros apenas de libs ausentes no CI)
+  Gate validate                  | Verde em 2026-05-27
+  Cobertura de categorias        | 15 / 15 com ≥ 1 regra implementada
+
+
+------------------------------------------------------------------------------
+7. DOCUMENTAÇÃO TÉCNICA PRODUZIDA
+------------------------------------------------------------------------------
+
+  - doc/modelo_pontuacao.md (v1.3)
+      Especificação da fórmula de scoring 0-100, pesos por dimensão,
+      mapeamento de categorias → dimensões, regras de degradação para
+      Temporal, benchmarks de banda A-E.
+
+  - doc/backlog.md (atualizado)
+      Todas as tasks F4-01 a F4-20 marcadas como concluídas.
+      Gap de regras por categoria zerado (15/15 com 0 faltando).
+
+  - doc/governanca_documental.md
+      Política documental e checklist de aderência arquitetural registrados.
+      Desvio arquitetural D1 (compare_periods ↔ snapshot) documentado e
+      rastreado via Issue #98.
+
+
+------------------------------------------------------------------------------
+8. DESVIO ARQUITETURAL IDENTIFICADO
+------------------------------------------------------------------------------
+
+  D1 — engine.compare_periods depende de outputs.snapshot
+  ---------------------------------------------------------
+  Evidência: src/ranking_msc/engine/compare_periods.py importa
+             read_snapshot e read_scoring_metadata de outputs.snapshot,
+             criando dependência de camada engine → outputs.
+
+  Impacto: direção arquitetural deixa de ser estritamente monotônica
+           (io → transform → engine → outputs).
+
+  Ação tomada: desvio documentado em governanca_documental.md como
+               relevante; Issue #98 aberta para refactor.
+               Resolvido na Fase 5 (commit: Codex/issue-98-compare-periods).
+
+
+------------------------------------------------------------------------------
+9. GAPS IDENTIFICADOS NA ANÁLISE (PÓS-FASE)
+------------------------------------------------------------------------------
+
+  GAP 1 — R036 e R037 sem testes unitários dedicados
+  ---------------------------------------------------
+  Descrição: TestR036 (D=C orçamentário, classes 5-6) e TestR037 (D=C
+             controle, classes 7-8) não foram escritos. O comentário
+             "# Helpers compartilhados R035/R036/R037" existe em
+             test_rules.py, e TestR035 tem 4 testes, mas as outras duas
+             classes de teste nunca foram criadas.
+
+  As regras estão implementadas, registradas e habilitadas corretamente.
+  São implicitamente cobertas pelo test_integration.py (que executa
+  run_engine() com todas as 78 regras). Porém, violam o padrão do projeto
+  (CLAUDE.md §4.1: "Pelo menos 2 testes — positivo + negativo por regra").
+
+  Impacto: Baixo. A lógica é idêntica à R035, apenas com filtro de
+           primeiro dígito diferente (5-6 e 7-8 respectivamente).
+  Recomendação: Adicionar TestR036 e TestR037 em test_rules.py na Fase 5
+                (F5-09 buffer de bugs).
+
+  GAP 2 — F3-16 permanece parcial (herdado da Fase 3)
+  ----------------------------------------------------
+  Descrição: A task F3-16 "Relatório com todas regras + categorias"
+             nunca foi completada. O Excel de pendências funciona e tem
+             aba de Score (F4-03), mas não possui aba separada por
+             categoria/dimensão como especificado originalmente.
+             O backlog documenta: "Parcial (Excel OK, mas sem aba
+             separada por categoria)".
+
+  Impacto: Funcional — o relatório principal opera normalmente.
+           Apenas a visão agrupada por dimensão no Excel está ausente.
+  Recomendação: Avaliar inclusão no F5-09 (buffer) ou descarte formal
+                da entrega (documentar como não-escopo).
+
+
+------------------------------------------------------------------------------
+10. REFERÊNCIAS
+------------------------------------------------------------------------------
+
+  - doc/backlog.md              — estado completo das tasks e regras
+  - doc/modelo_pontuacao.md     — especificação do scoring
+  - doc/governanca_documental.md — política documental e arquitetura
+  - src/ranking_msc/rules/      — implementação das 78 regras
+  - tests/                      — suite de testes (979 itens)
+  - config/settings.yaml.example — 78 regras habilitadas
+
+==============================================================================
+  Fim do Relatório — Fase 4
+==============================================================================
