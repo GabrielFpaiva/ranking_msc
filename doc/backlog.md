@@ -100,7 +100,7 @@ Checklist:
 ### UX-01 - Limpar navegacao e acoes sem funcao
 
 - [x] remover sublinhado dos links da sidebar;
-- [ ] implementar logout e exibir o usuario autenticado;
+- [ ] implementar botao `Sair` visivel e exibir o usuario autenticado;
 - [ ] remover ou implementar o botao `Reprocessar`;
 - [ ] remover ou implementar o sino de notificacoes;
 - [ ] exibir erro de exportacao no TopBar em vez de silenciar falhas.
@@ -142,6 +142,50 @@ Checklist:
 - [ ] revisar feedback de credenciais invalidas e expiracao de sessao.
 
 **Criterio de aceite:** login parece parte do mesmo produto e comunica falhas de forma clara.
+
+### UX-06 - Padronizar mensagens de erro do frontend
+
+**Problema observado:** mensagens de erro estao exibindo codigos tecnicos, como `401`, em vez de feedback claro para o usuario.
+
+Checklist:
+
+- [ ] mapear respostas comuns da API (`401`, `403`, `404`, `409`, `422`, `500`) para mensagens amigaveis;
+- [ ] tratar credenciais invalidas, sessao expirada e falta de permissao com textos especificos;
+- [ ] evitar exibir codigo bruto ou payload tecnico como mensagem principal;
+- [ ] manter detalhe tecnico apenas em area secundaria/log quando util para suporte;
+- [ ] aplicar o padrao nas telas de login, upload, exportacoes, consultas e comparacao.
+
+**Criterio de aceite:** usuario ve mensagens operacionais claras e nenhum erro comum aparece apenas como codigo HTTP bruto.
+
+### UX-07 - Remover botoes e controles sem funcao
+
+**Problema observado:** existem botoes visiveis que parecem acionaveis, mas nao executam nenhuma acao util, como notificacao/sino e `Reprocessar` no TopBar.
+
+Checklist:
+
+- [ ] auditar todos os botoes e controles clicaveis do frontend;
+- [ ] remover o botao de notificacao/sino enquanto nao houver funcionalidade implementada;
+- [ ] remover ou implementar `Reprocessar`;
+- [ ] identificar outros botoes com placeholder, `title` de "a ser implementado" ou handler vazio;
+- [ ] manter visiveis somente acoes que executam algo ou comunicam claramente estado indisponivel;
+- [ ] validar TopBar, Home, Pendencias, Executivo, Regras, drawers e fluxo de upload.
+
+**Criterio de aceite:** nenhum botao visivel fica sem resposta funcional ou sem feedback claro ao clique.
+
+### UX-08 - Implementar logout visivel
+
+**Problema observado:** o usuario autenticado nao tem uma acao clara para sair do sistema.
+
+Checklist:
+
+- [ ] adicionar botao `Sair` em local previsivel, como TopBar ou sidebar;
+- [ ] exibir o usuario logado junto da acao de sair;
+- [ ] limpar token/sessao local ao sair;
+- [ ] redirecionar para `/login`;
+- [ ] garantir que rotas protegidas nao continuem acessiveis apos logout;
+- [ ] revisar estado visual em desktop e notebook com largura reduzida.
+
+**Criterio de aceite:** usuario consegue sair do sistema sem limpar navegador manualmente, e novo acesso exige login.
 
 ---
 
