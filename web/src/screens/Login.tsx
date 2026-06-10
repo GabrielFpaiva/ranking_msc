@@ -1,7 +1,16 @@
 import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { apiLogin } from '../api/client';
+import { ApiError, apiLogin } from '../api/client';
+
+function friendlyLoginError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 401) return 'Usuário ou senha inválidos.';
+    if (err.status === 0 || err.status >= 500) return 'Não foi possível conectar ao servidor. Tente novamente.';
+    return err.detail;
+  }
+  return 'Erro inesperado. Tente novamente.';
+}
 
 export function Login() {
   const navigate = useNavigate();
@@ -18,94 +27,55 @@ export function Login() {
       await apiLogin(username, password);
       navigate('/inicio', { replace: true });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao autenticar';
-      setError(msg);
+      setError(friendlyLoginError(err));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--samid-midnight)',
-      }}
-    >
+    <div className="samid-login-page">
       <form
         aria-labelledby="login-title"
         onSubmit={(e) => void handleSubmit(e)}
-        style={{
-          width: 320,
-          borderRadius: 8,
-          background: 'var(--samid-paper)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: 'var(--shadow-raised)',
-        }}
+        className="samid-login-form"
       >
-        <div style={{ height: 4, background: 'var(--samid-gold)' }} />
+        <div className="samid-login-stripe" />
 
-        <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ textAlign: 'center', marginBottom: '0.25rem' }}>
-            <h1
-              id="login-title"
-              style={{
-                fontSize: '1.1rem',
-                marginBottom: '0.25rem',
-                color: 'var(--fg-1)',
-                fontFamily: 'var(--font-display)',
-              }}
-            >
+        <div className="samid-login-body">
+          <div className="samid-login-header">
+            <h1 id="login-title" className="samid-login-title">
               MCRA PMJP — Mapeamento Contábil Ranking A
             </h1>
-            <p style={{ fontSize: '0.8rem', color: 'var(--fg-2)', margin: 0 }}>
-              Sistema de validação contábil
-            </p>
+            <p className="samid-login-subtitle">Sistema de validação contábil</p>
           </div>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--fg-2)' }}>Usuário</span>
+          <label className="samid-login-field">
+            <span className="samid-login-label">Usuário</span>
             <input
               type="text"
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              style={{
-                padding: '0.5rem',
-                borderRadius: 4,
-                border: '1px solid var(--border-default)',
-                background: 'var(--bg-canvas)',
-                color: 'var(--fg-1)',
-              }}
+              className="samid-login-input"
             />
           </label>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--fg-2)' }}>Senha</span>
+          <label className="samid-login-field">
+            <span className="samid-login-label">Senha</span>
             <input
               type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{
-                padding: '0.5rem',
-                borderRadius: 4,
-                border: '1px solid var(--border-default)',
-                background: 'var(--bg-canvas)',
-                color: 'var(--fg-1)',
-              }}
+              className="samid-login-input"
             />
           </label>
 
           {error && (
-            <p role="alert" style={{ color: 'var(--samid-erro)', fontSize: '0.85rem', margin: 0 }}>
+            <p role="alert" className="samid-login-error">
               {error}
             </p>
           )}
@@ -114,16 +84,7 @@ export function Login() {
             type="submit"
             disabled={loading}
             aria-busy={loading}
-            style={{
-              padding: '0.6rem',
-              borderRadius: 4,
-              background: 'var(--samid-gold)',
-              color: 'var(--fg-invert)',
-              border: 'none',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
-              fontWeight: 600,
-            }}
+            className="samid-login-submit"
           >
             {loading ? 'Entrando…' : 'Entrar'}
           </button>
