@@ -167,10 +167,10 @@ Checklist:
 
 ### TECH-01 - Revisar residuos documentais e comentarios obsoletos
 
-- [ ] remover comentarios antigos sobre semaforo futuro no executor, pois o lock por periodo ja existe;
-- [ ] atualizar `doc/governanca_documental.md`: refactor arquitetural `#98` ja foi concluido;
-- [ ] revisar referencias antigas a placeholders e ao Ranking Regional na documentacao ativa;
-- [ ] manter referencias historicas apenas nos documentos classificados como historicos.
+- [x] remover comentarios antigos sobre semaforo futuro no executor, pois o lock por periodo ja existe;
+- [x] atualizar `doc/governanca_documental.md`: refactor arquitetural `#98` ja foi concluido;
+- [x] revisar referencias antigas a placeholders e ao Ranking Regional na documentacao ativa;
+- [x] manter referencias historicas apenas nos documentos classificados como historicos.
 
 ### TECH-02 - Decidir escopo do Excel por categoria
 

@@ -4,19 +4,18 @@ ranking_msc.engine.executor
 
 Motor principal de execução das regras de validação.
 
-Fluxo futuro (a ser implementado):
+Fluxo:
     1. Receber DataFrame MSC já lido e normalizado.
     2. Montar EngineContext com metadados (competência, siconfi, settings).
     3. Carregar regras habilitadas (settings.rules.enabled) via RULE_REGISTRY.
-    4. Executar cada regra em sequência (ou paralelo controlado).
+    4. Executar cada regra em sequência.
     5. Consolidar pendências em um único DataFrame.
-    6. Calcular scoring / nota final.
-    7. Retornar EngineResult com pendências, logs e estatísticas.
+    6. Retornar EngineResult com pendências, logs e estatísticas.
 
 Concorrência (multiusuário):
     - Cada execução recebe um ``execucao_id`` (UUID) para rastreabilidade.
-    - TODO: implementar semáforo por competência para evitar que dois
-      usuários processem o mesmo mês simultaneamente (ver SecuritySettings).
+    - Lock por competência implementado em ``engine.locks`` e aplicado
+      pela API em ``app.api.routes.run``.
 """
 
 from __future__ import annotations
@@ -54,13 +53,12 @@ class EngineContext:
     # Violações de Tipo_valor/Natureza_valor capturadas antes do pivot
     # pelo reader_msc. Usadas pelas regras R003 e R004.
     snapshots_dir: Path | None = None
-    lock_token: str | None = None
     # Diretório de snapshots resolvido pelo chamador (ex: CLI com --output-dir).
     # Quando definido, tem precedência sobre settings.paths.snapshots_dir.
     # Regras temporais (R054+) DEVEM usar este campo em vez de ler settings diretamente.
-
-    # TODO (multiusuário): adicionar campo ``lock_token`` para controle
-    # de concorrência por competência.
+    lock_token: str | None = None
+    # Token do lock de concorrência, preenchido pela API ao adquirir o lock
+    # via ``engine.locks.acquire_execution_lock()``.
 
 
 @dataclass
