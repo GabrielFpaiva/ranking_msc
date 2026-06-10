@@ -1,7 +1,7 @@
 # Governança Documental e Aderência Arquitetural
 
 > Status: ativo  
-> Atualizado em: 2026-05-22  
+> Atualizado em: 2026-06-10  
 > Issue de origem: #87
 
 ## 1. Fontes vivas oficiais
@@ -107,8 +107,9 @@ Impacto:
 
 Decisão:
 
-- desvio registrado como relevante;
-- issue aberta para refactor: **#98**.
+- desvio registrado e aceito;
+- issue #98 encerrada: o acoplamento é intencional (leitura histórica
+  faz parte da comparação temporal) e não justifica refactor.
 
 ### D2 — `app/api/routes/contas.py` lê PCASP diretamente em `io.ref_loader`
 
@@ -130,4 +131,5 @@ Decisão:
 - Não há acúmulo relevante de documentação viva redundante.
 - `doc/fase0_plan.md` e `doc/legacy_inventory.md` devem permanecer como documentos **históricos**, não como fontes correntes de decisão.
 - A arquitetura principal segue reconhecível e operacional.
-- O único desvio arquitetural considerado relevante nesta revisão já foi transformado em issue rastreável (#98).
+- O desvio D1 (engine → outputs) foi aceito como intencional. Issue #98 encerrada.
+- Semáforo de concorrência por competência implementado em `engine/locks.py` e aplicado pela API (`app/api/routes/run.py`). Os TODOs correspondentes no executor foram removidos.
