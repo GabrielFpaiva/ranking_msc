@@ -414,3 +414,47 @@ a:focus-visible { outline-offset: 2px; }
 }
 .samid-login-submit:disabled { cursor: not-allowed; opacity: 0.7; }
 .samid-login-submit:not(:disabled):hover { background: var(--samid-gold-dk); }
+
+/* ===== Responsividade ===== */
+
+/* Notebook médio: sidebar colapsa para ícones, conteúdo ganha espaço */
+@media (max-width: 1280px) {
+  .samid-content { padding: 20px 20px 40px; }
+  .samid-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .samid-heat-head, .samid-heat-row { grid-template-columns: 180px repeat(6, 1fr); }
+}
+
+/* Tablet / notebook estreito: sidebar vira tira estreita sem texto */
+@media (max-width: 1024px) {
+  .samid-sidebar {
+    width: 56px;
+    padding: 16px 8px;
+    overflow: hidden;
+  }
+  .samid-brand-wm,
+  .samid-brand-sub,
+  .samid-nav-section,
+  .samid-nav-item > span,
+  .samid-user-name,
+  .samid-user-role { display: none; }
+  .samid-nav-item { padding: 10px; justify-content: center; }
+  .samid-user { justify-content: center; }
+  .samid-user-avatar { flex-shrink: 0; }
+  .samid-topbar { padding: 16px 20px; }
+  .samid-topbar-actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .samid-pend-layout { grid-template-columns: 1fr; }
+  .samid-filter-rail { position: static; }
+  .samid-grid-2, .samid-grid-3, .samid-grid-cols-3 { grid-template-columns: 1fr; }
+  .samid-exec-hero { flex-direction: column; }
+  .samid-exec-hero-r { text-align: left; }
+  .samid-exec-actions { flex-direction: column; }
+}
+
+/* Mobile estreito: TopBar empilha ações */
+@media (max-width: 768px) {
+  .samid-topbar { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .samid-topbar-actions { width: 100%; justify-content: flex-start; }
+  .samid-content { padding: 16px 12px 32px; }
+  .samid-topbar-title { font-size: 18px; }
+  .samid-competencia { display: none; }
+}
