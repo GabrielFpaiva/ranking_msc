@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { ContaListSection } from '../components/ContaListSection';
 import { useMCRA } from '../store/useMCRA';
@@ -30,8 +31,11 @@ export function Caixa() {
           Sem competência ativa
         </h2>
         <p className="samid-muted">
-          Volte para Início e processe um CSV MSC para popular esta tela.
+          Processe um CSV MSC para popular esta tela.
         </p>
+        <Link to="/inicio" className="samid-btn samid-btn-primary" style={{ marginTop: 12, display: 'inline-flex' }}>
+          Ir para Início
+        </Link>
       </div>
     );
   }

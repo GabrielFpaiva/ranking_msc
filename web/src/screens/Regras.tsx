@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { DimTag } from '../components/DimTag';
 import { Sev } from '../components/Sev';
@@ -59,6 +60,21 @@ export function Regras() {
     }
     return map;
   }, [heat]);
+
+  if (!siconfi) {
+    return (
+      <div className="samid-card">
+        <div className="samid-eyebrow">Regras</div>
+        <h2 className="samid-card-title" style={{ marginTop: 8 }}>
+          Sem competência ativa
+        </h2>
+        <p className="samid-muted">Processe um CSV MSC para popular esta tela.</p>
+        <Link to="/inicio" className="samid-btn samid-btn-primary" style={{ marginTop: 12, display: 'inline-flex' }}>
+          Ir para Início
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="samid-stack">
