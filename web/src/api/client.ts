@@ -32,6 +32,18 @@ class ApiError extends Error {
     this.status = status;
     this.detail = detail;
   }
+
+  get userMessage(): string {
+    switch (this.status) {
+      case 401: return 'Sessão expirada. Faça login novamente.';
+      case 403: return 'Você não tem permissão para esta ação.';
+      case 404: return 'Recurso não encontrado.';
+      case 409: return 'Processamento já em andamento para esta competência.';
+      case 422: return 'Dados inválidos. Verifique os campos e tente novamente.';
+      case 500: return 'Erro interno do servidor. Tente novamente mais tarde.';
+      default:  return this.detail || 'Erro inesperado. Tente novamente.';
+    }
+  }
 }
 
 function authHeaders(): HeadersInit {
