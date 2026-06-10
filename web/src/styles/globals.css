@@ -222,6 +222,7 @@ button.samid-chip.active { background: var(--samid-midnight); color:#fff; border
 .samid-input { width:100%; padding: 8px 10px; border:1px solid var(--border-strong); border-radius: 6px; font-family: var(--font-mono); font-size: 12px; background:#fff; outline:none;}
 .samid-input:focus { border-color: var(--samid-gold); box-shadow: var(--shadow-focus);}
 .samid-actions { display:flex; gap:8px;}
+.samid-pagination { display:flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
 
 /* ===== Execução ===== */
 .samid-kv { display:flex; flex-direction:column; gap: 8px; margin-top: 12px;}
