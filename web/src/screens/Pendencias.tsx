@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { ApiError, api } from '../api/client';
 import { DimTag } from '../components/DimTag';
@@ -76,8 +77,11 @@ export function Pendencias() {
           Sem competência ativa
         </h2>
         <p className="samid-muted">
-          Volte para Início e processe um CSV MSC para popular esta tela.
+          Processe um CSV MSC para popular esta tela.
         </p>
+        <Link to="/inicio" className="samid-btn samid-btn-primary" style={{ marginTop: 12, display: 'inline-flex' }}>
+          Ir para Início
+        </Link>
       </div>
     );
   }

@@ -45,7 +45,7 @@ export function TopBar() {
       : api.exportPdf(siconfi, competencia);
     call
       .catch((err: unknown) => {
-        const msg = err instanceof ApiError ? err.detail : 'Erro ao exportar. Tente novamente.';
+        const msg = err instanceof ApiError ? err.userMessage : 'Erro ao exportar. Tente novamente.';
         setExportError(msg);
         if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
         errorTimerRef.current = setTimeout(() => setExportError(null), 6000);

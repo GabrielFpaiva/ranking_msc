@@ -424,22 +424,9 @@ a:focus-visible { outline-offset: 2px; }
   .samid-heat-head, .samid-heat-row { grid-template-columns: 180px repeat(6, 1fr); }
 }
 
-/* Tablet / notebook estreito: sidebar vira tira estreita sem texto */
+/* Tablet / notebook estreito: sidebar oculta, conteúdo ocupa tela inteira */
 @media (max-width: 1024px) {
-  .samid-sidebar {
-    width: 56px;
-    padding: 16px 8px;
-    overflow: hidden;
-  }
-  .samid-brand-wm,
-  .samid-brand-sub,
-  .samid-nav-section,
-  .samid-nav-item > span,
-  .samid-user-name,
-  .samid-user-role { display: none; }
-  .samid-nav-item { padding: 10px; justify-content: center; }
-  .samid-user { justify-content: center; }
-  .samid-user-avatar { flex-shrink: 0; }
+  .samid-sidebar { display: none; }
   .samid-topbar { padding: 16px 20px; }
   .samid-topbar-actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .samid-pend-layout { grid-template-columns: 1fr; }
