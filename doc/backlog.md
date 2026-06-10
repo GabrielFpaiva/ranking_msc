@@ -38,12 +38,12 @@ Nao reabrir tarefas concluidas sem registrar um bug, uma nova necessidade ou uma
 
 Checklist:
 
-- [ ] recriar o arquivo operacional a partir de `config/settings.yaml.example`;
-- [ ] habilitar as `78` regras atuais;
-- [ ] remover campos legados como `allowed_users`;
-- [ ] gerar `security.secret_key` segura;
-- [ ] cadastrar ao menos um usuario com hash bcrypt;
-- [ ] confirmar `app.esfera`, paths, permissoes e volumes Docker;
+- [x] recriar o arquivo operacional a partir de `config/settings.yaml.example`;
+- [x] habilitar as `78` regras atuais;
+- [x] remover campos legados como `allowed_users`;
+- [x] gerar `security.secret_key` segura;
+- [x] cadastrar ao menos um usuario com hash bcrypt;
+- [x] confirmar `app.esfera`, paths, permissoes e volumes Docker;
 - [ ] validar login e `GET /api/health` no ambiente real.
 
 **Criterio de aceite:** aplicacao sobe sem warnings de configuracao, login funciona e a API informa as regras esperadas.
@@ -97,15 +97,19 @@ Checklist:
 
 ## P1 - Hardening de Frontend e Usabilidade
 
-### UX-01 - Limpar navegacao e acoes sem funcao
+### UX-01 - Limpar navegacao, acoes sem funcao e sessao
 
 - [x] remover sublinhado dos links da sidebar;
-- [ ] implementar botao `Sair` visivel e exibir o usuario autenticado;
-- [ ] remover ou implementar o botao `Reprocessar`;
-- [ ] remover ou implementar o sino de notificacoes;
-- [ ] exibir erro de exportacao no TopBar em vez de silenciar falhas.
+- [ ] remover o botao `Reprocessar` (sem funcionalidade prevista para go-live);
+- [ ] remover o botao de notificacao/sino (sem handler);
+- [ ] auditar outros botoes com placeholder ou handler vazio no TopBar, Home, Pendencias, Executivo, Regras e drawers;
+- [ ] exibir erro de exportacao no TopBar em vez de silenciar falhas com `.catch(() => undefined)`;
+- [ ] adicionar botao `Sair` em local previsivel (TopBar);
+- [ ] exibir o usuario logado junto da acao de sair;
+- [ ] limpar token ao sair e redirecionar para `/login`;
+- [ ] garantir que rotas protegidas nao continuem acessiveis apos logout.
 
-**Criterio de aceite:** nenhuma acao visivel parece clicavel sem produzir resultado compreensivel.
+**Criterio de aceite:** nenhuma acao visivel fica sem resposta funcional; usuario consegue sair sem limpar navegador manualmente.
 
 ### UX-02 - Tornar o fluxo principal autoexplicativo
 
@@ -156,36 +160,6 @@ Checklist:
 - [ ] aplicar o padrao nas telas de login, upload, exportacoes, consultas e comparacao.
 
 **Criterio de aceite:** usuario ve mensagens operacionais claras e nenhum erro comum aparece apenas como codigo HTTP bruto.
-
-### UX-07 - Remover botoes e controles sem funcao
-
-**Problema observado:** existem botoes visiveis que parecem acionaveis, mas nao executam nenhuma acao util, como notificacao/sino e `Reprocessar` no TopBar.
-
-Checklist:
-
-- [ ] auditar todos os botoes e controles clicaveis do frontend;
-- [ ] remover o botao de notificacao/sino enquanto nao houver funcionalidade implementada;
-- [ ] remover ou implementar `Reprocessar`;
-- [ ] identificar outros botoes com placeholder, `title` de "a ser implementado" ou handler vazio;
-- [ ] manter visiveis somente acoes que executam algo ou comunicam claramente estado indisponivel;
-- [ ] validar TopBar, Home, Pendencias, Executivo, Regras, drawers e fluxo de upload.
-
-**Criterio de aceite:** nenhum botao visivel fica sem resposta funcional ou sem feedback claro ao clique.
-
-### UX-08 - Implementar logout visivel
-
-**Problema observado:** o usuario autenticado nao tem uma acao clara para sair do sistema.
-
-Checklist:
-
-- [ ] adicionar botao `Sair` em local previsivel, como TopBar ou sidebar;
-- [ ] exibir o usuario logado junto da acao de sair;
-- [ ] limpar token/sessao local ao sair;
-- [ ] redirecionar para `/login`;
-- [ ] garantir que rotas protegidas nao continuem acessiveis apos logout;
-- [ ] revisar estado visual em desktop e notebook com largura reduzida.
-
-**Criterio de aceite:** usuario consegue sair do sistema sem limpar navegador manualmente, e novo acesso exige login.
 
 ---
 
