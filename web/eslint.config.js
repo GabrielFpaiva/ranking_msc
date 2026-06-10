@@ -38,6 +38,7 @@ export default [
         Event: 'readonly',
         encodeURIComponent: 'readonly',
         decodeURIComponent: 'readonly',
+        atob: 'readonly',
       },
     },
     plugins: {
