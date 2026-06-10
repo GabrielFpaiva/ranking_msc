@@ -576,13 +576,16 @@ class TestE2EDeploy:
         assert response.status_code == 200, response.text[:400]
         body = response.json()
         assert "total" in body
-        assert isinstance(body["items"], list)
-        # O pipeline deve ter gerado ao menos 1 entrada de log
-        if body["total"] > 0:
-            entry = body["items"][0]
-            assert "ts" in entry
-            assert "level" in entry
-            assert "msg" in entry
+        # O pipeline já foi executado (fixture pipeline_executed),
+        # logo DEVE haver ao menos 1 entrada de log estruturado.
+        assert body["total"] > 0, (
+            "Nenhuma entrada de log encontrada após execução do pipeline. "
+            "Verifique se o logger estruturado está gravando em data/logs/ranking_msc.jsonl."
+        )
+        entry = body["items"][0]
+        assert "ts" in entry
+        assert "level" in entry
+        assert "msg" in entry
 
     def test_lock_concorrente(
         self,
