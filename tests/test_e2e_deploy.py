@@ -594,7 +594,13 @@ class TestE2EDeploy:
         pipeline_executed: dict[str, object],  # noqa: ARG002
     ) -> None:
         """Lock file impede execução concorrente (409 Conflict)."""
-        # Em modo Docker E2E, o volume mapeado é WORKDIR/data;
+        if E2E_EXTERNAL_DOCKER:
+            pytest.skip(
+                "Lock test requer volume compartilhado com o servidor; "
+                "não aplicável em modo E2E_EXTERNAL_DOCKER."
+            )
+
+        # Em modo Docker E2E local, o volume mapeado é WORKDIR/data;
         # em modo standalone (sem Docker), é PROJECT_ROOT/data.
         data_root = WORKDIR / "data" if WORKDIR.is_dir() else PROJECT_ROOT / "data"
         lock_dir = data_root / "snapshots" / ".locks"
@@ -634,4 +640,5 @@ class TestE2EDeploy:
             # Limpar o lock para não interferir em outros testes
             if lock_file.exists():
                 lock_file.unlink()
+
 
