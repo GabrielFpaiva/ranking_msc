@@ -25,6 +25,10 @@ export function Pendencias() {
   const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
+    setCurrentPage(0);
+  }, [siconfi, competencia]);
+
+  useEffect(() => {
     if (!siconfi || !competencia) return;
     let cancelled = false;
     setBusy(true);
