@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-import { api } from '../api/client';
+import { ApiError, api } from '../api/client';
+import { authStore } from '../store/auth';
 import { useMCRA } from '../store/useMCRA';
 
 const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
@@ -26,14 +27,35 @@ export function TopBar() {
     title: 'PMJP',
   };
   const [exportBusy, setExportBusy] = useState<'excel' | 'pdf' | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigate = useNavigate();
+  const user = authStore.getUser();
+
+  useEffect(() => () => {
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+  }, []);
 
   function triggerExport(type: 'excel' | 'pdf') {
     if (!siconfi || !competencia || exportBusy) return;
     setExportBusy(type);
+    setExportError(null);
     const call = type === 'excel'
       ? api.exportExcel(siconfi, competencia)
       : api.exportPdf(siconfi, competencia);
-    call.catch(() => undefined).finally(() => setExportBusy(null));
+    call
+      .catch((err: unknown) => {
+        const msg = err instanceof ApiError ? err.detail : 'Erro ao exportar. Tente novamente.';
+        setExportError(msg);
+        if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = setTimeout(() => setExportError(null), 6000);
+      })
+      .finally(() => setExportBusy(null));
+  }
+
+  function handleLogout() {
+    authStore.clearToken();
+    void navigate('/login', { replace: true });
   }
 
   return (
@@ -43,20 +65,17 @@ export function TopBar() {
         <h1 className="samid-topbar-title">{title}</h1>
       </div>
       <div className="samid-topbar-actions">
+        {exportError && (
+          <span className="samid-topbar-export-error" role="alert">
+            {exportError}
+          </span>
+        )}
         <div className="samid-competencia">
           <div className="samid-competencia-lbl">
             {siconfi ? `ENTE ${siconfi}` : 'COMPETÊNCIA'}
           </div>
           <div className="samid-competencia-val">{competencia ?? '—'}</div>
         </div>
-        <button
-          className="samid-btn samid-btn-ghost"
-          type="button"
-          disabled
-          title="Reprocessar — a ser implementado"
-        >
-          Reprocessar
-        </button>
         <button
           type="button"
           className="samid-btn samid-btn-ghost"
@@ -73,16 +92,16 @@ export function TopBar() {
         >
           {exportBusy === 'pdf' ? 'Gerando…' : 'Exportar PDF'}
         </button>
-        <button
-          className="samid-icon-btn"
-          type="button"
-          aria-label="Notificações"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-        </button>
+        <div className="samid-topbar-user">
+          <span className="samid-topbar-username">{user ?? 'Usuário'}</span>
+          <button
+            type="button"
+            className="samid-btn samid-btn-ghost"
+            onClick={handleLogout}
+          >
+            Sair
+          </button>
+        </div>
       </div>
     </header>
   );

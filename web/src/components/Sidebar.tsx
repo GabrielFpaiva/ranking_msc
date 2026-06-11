@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom';
 
+import { authStore } from '../store/auth';
+
 interface NavGroup {
   label: string;
   items: { to: string; label: string }[];
@@ -32,7 +34,14 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+function userInitials(name: string | null): string {
+  if (!name) return 'U';
+  return name.slice(0, 2).toUpperCase();
+}
+
 export function Sidebar() {
+  const user = authStore.getUser();
+
   return (
     <aside className="samid-sidebar">
       <div className="samid-brand">
@@ -70,9 +79,9 @@ export function Sidebar() {
 
       <div className="samid-sidebar-footer">
         <div className="samid-user">
-          <div className="samid-user-avatar">PM</div>
+          <div className="samid-user-avatar">{userInitials(user)}</div>
           <div>
-            <div className="samid-user-name">Controladoria</div>
+            <div className="samid-user-name">{user ?? 'Usuário'}</div>
             <div className="samid-user-role">PMJP</div>
           </div>
         </div>

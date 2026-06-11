@@ -31,4 +31,15 @@ export const authStore = {
   isAuthenticated(): boolean {
     return !!this.getToken();
   },
+
+  getUser(): string | null {
+    const token = this.getToken();
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1])) as { sub?: string };
+      return payload.sub ?? null;
+    } catch {
+      return null;
+    }
+  },
 };

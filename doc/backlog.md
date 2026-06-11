@@ -65,17 +65,18 @@ Checklist:
 
 Checklist:
 
-- [ ] login;
-- [ ] upload de CSV MSC real;
-- [ ] score e banda;
-- [ ] pendencias e filtros;
-- [ ] detalhe de regra e conta;
-- [ ] exportacao Excel;
-- [ ] exportacao PDF;
-- [ ] superavit por FR;
-- [ ] comparacao entre competencias;
-- [ ] lock de processamento concorrente para o mesmo ente e competencia;
-- [ ] backup e leitura dos logs.
+- [x] login;
+- [x] upload de CSV MSC real;
+- [x] score e banda;
+- [x] pendencias e filtros;
+- [x] detalhe de regra e conta;
+- [x] exportacao Excel;
+- [x] exportacao PDF;
+- [x] superavit por FR;
+- [x] comparacao entre competencias;
+- [x] lock de processamento concorrente para o mesmo ente e competencia;
+- [x] leitura dos logs;
+- [ ] backup.
 
 **Criterio de aceite:** fluxo completo executado no ambiente alvo sem erro bloqueador.
 

@@ -65,6 +65,10 @@ E2E_USERNAME: str = os.environ.get("E2E_USERNAME", "e2e-admin")
 E2E_PASSWORD: str = os.environ.get("E2E_PASSWORD", "e2e-password")
 E2E_BASE_URL: str = os.environ.get("E2E_BASE_URL", DEFAULT_BASE_URL)
 E2E_EXTERNAL_DOCKER: bool = os.environ.get("E2E_EXTERNAL_DOCKER") == "1"
+# Quando True, o servidor é remoto e NÃO compartilha o filesystem local.
+# O orquestrador run_e2e.py monta WORKDIR/data como volume, então NÃO deve
+# setar esta variável. Use apenas para runs contra servidores remotos.
+E2E_NO_SHARED_VOLUME: bool = os.environ.get("E2E_NO_SHARED_VOLUME") == "1"
 
 SICONFI_AMOSTRA: str = "2507507EX"
 COMPETENCIA_PRIMARIA: str = "2025-11"
@@ -430,3 +434,215 @@ class TestE2EDeploy:
         assert body["competencia"] == COMPETENCIA_PRIMARIA
         assert "total_resultado_financeiro" in body
         assert isinstance(body["items"], list)
+
+    # -----------------------------------------------------------------------
+    # GO-03: cenários adicionais do smoke test operacional
+    # -----------------------------------------------------------------------
+
+    def test_pendencias_com_filtros(
+        self,
+        httpx_client: httpx.Client,
+        auth_headers: dict[str, str],
+        pipeline_executed: dict[str, object],  # noqa: ARG002
+    ) -> None:
+        """``GET /api/pendencias`` com filtros de severidade e paginação."""
+        # Sem filtro — total base
+        response = httpx_client.get(
+            "/api/pendencias",
+            params={
+                "siconfi": SICONFI_AMOSTRA,
+                "competencia": COMPETENCIA_PRIMARIA,
+                "limit": 10,
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 200, response.text[:400]
+        body = response.json()
+        assert "total" in body
+        assert isinstance(body["items"], list)
+        total_sem_filtro = body["total"]
+
+        # Com filtro de severidade ERRO
+        response_erro = httpx_client.get(
+            "/api/pendencias",
+            params={
+                "siconfi": SICONFI_AMOSTRA,
+                "competencia": COMPETENCIA_PRIMARIA,
+                "severidade": "ERRO",
+                "limit": 5,
+            },
+            headers=auth_headers,
+        )
+        assert response_erro.status_code == 200, response_erro.text[:400]
+        body_erro = response_erro.json()
+        assert body_erro["total"] <= total_sem_filtro
+
+        # Paginação: offset além do total deve devolver items vazio
+        response_beyond = httpx_client.get(
+            "/api/pendencias",
+            params={
+                "siconfi": SICONFI_AMOSTRA,
+                "competencia": COMPETENCIA_PRIMARIA,
+                "offset": max(total_sem_filtro, 99999),
+                "limit": 10,
+            },
+            headers=auth_headers,
+        )
+        assert response_beyond.status_code == 200
+        assert response_beyond.json()["items"] == []
+
+    def test_detalhe_regra(
+        self,
+        httpx_client: httpx.Client,
+        auth_headers: dict[str, str],
+    ) -> None:
+        """``GET /api/rules/R001`` devolve metadados da regra."""
+        response = httpx_client.get("/api/rules/R001", headers=auth_headers)
+        assert response.status_code == 200, response.text[:400]
+        body = response.json()
+        assert body["rule_id"] == "R001"
+        assert "rule_name" in body and body["rule_name"]
+        assert "dimensao" in body and body["dimensao"]
+        assert "descricao" in body
+
+        # Regra inexistente → 404
+        response_404 = httpx_client.get("/api/rules/R999", headers=auth_headers)
+        assert response_404.status_code == 404
+
+    def test_detalhe_conta(
+        self,
+        httpx_client: httpx.Client,
+        auth_headers: dict[str, str],
+        pipeline_executed: dict[str, object],  # noqa: ARG002
+    ) -> None:
+        """``GET /api/contas/{conta}`` devolve saldos e classificadores."""
+        # Primeiro buscar uma conta existente via pendências
+        pend_response = httpx_client.get(
+            "/api/pendencias",
+            params={
+                "siconfi": SICONFI_AMOSTRA,
+                "competencia": COMPETENCIA_PRIMARIA,
+                "limit": 1,
+            },
+            headers=auth_headers,
+        )
+        assert pend_response.status_code == 200
+        items = pend_response.json()["items"]
+        if not items:
+            pytest.skip("Nenhuma pendência com conta para testar drawer conta.")
+
+        conta = items[0].get("conta_contabil", "")
+        if not conta:
+            pytest.skip("Pendência sem conta_contabil.")
+
+        response = httpx_client.get(
+            f"/api/contas/{conta}",
+            params={
+                "siconfi": SICONFI_AMOSTRA,
+                "competencia": COMPETENCIA_PRIMARIA,
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 200, response.text[:400]
+        body = response.json()
+        assert body["conta_contabil"] == conta
+        assert body["competencia"] == COMPETENCIA_PRIMARIA
+        assert "saldos" in body
+
+    def test_export_pdf(
+        self,
+        httpx_client: httpx.Client,
+        auth_headers: dict[str, str],
+        pipeline_executed: dict[str, object],  # noqa: ARG002
+    ) -> None:
+        """``GET /api/exports/pdf`` devolve um PDF válido (magic bytes %PDF)."""
+        response = httpx_client.get(
+            "/api/exports/pdf",
+            params={"siconfi": SICONFI_AMOSTRA, "competencia": COMPETENCIA_PRIMARIA},
+            headers=auth_headers,
+            timeout=60.0,
+        )
+        assert response.status_code == 200, response.text[:400]
+        assert response.content[:5] == b"%PDF-"
+
+    def test_leitura_logs(
+        self,
+        httpx_client: httpx.Client,
+        auth_headers: dict[str, str],
+        pipeline_executed: dict[str, object],  # noqa: ARG002
+    ) -> None:
+        """``GET /api/log`` devolve entradas de log com campos esperados."""
+        response = httpx_client.get(
+            "/api/log",
+            params={"limit": 50},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200, response.text[:400]
+        body = response.json()
+        assert "total" in body
+        # O pipeline já foi executado (fixture pipeline_executed),
+        # logo DEVE haver ao menos 1 entrada de log estruturado.
+        assert body["total"] > 0, (
+            "Nenhuma entrada de log encontrada após execução do pipeline. "
+            "Verifique se o logger estruturado está gravando em data/logs/ranking_msc.jsonl."
+        )
+        entry = body["items"][0]
+        assert "ts" in entry
+        assert "level" in entry
+        assert "msg" in entry
+
+    def test_lock_concorrente(
+        self,
+        httpx_client: httpx.Client,
+        auth_headers: dict[str, str],
+        pipeline_executed: dict[str, object],  # noqa: ARG002
+    ) -> None:
+        """Lock file impede execução concorrente (409 Conflict)."""
+        if E2E_NO_SHARED_VOLUME:
+            pytest.skip(
+                "Lock test requer volume compartilhado com o servidor; "
+                "não aplicável quando E2E_NO_SHARED_VOLUME=1."
+            )
+
+        # Em modo Docker E2E local, o volume mapeado é WORKDIR/data;
+        # em modo standalone (sem Docker), é PROJECT_ROOT/data.
+        data_root = WORKDIR / "data" if WORKDIR.is_dir() else PROJECT_ROOT / "data"
+        lock_dir = data_root / "snapshots" / ".locks"
+        lock_dir.mkdir(parents=True, exist_ok=True)
+        lock_file = lock_dir / f"{SICONFI_AMOSTRA}__{COMPETENCIA_PRIMARIA}.lock"
+
+        import json as _json
+
+        lock_payload = {
+            "token": "fake-test-token",
+            "siconfi": SICONFI_AMOSTRA,
+            "competencia": COMPETENCIA_PRIMARIA,
+            "usuario": "smoke-test",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+
+        sample = SAMPLES_DIR / f"msc_{COMPETENCIA_PRIMARIA}.csv"
+        assert sample.is_file(), f"Amostra ausente: {sample}"
+
+        try:
+            lock_file.write_text(
+                _json.dumps(lock_payload, indent=2), encoding="utf-8"
+            )
+
+            with sample.open("rb") as fh:
+                response = httpx_client.post(
+                    "/api/run",
+                    headers=auth_headers,
+                    files={"file": (sample.name, fh, "text/csv")},
+                    timeout=30.0,
+                )
+            assert response.status_code == 409, (
+                f"Esperado 409 Conflict com lock ativo, recebeu {response.status_code}: "
+                f"{response.text[:200]}"
+            )
+        finally:
+            # Limpar o lock para não interferir em outros testes
+            if lock_file.exists():
+                lock_file.unlink()
+
+
