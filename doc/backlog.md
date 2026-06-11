@@ -75,7 +75,8 @@ Checklist:
 - [x] superavit por FR;
 - [x] comparacao entre competencias;
 - [x] lock de processamento concorrente para o mesmo ente e competencia;
-- [x] backup e leitura dos logs.
+- [x] leitura dos logs;
+- [ ] backup.
 
 **Criterio de aceite:** fluxo completo executado no ambiente alvo sem erro bloqueador.
 

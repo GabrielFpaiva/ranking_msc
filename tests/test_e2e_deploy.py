@@ -65,6 +65,10 @@ E2E_USERNAME: str = os.environ.get("E2E_USERNAME", "e2e-admin")
 E2E_PASSWORD: str = os.environ.get("E2E_PASSWORD", "e2e-password")
 E2E_BASE_URL: str = os.environ.get("E2E_BASE_URL", DEFAULT_BASE_URL)
 E2E_EXTERNAL_DOCKER: bool = os.environ.get("E2E_EXTERNAL_DOCKER") == "1"
+# Quando True, o servidor é remoto e NÃO compartilha o filesystem local.
+# O orquestrador run_e2e.py monta WORKDIR/data como volume, então NÃO deve
+# setar esta variável. Use apenas para runs contra servidores remotos.
+E2E_NO_SHARED_VOLUME: bool = os.environ.get("E2E_NO_SHARED_VOLUME") == "1"
 
 SICONFI_AMOSTRA: str = "2507507EX"
 COMPETENCIA_PRIMARIA: str = "2025-11"
@@ -594,10 +598,10 @@ class TestE2EDeploy:
         pipeline_executed: dict[str, object],  # noqa: ARG002
     ) -> None:
         """Lock file impede execução concorrente (409 Conflict)."""
-        if E2E_EXTERNAL_DOCKER:
+        if E2E_NO_SHARED_VOLUME:
             pytest.skip(
                 "Lock test requer volume compartilhado com o servidor; "
-                "não aplicável em modo E2E_EXTERNAL_DOCKER."
+                "não aplicável quando E2E_NO_SHARED_VOLUME=1."
             )
 
         # Em modo Docker E2E local, o volume mapeado é WORKDIR/data;
