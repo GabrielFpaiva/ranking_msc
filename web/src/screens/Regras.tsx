@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { DimTag } from '../components/DimTag';
 import { Sev } from '../components/Sev';
@@ -69,13 +70,14 @@ export function Regras() {
           <div>
             <div className="samid-eyebrow">Heatmap · regras × competências</div>
             <h2 className="samid-card-title">
-              {heat
-                ? `${heat.regras.length} regras · ${heat.competencias.length} competência(s)`
-                : siconfi
-                  ? 'Carregando heatmap...'
-                  : 'Sem competência ativa — execute uma run em Início'}
+              {!siconfi
+                ? 'Sem competência ativa'
+                : heat
+                  ? `${heat.regras.length} regras · ${heat.competencias.length} competência(s)`
+                  : 'Carregando heatmap...'}
             </h2>
           </div>
+          {siconfi && (
           <div className="samid-heat-legend" aria-label="Escala de incidência">
             <span>baixa</span>
             {HEAT_LEVELS.slice(0, -1).map((l) => (
@@ -84,7 +86,17 @@ export function Regras() {
             <span className="samid-heat-cell" style={{ background: HEAT_LEVELS[HEAT_LEVELS.length - 1].bg }} />
             <span>alta</span>
           </div>
+          )}
         </div>
+
+        {!siconfi && (
+          <p className="samid-muted">
+            Processe um CSV MSC para ver o heatmap.{' '}
+            <Link to="/inicio" className="samid-btn samid-btn-primary" style={{ display: 'inline-flex' }}>
+              Ir para Início
+            </Link>
+          </p>
+        )}
 
         {heat && heat.competencias.length > 0 && (
           <div className="samid-heatmap" role="table" aria-label="Heatmap regras × competências">

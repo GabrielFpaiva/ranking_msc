@@ -56,6 +56,18 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--bg-canvas); position: sticky; top: 0; z-index: 10;
   backdrop-filter: blur(8px);
 }
+.samid-topbar-lead { display:flex; align-items:center; gap: 12px; min-width:0; }
+.samid-nav-toggle {
+  display:none; align-items:center; justify-content:center;
+  width:40px; height:40px; flex-shrink:0;
+  background:#fff; border:1px solid var(--border-default); border-radius:8px;
+  color: var(--samid-midnight);
+}
+.samid-nav-toggle:hover { background: var(--bg-canvas); }
+.samid-nav-backdrop {
+  display:none; position:fixed; inset:0; z-index:40;
+  background: rgba(15,23,42,.45); border:none; padding:0;
+}
 .samid-breadcrumb { font-family: var(--font-display); font-size:11px; color: var(--fg-2); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; font-weight:600;}
 .samid-topbar-title { font-family: var(--font-display); font-size: 24px; font-weight:700; letter-spacing:-0.02em; margin:0; color: var(--fg-1); }
 .samid-topbar-actions { display:flex; align-items:center; gap: 10px; }
@@ -222,6 +234,7 @@ button.samid-chip.active { background: var(--samid-midnight); color:#fff; border
 .samid-input { width:100%; padding: 8px 10px; border:1px solid var(--border-strong); border-radius: 6px; font-family: var(--font-mono); font-size: 12px; background:#fff; outline:none;}
 .samid-input:focus { border-color: var(--samid-gold); box-shadow: var(--shadow-focus);}
 .samid-actions { display:flex; gap:8px;}
+.samid-pagination { display:flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
 
 /* ===== Execução ===== */
 .samid-kv { display:flex; flex-direction:column; gap: 8px; margin-top: 12px;}
@@ -353,3 +366,110 @@ button.samid-chip.active { background: var(--samid-midnight); color:#fff; border
 .samid-nav-item:focus-visible { outline-offset: -2px; }
 .samid-btn:focus-visible { outline-offset: 2px; }
 a:focus-visible { outline-offset: 2px; }
+
+/* ===== Login ===== */
+.samid-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--samid-midnight);
+}
+.samid-login-form {
+  width: 320px;
+  border-radius: 8px;
+  background: var(--samid-paper);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-raised);
+}
+.samid-login-stripe { height: 4px; background: var(--samid-gold); }
+.samid-login-body {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.samid-login-header { text-align: center; margin-bottom: 0.25rem; }
+.samid-login-title {
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+  color: var(--fg-1);
+  font-family: var(--font-display);
+}
+.samid-login-subtitle { font-size: 0.8rem; color: var(--fg-2); margin: 0; }
+.samid-login-field { display: flex; flex-direction: column; gap: 4px; }
+.samid-login-label { font-size: 0.85rem; color: var(--fg-2); }
+.samid-login-input {
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-canvas);
+  color: var(--fg-1);
+  font-family: var(--font-body);
+  font-size: 1rem;
+}
+.samid-login-input:focus { outline: 2px solid var(--samid-gold); border-color: var(--samid-gold); }
+.samid-login-error { color: var(--samid-erro); font-size: 0.85rem; margin: 0; }
+.samid-login-submit {
+  padding: 0.6rem;
+  border-radius: 4px;
+  background: var(--samid-gold);
+  color: var(--fg-invert);
+  border: none;
+  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+.samid-login-submit:disabled { cursor: not-allowed; opacity: 0.7; }
+.samid-login-submit:not(:disabled):hover { background: var(--samid-gold-dk); }
+
+/* ===== Responsividade ===== */
+
+/* Notebook médio: sidebar colapsa para ícones, conteúdo ganha espaço */
+@media (max-width: 1280px) {
+  .samid-content { padding: 20px 20px 40px; }
+  .samid-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .samid-heat-head, .samid-heat-row { grid-template-columns: 180px repeat(6, 1fr); }
+}
+
+/* Tablet / notebook estreito: sidebar estreita mas acessível */
+@media (max-width: 1024px) {
+  .samid-sidebar { width: 180px; padding: 16px 10px; }
+  .samid-brand-wm { font-size: 15px; }
+  .samid-brand-sub { display: none; }
+  .samid-nav-item { font-size: 13px; padding: 9px 10px; }
+  .samid-topbar { padding: 16px 20px; }
+  .samid-topbar-actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .samid-pend-layout { grid-template-columns: 1fr; }
+  .samid-filter-rail { position: static; }
+  .samid-grid-2, .samid-grid-3, .samid-grid-cols-3 { grid-template-columns: 1fr; }
+  .samid-exec-hero { flex-direction: column; }
+  .samid-exec-hero-r { text-align: left; }
+  .samid-exec-actions { flex-direction: column; }
+}
+
+/* Mobile estreito: sidebar vira drawer off-canvas, acessível pelo menu da TopBar */
+@media (max-width: 768px) {
+  .samid-sidebar {
+    position: fixed; top: 0; left: 0; z-index: 50;
+    width: 240px; padding: 20px 14px;
+    transform: translateX(-100%);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .samid-sidebar.open { transform: translateX(0); box-shadow: 8px 0 24px rgba(15,23,42,.25); }
+  /* Restaura tokens que o breakpoint de 1024px havia reduzido */
+  .samid-brand-wm { font-size: 18px; }
+  .samid-brand-sub { display: block; }
+  .samid-nav-item { font-size: 14px; padding: 10px 12px; }
+  .samid-nav-toggle { display: flex; }
+  .samid-nav-backdrop { display: block; }
+  .samid-topbar { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .samid-topbar-actions { width: 100%; justify-content: flex-start; }
+  .samid-content { padding: 16px 12px 32px; }
+  .samid-topbar-title { font-size: 18px; }
+  .samid-competencia { display: none; }
+}

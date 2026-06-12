@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { api } from '../api/client';
+import { ApiError, api } from '../api/client';
 import { DimTag } from '../components/DimTag';
 import { ScoreBadge } from '../components/ScoreBadge';
 import { Sev } from '../components/Sev';
@@ -30,8 +30,11 @@ export function Home() {
           setHistoryError(null);
         }
       })
-      .catch((err: Error) => {
-        if (!cancelled) setHistoryError(err.message);
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          const msg = err instanceof ApiError ? err.userMessage : 'Erro ao carregar histórico.';
+          setHistoryError(msg);
+        }
       });
     return () => {
       cancelled = true;
@@ -91,7 +94,10 @@ export function Home() {
                     setExportBusy('excel');
                     api
                       .exportExcel(run.siconfi, run.competencia)
-                      .catch((err: Error) => setExportError(err.message))
+                      .catch((err: unknown) => {
+                  const msg = err instanceof ApiError ? err.userMessage : 'Erro ao exportar.';
+                  setExportError(msg);
+                })
                       .finally(() => setExportBusy(null));
                   }}
                 >
@@ -107,7 +113,10 @@ export function Home() {
                     setExportBusy('pdf');
                     api
                       .exportPdf(run.siconfi, run.competencia)
-                      .catch((err: Error) => setExportError(err.message))
+                      .catch((err: unknown) => {
+                  const msg = err instanceof ApiError ? err.userMessage : 'Erro ao exportar.';
+                  setExportError(msg);
+                })
                       .finally(() => setExportBusy(null));
                   }}
                 >

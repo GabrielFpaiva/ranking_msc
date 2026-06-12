@@ -18,7 +18,12 @@ const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
   '/comparar': { breadcrumb: 'Visões', title: 'Comparar Competências' },
 };
 
-export function TopBar() {
+interface TopBarProps {
+  /** Abre/fecha o menu de navegação no breakpoint mobile. */
+  onMenuToggle?: () => void;
+}
+
+export function TopBar({ onMenuToggle }: TopBarProps) {
   const { pathname } = useLocation();
   const { competencia, siconfi } = useMCRA();
   const hasSelection = Boolean(siconfi && competencia);
@@ -45,7 +50,7 @@ export function TopBar() {
       : api.exportPdf(siconfi, competencia);
     call
       .catch((err: unknown) => {
-        const msg = err instanceof ApiError ? err.detail : 'Erro ao exportar. Tente novamente.';
+        const msg = err instanceof ApiError ? err.userMessage : 'Erro ao exportar. Tente novamente.';
         setExportError(msg);
         if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
         errorTimerRef.current = setTimeout(() => setExportError(null), 6000);
@@ -60,9 +65,21 @@ export function TopBar() {
 
   return (
     <header className="samid-topbar">
-      <div>
-        <div className="samid-breadcrumb">{breadcrumb}</div>
-        <h1 className="samid-topbar-title">{title}</h1>
+      <div className="samid-topbar-lead">
+        <button
+          type="button"
+          className="samid-nav-toggle"
+          aria-label="Abrir menu de navegação"
+          onClick={onMenuToggle}
+        >
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
+            <path d="M3 6h16M3 11h16M3 16h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+        <div>
+          <div className="samid-breadcrumb">{breadcrumb}</div>
+          <h1 className="samid-topbar-title">{title}</h1>
+        </div>
       </div>
       <div className="samid-topbar-actions">
         {exportError && (

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { ApiError, api } from '../api/client';
 import { DimTag } from '../components/DimTag';
@@ -8,6 +9,7 @@ import { useMCRA } from '../store/useMCRA';
 import type { PendenciasPage, Severidade } from '../types';
 
 const SEV_OPTIONS: (Severidade | '')[] = ['', 'ERRO', 'ALERTA', 'INFO'];
+const PAGE_SIZE = 100;
 
 export function Pendencias() {
   const { siconfi, competencia } = useMCRA();
@@ -20,6 +22,11 @@ export function Pendencias() {
   const [filterSev, setFilterSev] = useState<Severidade | ''>('');
   const [filterRegra, setFilterRegra] = useState('');
   const [filterConta, setFilterConta] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [siconfi, competencia]);
 
   useEffect(() => {
     if (!siconfi || !competencia) return;
@@ -33,13 +40,16 @@ export function Pendencias() {
         regra_id: filterRegra || undefined,
         severidade: filterSev || undefined,
         conta_prefix: filterConta || undefined,
-        limit: 200,
+        offset: currentPage * PAGE_SIZE,
+        limit: PAGE_SIZE,
       })
       .then((p) => {
         if (!cancelled) setPage(p);
       })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message);
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.userMessage : 'Erro ao carregar pendências.');
+        }
       })
       .finally(() => {
         if (!cancelled) setBusy(false);
@@ -47,7 +57,21 @@ export function Pendencias() {
     return () => {
       cancelled = true;
     };
-  }, [siconfi, competencia, filterRegra, filterSev, filterConta]);
+  }, [siconfi, competencia, filterRegra, filterSev, filterConta, currentPage]);
+
+  function resetFilters() {
+    setFilterSev('');
+    setFilterRegra('');
+    setFilterConta('');
+    setCurrentPage(0);
+  }
+
+  function handleFilterChange<T>(setter: (v: T) => void) {
+    return (v: T) => {
+      setter(v);
+      setCurrentPage(0);
+    };
+  }
 
   if (!siconfi || !competencia) {
     return (
@@ -57,11 +81,20 @@ export function Pendencias() {
           Sem competência ativa
         </h2>
         <p className="samid-muted">
-          Volte para Início e processe um CSV MSC para popular esta tela.
+          Processe um CSV MSC para popular esta tela.
         </p>
+        <Link to="/inicio" className="samid-btn samid-btn-primary" style={{ marginTop: 12, display: 'inline-flex' }}>
+          Ir para Início
+        </Link>
       </div>
     );
   }
+
+  const total = page?.total ?? 0;
+  const rangeStart = total === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(rangeStart + PAGE_SIZE - 1, total);
+  const hasPrev = currentPage > 0;
+  const hasNext = rangeEnd < total;
 
   return (
     <div className="samid-pend-layout">
@@ -78,7 +111,7 @@ export function Pendencias() {
                 type="radio"
                 name="sev"
                 checked={filterSev === opt}
-                onChange={() => setFilterSev(opt)}
+                onChange={() => handleFilterChange(setFilterSev)(opt)}
               />
               {opt || 'Todas'}
             </label>
@@ -90,7 +123,7 @@ export function Pendencias() {
           <input
             className="samid-input"
             value={filterRegra}
-            onChange={(e) => setFilterRegra(e.target.value.trim().toUpperCase())}
+            onChange={(e) => handleFilterChange(setFilterRegra)(e.target.value.trim().toUpperCase())}
             placeholder="R___"
           />
         </div>
@@ -100,7 +133,7 @@ export function Pendencias() {
           <input
             className="samid-input"
             value={filterConta}
-            onChange={(e) => setFilterConta(e.target.value.trim())}
+            onChange={(e) => handleFilterChange(setFilterConta)(e.target.value.trim())}
             placeholder="111110"
           />
         </div>
@@ -108,11 +141,7 @@ export function Pendencias() {
         <button
           type="button"
           className="samid-btn samid-btn-ghost samid-btn-block"
-          onClick={() => {
-            setFilterSev('');
-            setFilterRegra('');
-            setFilterConta('');
-          }}
+          onClick={resetFilters}
         >
           Limpar filtros
         </button>
@@ -128,7 +157,7 @@ export function Pendencias() {
               {busy
                 ? 'Carregando...'
                 : page
-                  ? `${page.total.toLocaleString('pt-BR')} pendência(s)`
+                  ? `${total.toLocaleString('pt-BR')} pendência(s)`
                   : 'Sem dados'}
             </h2>
           </div>
@@ -141,12 +170,13 @@ export function Pendencias() {
               setExportBusy(true);
               api
                 .exportExcel(siconfi, competencia)
-                .catch((err: Error) => {
-                  if (err instanceof ApiError && err.status === 404) {
-                    setExportError('Relatório não encontrado. Execute o pipeline primeiro na tela Início.');
-                  } else {
-                    setExportError(err.message);
-                  }
+                .catch((err: unknown) => {
+                  const msg = err instanceof ApiError
+                    ? err.status === 404
+                      ? 'Relatório não encontrado. Execute o pipeline primeiro.'
+                      : err.userMessage
+                    : 'Erro ao exportar.';
+                  setExportError(msg);
                 })
                 .finally(() => setExportBusy(false));
             }}
@@ -167,50 +197,75 @@ export function Pendencias() {
           </p>
         )}
 
+        {page && total > 0 && (
+          <p className="samid-muted" style={{ fontSize: 12, margin: '0 0 8px' }}>
+            Mostrando {rangeStart.toLocaleString('pt-BR')}–{rangeEnd.toLocaleString('pt-BR')} de {total.toLocaleString('pt-BR')} pendências
+          </p>
+        )}
+
         {page && page.items.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="samid-table samid-table-dense">
-              <thead>
-                <tr>
-                  <th>Regra</th>
-                  <th>Severidade</th>
-                  <th>Conta</th>
-                  <th>Descrição</th>
-                  <th>Esperado</th>
-                  <th>Encontrado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {page.items.map((p, i) => (
-                  <tr key={`${p.regra_id}-${p.conta_contabil}-${i}`}>
-                    <td onClick={() => openRule(p.regra_id)}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <span className="mono" style={{ fontWeight: 600 }}>
-                          {p.regra_id}
-                        </span>
-                        <DimTag name={p.dimensao} />
-                      </div>
-                    </td>
-                    <td>
-                      <Sev level={p.severidade} />
-                    </td>
-                    <td className="mono" onClick={() => p.conta_contabil && openConta(p.conta_contabil)}>
-                      {p.conta_contabil}
-                    </td>
-                    <td>{p.descricao}</td>
-                    <td className="mono">{p.valor_esperado ?? '—'}</td>
-                    <td className="mono">{p.valor_encontrado ?? '—'}</td>
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="samid-table samid-table-dense">
+                <thead>
+                  <tr>
+                    <th>Regra</th>
+                    <th>Severidade</th>
+                    <th>Conta</th>
+                    <th>Descrição</th>
+                    <th>Esperado</th>
+                    <th>Encontrado</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {page.total > page.items.length && (
-              <p className="samid-muted" style={{ marginTop: 12 }}>
-                Mostrando {page.items.length} de {page.total.toLocaleString('pt-BR')}. Refine os
-                filtros para reduzir o conjunto.
-              </p>
-            )}
-          </div>
+                </thead>
+                <tbody>
+                  {page.items.map((p, i) => (
+                    <tr key={`${p.regra_id}-${p.conta_contabil}-${i}`}>
+                      <td style={{ cursor: 'pointer' }} onClick={() => openRule(p.regra_id)}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span className="mono" style={{ fontWeight: 600 }}>
+                            {p.regra_id}
+                          </span>
+                          <DimTag name={p.dimensao} />
+                        </div>
+                      </td>
+                      <td>
+                        <Sev level={p.severidade} />
+                      </td>
+                      <td
+                        className="mono"
+                        style={{ cursor: p.conta_contabil ? 'pointer' : 'default' }}
+                        onClick={() => p.conta_contabil && openConta(p.conta_contabil)}
+                      >
+                        {p.conta_contabil}
+                      </td>
+                      <td>{p.descricao}</td>
+                      <td className="mono">{p.valor_esperado ?? '—'}</td>
+                      <td className="mono">{p.valor_encontrado ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="samid-pagination">
+              <button
+                type="button"
+                className="samid-btn samid-btn-ghost"
+                disabled={!hasPrev || busy}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
+                ← Anterior
+              </button>
+              <button
+                type="button"
+                className="samid-btn samid-btn-ghost"
+                disabled={!hasNext || busy}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                Próximo →
+              </button>
+            </div>
+          </>
         ) : page && !busy ? (
           <p className="samid-muted">Nenhuma pendência para os filtros atuais.</p>
         ) : null}

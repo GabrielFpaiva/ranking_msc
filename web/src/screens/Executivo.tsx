@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { Sev } from '../components/Sev';
 import { ScoreChart } from '../components/charts/ScoreChart';
@@ -52,7 +53,10 @@ export function Executivo() {
         <h2 className="samid-card-title" style={{ marginTop: 8 }}>
           Sem competência ativa
         </h2>
-        <p className="samid-muted">Volte para Início e processe um CSV MSC.</p>
+        <p className="samid-muted">Processe um CSV MSC para popular esta tela.</p>
+        <Link to="/inicio" className="samid-btn samid-btn-primary" style={{ marginTop: 12, display: 'inline-flex' }}>
+          Ir para Início
+        </Link>
       </div>
     );
   }
