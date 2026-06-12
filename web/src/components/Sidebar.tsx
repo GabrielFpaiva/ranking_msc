@@ -39,11 +39,18 @@ function userInitials(name: string | null): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  /** Indica se o drawer mobile está aberto. */
+  open?: boolean;
+  /** Fecha o drawer mobile (acionado ao navegar ou tocar fora). */
+  onClose?: () => void;
+}
+
+export function Sidebar({ open = false, onClose }: SidebarProps) {
   const user = authStore.getUser();
 
   return (
-    <aside className="samid-sidebar">
+    <aside className={`samid-sidebar${open ? ' open' : ''}`}>
       <div className="samid-brand">
         <div className="samid-brand-mark" aria-hidden>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -66,6 +73,7 @@ export function Sidebar() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={onClose}
                 className={({ isActive }) =>
                   `samid-nav-item${isActive ? ' active' : ''}`
                 }
