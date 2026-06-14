@@ -291,3 +291,50 @@ npm.cmd install
 npm.cmd run build
 cd ..
 ```
+
+## Publicacao com reverse proxy (nginx + TLS)
+
+Em producao, o MCRA roda atras de um reverse proxy nginx que termina TLS e
+encaminha o trafego para o container do app. O app deixa de ser exposto
+diretamente na porta `8000` do host — so o nginx publica as portas `80` e `443`.
+
+Topologia:
+
+    Cliente  HTTPS :443 -> [nginx] -> (rede interna) -> [app:8000]
+             HTTP  :80  -> redireciona 308 para :443
+
+### 1. Gerar o certificado
+
+Para subir imediatamente com um certificado self-signed:
+
+    make gen-cert
+
+Isso cria `docker/nginx/certs/fullchain.pem` e `privkey.pem`. O alvo nao
+sobrescreve um certificado ja existente. Para definir o nome do host no
+certificado, use `make gen-cert CERT_CN=mcra.prefeitura.gov.br`.
+
+### 2. Subir o stack de producao
+
+    make prod-up      # docker compose -f docker-compose.prod.yml up --build -d
+    make prod-down    # derruba o stack
+
+### 3. Substituir pelo certificado institucional
+
+Quando a prefeitura fornecer um certificado oficial, basta substituir os dois
+arquivos e reiniciar o nginx:
+
+    cp <cert-institucional>.pem  docker/nginx/certs/fullchain.pem
+    cp <chave-institucional>.pem docker/nginx/certs/privkey.pem
+    docker compose -f docker-compose.prod.yml restart nginx
+
+### 4. Validacao
+
+- `curl -k https://<host>/api/health` -> HTTP 200 com as regras esperadas
+- `curl -I http://<host>` -> HTTP 308 redirecionando para https
+- login e upload de CSV pela SPA funcionam atraves do proxy
+
+Ajustes:
+
+- Limite de upload (`client_max_body_size`, default `200m`) e timeouts de
+  processamento (`proxy_read_timeout`/`proxy_send_timeout`, default `300s`)
+  ficam centralizados em `docker/nginx/nginx.conf`.
