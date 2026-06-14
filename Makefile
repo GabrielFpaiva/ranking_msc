@@ -56,8 +56,12 @@ CERT_DIR := docker/nginx/certs
 CERT_CN ?= localhost
 
 gen-cert:
-	@if [ -f $(CERT_DIR)/fullchain.pem ]; then \
+	@if [ -f $(CERT_DIR)/fullchain.pem ] && [ -f $(CERT_DIR)/privkey.pem ]; then \
 		echo "Certificado já existe em $(CERT_DIR)/ — não sobrescrevendo."; \
+	elif [ -f $(CERT_DIR)/fullchain.pem ] || [ -f $(CERT_DIR)/privkey.pem ]; then \
+		echo "Estado inconsistente em $(CERT_DIR)/: existe apenas um de fullchain.pem/privkey.pem." >&2; \
+		echo "Instale o par completo ou remova o arquivo solto e rode novamente." >&2; \
+		exit 1; \
 	else \
 		set -e; \
 		mkdir -p $(CERT_DIR); \
