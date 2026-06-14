@@ -1,5 +1,6 @@
 # Stack de produção: app interno (não exposto no host) + nginx reverse proxy
-# com TLS. Subir com: make prod-up  (ou docker compose -f docker-compose.prod.yml up -d)
+# com TLS. Suba com: make prod-up (roda gen-cert se faltar e sobe o stack).
+# Ao usar `docker compose` direto, gere/instale os certs antes (ver guia_operacao.md).
 services:
   app:
     build:

@@ -315,8 +315,16 @@ certificado, use `make gen-cert CERT_CN=mcra.prefeitura.gov.br`.
 
 ### 2. Subir o stack de producao
 
-    make prod-up      # docker compose -f docker-compose.prod.yml up --build -d
+    make prod-up      # gera o cert se faltar (gen-cert) e sobe o stack
     make prod-down    # derruba o stack
+
+Use sempre `make prod-up`: ele depende de `gen-cert`, entao garante os
+certificados antes de o nginx subir. Se precisar usar o `docker compose`
+diretamente (sem make), gere ou instale os certificados ANTES, senao o nginx
+encerra no startup por falta de `fullchain.pem`/`privkey.pem`:
+
+    make gen-cert     # ou copie os certificados para docker/nginx/certs/
+    docker compose -f docker-compose.prod.yml up --build -d
 
 ### 3. Substituir pelo certificado institucional
 
