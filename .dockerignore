@@ -14,3 +14,5 @@ data
 *.xlsx
 *.pdf
 config/settings.yaml
+docker/nginx/certs
+*.pem

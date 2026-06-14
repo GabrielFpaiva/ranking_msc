@@ -1,0 +1,37 @@
+# Stack de produção: app interno (não exposto no host) + nginx reverse proxy
+# com TLS. Suba com: make prod-up (roda gen-cert se faltar e sobe o stack).
+# Ao usar `docker compose` direto, gere/instale os certs antes (ver guia_operacao.md).
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ranking_msc_app
+    expose:
+      - "8000"
+    environment:
+      PORT: "8000"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health', timeout=2).status == 200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ranking_msc_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
