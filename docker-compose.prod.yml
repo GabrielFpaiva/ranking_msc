@@ -1,0 +1,29 @@
+# Stack de produção: app interno (não exposto no host) + nginx reverse proxy
+# com TLS. Subir com: make prod-up  (ou docker compose -f docker-compose.prod.yml up -d)
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ranking_msc_app
+    expose:
+      - "8000"
+    environment:
+      PORT: "8000"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ranking_msc_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - app
+    restart: unless-stopped
