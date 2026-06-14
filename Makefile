@@ -59,8 +59,10 @@ gen-cert:
 	@if [ -f $(CERT_DIR)/fullchain.pem ]; then \
 		echo "Certificado já existe em $(CERT_DIR)/ — não sobrescrevendo."; \
 	else \
+		set -e; \
 		mkdir -p $(CERT_DIR); \
 		CERT_TMP_CNF=$$(mktemp); \
+		trap 'rm -f $$CERT_TMP_CNF' EXIT; \
 		printf '%s\n' \
 			'[req]' \
 			'distinguished_name = dn' \
@@ -75,11 +77,12 @@ gen-cert:
 			-keyout $(CERT_DIR)/privkey.pem \
 			-out $(CERT_DIR)/fullchain.pem \
 			-config $$CERT_TMP_CNF -extensions v3_req; \
-		rm -f $$CERT_TMP_CNF; \
 		echo "Certificado self-signed gerado em $(CERT_DIR)/ (CN=$(CERT_CN))."; \
 	fi
 
-prod-up:
+# prod-up depende de gen-cert (idempotente: não sobrescreve cert existente) para
+# garantir que o nginx tenha os .pem no startup, mesmo em checkout novo.
+prod-up: gen-cert
 	docker compose -f docker-compose.prod.yml up --build -d
 
 prod-down:
