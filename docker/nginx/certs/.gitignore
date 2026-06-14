@@ -1,0 +1,4 @@
+# Nunca versionar certificados (self-signed ou institucional).
+# Mantém apenas a pasta no repo.
+*
+!.gitignore
