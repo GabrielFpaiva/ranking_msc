@@ -60,6 +60,10 @@ Checklist:
 - [ ] confirmar o tratamento de contas `Financeiro/Permanente`;
 - [ ] registrar aceite ou abrir task de ajuste da regra contabil.
 
+> Material de apoio gerado: planilha de conferencia por FR (uma linha por FR,
+> totais e coluna de conferencia manual), produzida via `GET /api/superavit`. A
+> validacao contabil em si permanece com a equipe.
+
 **Criterio de aceite:** equipe contabil valida uma competencia real ou existe task corretiva documentada antes do go-live.
 
 ### GO-03 - Executar smoke test operacional
@@ -77,7 +81,7 @@ Checklist:
 - [x] comparacao entre competencias;
 - [x] lock de processamento concorrente para o mesmo ente e competencia;
 - [x] leitura dos logs;
-- [ ] backup.
+- [ ] backup *(dry-run de backup/restore de `config`+`data` validado localmente em 2026-06-16 — tar.gz + restauracao com checksums conferindo; falta exercitar no servidor da PMJP)*.
 
 **Criterio de aceite:** fluxo completo executado no ambiente alvo sem erro bloqueador.
 
