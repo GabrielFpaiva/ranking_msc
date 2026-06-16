@@ -23,8 +23,8 @@ Nao reabrir tarefas concluidas sem registrar um bug, uma nova necessidade ou uma
 | Motor MSC | Concluido | `78/78` regras implementadas e registradas |
 | Score e historico | Concluido | Score `0-100`, bandas `A-E`, historico e comparacao entre competencias |
 | Frontend oficial | Concluido | React + FastAPI substituiu a interface Panel; hardening visual mergeado (`#113`) |
-| Exportacoes | Concluido com decisao de escopo pendente | Excel de pendencias e PDF executivo; confirmar se o PDF tambem deve conter pendencias completas |
-| Autenticacao | Concluido com decisao de modelo pendente | JWT multiusuario implementado; confirmar se artefatos devem ser compartilhados por ente ou isolados por usuario |
+| Exportacoes | Concluido | Excel completo (com abas por dimensao) + PDF executivo; escopo encerrado (TECH-02/04) |
+| Autenticacao | Concluido | JWT multiusuario; modelo institucional compartilhado definido e encerrado (TECH-03) |
 | Deploy | Concluido; publicacao definida | Docker, compose e E2E prontos; topologia nginx + TLS definida, documentada e mergeada (`#114`); falta exercitar no ambiente alvo da PMJP |
 | Superavit por FR | Concluido tecnicamente | Falta validacao contabil com dados reais da PMJP |
 | Ranking Regional | Fora do fechamento | Depende de base comparativa externa ainda nao definida |
@@ -112,32 +112,28 @@ Checklist:
 - [x] revisar referencias antigas a placeholders e ao Ranking Regional na documentacao ativa;
 - [x] manter referencias historicas apenas nos documentos classificados como historicos.
 
-### TECH-02 - Decidir escopo do Excel por categoria
+### TECH-02 - Escopo do Excel por categoria — ENCERRADA
 
-A antiga task F3-16 ficou parcialmente aberta porque o Excel nao possui aba separada por categoria.
+Decisao: **implementar abas por dimensao**. O Excel passou a ter uma aba por
+dimensao com pendencias (alem de Resumo/Pendencias/Saldo Devedor/Score). Ver
+`src/ranking_msc/outputs/reports.py` e `doc/governanca_documental.md` §7.
 
-- [ ] confirmar com a equipe se a organizacao atual do Excel atende ao uso real;
-- [ ] encerrar formalmente a necessidade ou abrir task especifica de melhoria.
+- [x] decidir organizacao do Excel;
+- [x] implementar abas por dimensao (`F5-13`);
+- [x] registrar decisao na governanca.
 
-### TECH-03 - Decidir isolamento multiusuario dos artefatos
+### TECH-03 - Isolamento multiusuario dos artefatos — ENCERRADA
 
-A antiga task F0-07 previa namespacing por usuario em snapshots. Hoje o login JWT identifica quem executou, e o lock evita escrita concorrente, mas snapshots e relatorios permanecem compartilhados por `siconfi + competencia`.
+Decisao: **modelo institucional compartilhado** (sem isolamento por usuario). O
+JWT identifica quem executou; o lock impede escrita concorrente. Requisito antigo
+F0-07 (namespacing por usuario) encerrado. Justificativa em
+`doc/governanca_documental.md` §7.
 
-- [ ] confirmar se usuarios da PMJP devem enxergar o mesmo conjunto institucional de artefatos;
-- [ ] se houver isolamento por usuario, definir impacto em snapshots, relatorios, comparacoes, exportacoes e locks;
-- [ ] encerrar formalmente o requisito antigo ou abrir task especifica de implementacao.
+### TECH-04 - Escopo do PDF de pendencias — ENCERRADA
 
-**Criterio de aceite:** modelo de visibilidade institucional documentado e sem ambiguidade para producao.
-
-### TECH-04 - Decidir escopo do PDF de pendencias
-
-A antiga task F0-06 previa `Visao Executiva (1 pagina) + Pendencias completas`. Hoje o PDF entrega a visao executiva e o Excel entrega as pendencias completas.
-
-- [ ] confirmar se Excel completo + PDF executivo atende ao fluxo operacional;
-- [ ] se necessario, definir se as pendencias entram no mesmo PDF ou em exportacao separada;
-- [ ] encerrar formalmente o requisito antigo ou abrir task especifica de implementacao.
-
-**Criterio de aceite:** formato final de distribuicao aprovado pela equipe usuaria.
+Decisao: **manter a divisao** PDF executivo (1 pagina) + Excel completo. Requisito
+antigo F0-06 (pendencias completas no PDF) encerrado. Ver
+`doc/governanca_documental.md` §7.
 
 ---
 
@@ -175,15 +171,14 @@ Estes itens nao bloqueiam a entrega e nao devem disputar prioridade com go-live,
 
 ## Ordem Recomendada de Execucao
 
-Concluido: `GO-01` (config; falta validar no servidor real), `UX-01` a `UX-06` (`#113`), `GO-04` (`#114`; falta exercitar no ambiente alvo), `TECH-01` (`#112`), `GO-03` (smoke local; falta backup).
+Concluido: `GO-01` (config; falta validar no servidor real), `UX-01` a `UX-06` (`#113`), `GO-04` (`#114`; falta exercitar no ambiente alvo), `TECH-01` (`#112`), `TECH-02`/`TECH-03`/`TECH-04` (decisoes de escopo encerradas), `GO-03` (smoke local; falta backup).
 
 Restante:
 
 1. `GO-02` - validacao contabil do Superavit com a equipe (dados reais da PMJP);
-2. `TECH-02` a `TECH-04` - decisoes finais de escopo (Excel por categoria, multiusuario, PDF);
-3. `GO-03` (backup) + validacao de `GO-01`/`GO-04` no ambiente alvo da PMJP;
-4. `F5-10` - treinamento e demonstracao;
-5. `F5-11` - handoff e encerramento.
+2. `GO-03` (backup) + validacao de `GO-01`/`GO-04` no ambiente alvo da PMJP;
+3. `F5-10` - treinamento e demonstracao;
+4. `F5-11` - handoff e encerramento.
 
 ---
 
