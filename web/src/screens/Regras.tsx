@@ -28,6 +28,8 @@ export function Regras() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [heat, setHeat] = useState<Heatmap | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [heatOpen, setHeatOpen] = useState(false);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +63,14 @@ export function Regras() {
     return map;
   }, [heat]);
 
+  const filteredRules = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rules;
+    return rules.filter((r) =>
+      `${r.rule_id} ${r.rule_name} ${r.dimensao}`.toLowerCase().includes(q),
+    );
+  }, [rules, query]);
+
   return (
     <div className="samid-stack">
       {error && <p className="samid-pill samid-pill-erro">{error}</p>}
@@ -77,19 +87,29 @@ export function Regras() {
                   : 'Carregando heatmap...'}
             </h2>
           </div>
-          {siconfi && (
-          <div className="samid-heat-legend" aria-label="Escala de incidência">
-            <span>baixa</span>
-            {HEAT_LEVELS.slice(0, -1).map((l) => (
-              <span key={String(l.max)} className="samid-heat-cell" style={{ background: l.bg }} />
-            ))}
-            <span className="samid-heat-cell" style={{ background: HEAT_LEVELS[HEAT_LEVELS.length - 1].bg }} />
-            <span>alta</span>
+          <div className="samid-heat-legend-row">
+            {siconfi && heatOpen && (
+            <div className="samid-heat-legend" aria-label="Escala de incidência">
+              <span>baixa</span>
+              {HEAT_LEVELS.slice(0, -1).map((l) => (
+                <span key={String(l.max)} className="samid-heat-cell" style={{ background: l.bg }} />
+              ))}
+              <span className="samid-heat-cell" style={{ background: HEAT_LEVELS[HEAT_LEVELS.length - 1].bg }} />
+              <span>alta</span>
+            </div>
+            )}
+            <button
+              type="button"
+              className="samid-btn samid-btn-ghost"
+              aria-expanded={heatOpen}
+              onClick={() => setHeatOpen((v) => !v)}
+            >
+              {heatOpen ? 'Ocultar' : 'Mostrar'}
+            </button>
           </div>
-          )}
         </div>
 
-        {!siconfi && (
+        {heatOpen && !siconfi && (
           <p className="samid-muted">
             Processe um CSV MSC para ver o heatmap.{' '}
             <Link to="/inicio" className="samid-btn samid-btn-primary" style={{ display: 'inline-flex' }}>
@@ -98,7 +118,7 @@ export function Regras() {
           </p>
         )}
 
-        {heat && heat.competencias.length > 0 && (
+        {heatOpen && heat && heat.competencias.length > 0 && (
           <div className="samid-heatmap" role="table" aria-label="Heatmap regras × competências">
             <div className="samid-heat-head">
               <div />
@@ -139,10 +159,23 @@ export function Regras() {
         <div className="samid-card-head">
           <div>
             <div className="samid-eyebrow">Catálogo</div>
-            <h2 className="samid-card-title">{rules.length} regras registradas</h2>
+            <h2 className="samid-card-title">
+              {query.trim()
+                ? `${filteredRules.length} de ${rules.length} regras`
+                : `${rules.length} regras registradas`}
+            </h2>
           </div>
+          <input
+            type="search"
+            className="samid-rules-search"
+            placeholder="Buscar por regra, nome ou dimensão…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Buscar regras"
+          />
         </div>
 
+        <div className="samid-table-scroll">
         <table className="samid-table samid-table-dense">
           <thead>
             <tr>
@@ -155,7 +188,7 @@ export function Regras() {
             </tr>
           </thead>
           <tbody>
-            {rules.map((r) => {
+            {filteredRules.map((r) => {
               const lastComp = heat?.competencias[heat.competencias.length - 1];
               const lastCell = lastComp ? cellMap.get(`${r.rule_id}|${lastComp}`) : undefined;
               return (
@@ -189,6 +222,7 @@ export function Regras() {
             })}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

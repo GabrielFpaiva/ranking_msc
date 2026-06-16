@@ -1,35 +1,42 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 
 import { authStore } from '../store/auth';
+import { NavIcon } from './NavIcon';
+import type { IconName } from './NavIcon';
 
 interface NavGroup {
   label: string;
-  items: { to: string; label: string }[];
+  items: { to: string; label: string; icon: IconName }[];
 }
 
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Análise',
     items: [
-      { to: '/inicio', label: 'Início' },
-      { to: '/execucao', label: 'Execução' },
-      { to: '/regras', label: 'Regras' },
-      { to: '/pendencias', label: 'Pendências' },
+      { to: '/inicio', label: 'Início', icon: 'inicio' },
+      { to: '/pendencias', label: 'Pendências', icon: 'pendencias' },
     ],
   },
   {
     label: 'Contas',
     items: [
-      { to: '/caixa', label: 'Caixa' },
-      { to: '/passivos', label: 'Passivos' },
-      { to: '/superavit', label: 'Superávit' },
+      { to: '/caixa', label: 'Caixa', icon: 'caixa' },
+      { to: '/passivos', label: 'Passivos', icon: 'passivos' },
+      { to: '/superavit', label: 'Superávit', icon: 'superavit' },
     ],
   },
   {
     label: 'Visões',
     items: [
-      { to: '/executivo', label: 'Executivo' },
-      { to: '/comparar', label: 'Comparar' },
+      { to: '/executivo', label: 'Executivo', icon: 'executivo' },
+      { to: '/comparar', label: 'Comparar', icon: 'comparar' },
+    ],
+  },
+  {
+    label: 'Referência',
+    items: [
+      { to: '/regras', label: 'Regras', icon: 'regras' },
+      { to: '/execucao', label: 'Execução', icon: 'execucao' },
     ],
   },
 ];
@@ -48,6 +55,13 @@ interface SidebarProps {
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const user = authStore.getUser();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    authStore.clearToken();
+    onClose?.();
+    void navigate('/login', { replace: true });
+  }
 
   return (
     <aside className={`samid-sidebar${open ? ' open' : ''}`}>
@@ -78,6 +92,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   `samid-nav-item${isActive ? ' active' : ''}`
                 }
               >
+                <NavIcon name={item.icon} />
                 <span>{item.label}</span>
               </NavLink>
             ))}
@@ -93,6 +108,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             <div className="samid-user-role">PMJP</div>
           </div>
         </div>
+        <button type="button" className="samid-logout" onClick={handleLogout}>
+          <NavIcon name="sair" />
+          <span>Sair</span>
+        </button>
       </div>
     </aside>
   );

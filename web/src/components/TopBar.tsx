@@ -1,21 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 
 import { ApiError, api } from '../api/client';
-import { authStore } from '../store/auth';
 import { useMCRA } from '../store/useMCRA';
 
 const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
   '/inicio': { breadcrumb: 'Análise', title: 'Início' },
-  '/execucao': { breadcrumb: 'Análise', title: 'Execução' },
-  '/regras': { breadcrumb: 'Análise', title: 'Regras' },
   '/pendencias': { breadcrumb: 'Análise', title: 'Pendências' },
   '/caixa': { breadcrumb: 'Contas', title: 'Caixa' },
   '/passivos': { breadcrumb: 'Contas', title: 'Passivos' },
   '/superavit': { breadcrumb: 'Contas', title: 'Superávit' },
   '/executivo': { breadcrumb: 'Visões', title: 'Visão Executiva' },
   '/comparar': { breadcrumb: 'Visões', title: 'Comparar Competências' },
+  '/regras': { breadcrumb: 'Referência', title: 'Regras' },
+  '/execucao': { breadcrumb: 'Referência', title: 'Execução' },
 };
 
 interface TopBarProps {
@@ -34,8 +33,6 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
   const [exportBusy, setExportBusy] = useState<'excel' | 'pdf' | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const navigate = useNavigate();
-  const user = authStore.getUser();
 
   useEffect(() => () => {
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
@@ -56,11 +53,6 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
         errorTimerRef.current = setTimeout(() => setExportError(null), 6000);
       })
       .finally(() => setExportBusy(null));
-  }
-
-  function handleLogout() {
-    authStore.clearToken();
-    void navigate('/login', { replace: true });
   }
 
   return (
@@ -109,16 +101,6 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
         >
           {exportBusy === 'pdf' ? 'Gerando…' : 'Exportar PDF'}
         </button>
-        <div className="samid-topbar-user">
-          <span className="samid-topbar-username">{user ?? 'Usuário'}</span>
-          <button
-            type="button"
-            className="samid-btn samid-btn-ghost"
-            onClick={handleLogout}
-          >
-            Sair
-          </button>
-        </div>
       </div>
     </header>
   );
