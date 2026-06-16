@@ -58,6 +58,25 @@ _COLUMN_LABELS: dict[str, str] = {
 _MAX_COLUMN_WIDTH = 60
 _MIN_COLUMN_WIDTH = 10
 
+# Ordem canônica das dimensões nas abas; valores desconhecidos vão ao fim, ordenados.
+_DIMENSION_ORDER = [
+    "Estrutura",
+    "Fechamento",
+    "PCASP",
+    "Completude",
+    "IC",
+    "Domínio",
+    "Orçamentária",
+    "Temporal",
+]
+
+# Abas fixas — reservadas para não colidir com abas de dimensão.
+_RESERVED_SHEET_NAMES = ("Resumo", "Pendências", "Saldo Devedor", "Score")
+
+# Limites do Excel para nomes de aba.
+_MAX_SHEET_NAME_LEN = 31
+_EXCEL_FORBIDDEN_CHARS = set("[]:*?/\\")
+
 # Cores para aba Score — por banda A-E
 _BAND_FILLS: dict[str, PatternFill] = {
     "A": PatternFill(fill_type="solid", fgColor="FF70AD47"),  # verde
@@ -128,20 +147,14 @@ def export_issues_excel(
 
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
             resumo_df.to_excel(writer, sheet_name="Resumo", index_label="severidade")
-            pendencias_sorted.to_excel(writer, sheet_name="Pendências", index=False)
-
             ws_resumo = writer.sheets["Resumo"]
-            ws_pendencias = writer.sheets["Pendências"]
-
             _format_header(ws_resumo)
-            _format_header(ws_pendencias)
             _freeze_and_filter(ws_resumo)
-            _freeze_and_filter(ws_pendencias)
-            _apply_severity_colors(ws_pendencias)
             _apply_severity_colors_resumo(ws_resumo)
             _auto_fit_columns(ws_resumo)
-            _auto_fit_columns(ws_pendencias)
-            _rename_headers(ws_pendencias)
+
+            _write_pendencias_sheet(writer, pendencias_sorted, "Pendências")
+            _add_dimension_sheets(writer, pendencias_sorted)
 
             _add_saldo_devedor_sheet(writer, df_pendencias)
             if score_result is not None:
@@ -198,6 +211,11 @@ def _build_summary_dataframe(df_pendencias: pd.DataFrame) -> pd.DataFrame:
     remaining = sorted(severity for severity in summary.index if severity not in ordered_index)
     summary = summary.reindex(ordered_index + remaining)
 
+    # Sem pendências: não há colunas de dimensão para somar; devolve resumo vazio
+    # (a aba ainda é criada com o cabeçalho, mês limpo não quebra a exportação).
+    if summary.empty:
+        return summary
+
     summary.loc["Total"] = summary.sum()
     return summary
 
@@ -211,6 +229,93 @@ def _sort_pendencias(df: pd.DataFrame) -> pd.DataFrame:
         columns=["_sev_order"]
     )
     return df.reset_index(drop=True)
+
+
+def _write_pendencias_sheet(
+    writer: pd.ExcelWriter,
+    df: pd.DataFrame,
+    sheet_name: str,
+) -> Worksheet:
+    """Escreve uma aba de pendências (listagem + formatação padrão).
+
+    Args:
+        writer: ExcelWriter aberto (contexto ``with pd.ExcelWriter``).
+        df: DataFrame de pendências já ordenado.
+        sheet_name: nome da aba, já saneado para o Excel.
+
+    Returns:
+        Worksheet criada e formatada.
+    """
+    df.to_excel(writer, sheet_name=sheet_name, index=False)
+    ws: Worksheet = writer.sheets[sheet_name]
+    _format_header(ws)
+    _freeze_and_filter(ws)
+    _apply_severity_colors(ws)
+    _auto_fit_columns(ws)
+    _rename_headers(ws)
+    return ws
+
+
+def _add_dimension_sheets(
+    writer: pd.ExcelWriter,
+    pendencias_sorted: pd.DataFrame,
+) -> None:
+    """Adiciona uma aba por dimensão presente nas pendências.
+
+    Cria a aba somente para dimensões com ao menos uma pendência, preservando
+    a ordem das linhas (ERRO primeiro) já aplicada em ``pendencias_sorted``. As
+    dimensões seguem ``_DIMENSION_ORDER``; valores desconhecidos vão ao fim em
+    ordem alfabética.
+
+    Args:
+        writer: ExcelWriter aberto.
+        pendencias_sorted: pendências já ordenadas por severidade.
+    """
+    if pendencias_sorted.empty:
+        return
+
+    df = pendencias_sorted.copy()
+    df["dimensao"] = df["dimensao"].fillna("SEM_DIMENSAO").astype(str)
+
+    present = list(dict.fromkeys(df["dimensao"]))
+    ordered = [dim for dim in _DIMENSION_ORDER if dim in present]
+    remaining = sorted(dim for dim in present if dim not in ordered)
+
+    used_names: set[str] = set(_RESERVED_SHEET_NAMES)
+    for dimensao in ordered + remaining:
+        sub = df[df["dimensao"] == dimensao]
+        if sub.empty:
+            continue
+        sheet_name = _safe_dimension_sheet_name(dimensao, used_names)
+        used_names.add(sheet_name)
+        _write_pendencias_sheet(writer, sub.reset_index(drop=True), sheet_name)
+
+
+def _safe_dimension_sheet_name(dimensao: str, used: set[str]) -> str:
+    """Gera um nome de aba válido para o Excel a partir do nome da dimensão.
+
+    Remove caracteres proibidos (``[ ] : * ? / \\``), limita a 31 caracteres e
+    desambigua nomes repetidos com sufixo numérico.
+
+    Args:
+        dimensao: nome da dimensão.
+        used: nomes de aba já utilizados (inclui as abas fixas reservadas).
+
+    Returns:
+        Nome de aba único e aceito pelo Excel.
+    """
+    cleaned = "".join(
+        " " if ch in _EXCEL_FORBIDDEN_CHARS else ch for ch in dimensao
+    ).strip()
+    name = (cleaned or "SEM_DIMENSAO")[:_MAX_SHEET_NAME_LEN]
+
+    base = name
+    counter = 2
+    while name in used:
+        suffix = f" ({counter})"
+        name = f"{base[:_MAX_SHEET_NAME_LEN - len(suffix)]}{suffix}"
+        counter += 1
+    return name
 
 
 def _format_header(ws: Worksheet) -> None:
@@ -253,7 +358,7 @@ def _apply_severity_colors(ws: Worksheet) -> None:
     """Aplica cores por severidade na aba de pendências."""
     severity_column = _find_column_index(ws, "severidade")
     if severity_column is None:
-        raise ReportError("Coluna 'severidade' não encontrada na aba 'Pendências'.")
+        raise ReportError("Coluna 'severidade' não encontrada na aba de pendências.")
 
     for row_idx in range(2, ws.max_row + 1):
         severity_value = ws.cell(row=row_idx, column=severity_column).value

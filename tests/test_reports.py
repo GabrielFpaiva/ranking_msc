@@ -88,11 +88,11 @@ def local_tmp_dir() -> Iterator[Path]:
         shutil.rmtree(created, ignore_errors=True)
 
 
-def test_export_issues_excel_gera_arquivo_com_tres_abas(
+def test_export_issues_excel_gera_arquivo_com_abas_esperadas(
     local_tmp_dir: Path,
     pendencias_sinteticas: pd.DataFrame,
 ) -> None:
-    """Gera Excel com abas Resumo, Pendências e Saldo Devedor, abrindo sem erro."""
+    """Gera Excel com Resumo, Pendências, abas por dimensão e Saldo Devedor."""
     output = export_issues_excel(
         pendencias_sinteticas,
         competencia="2024-01",
@@ -103,7 +103,13 @@ def test_export_issues_excel_gera_arquivo_com_tres_abas(
     assert output.suffix == ".xlsx"
 
     workbook = load_workbook(output)
-    assert workbook.sheetnames == ["Resumo", "Pendências", "Saldo Devedor"]
+    assert workbook.sheetnames == [
+        "Resumo",
+        "Pendências",
+        "Fechamento",
+        "Temporal",
+        "Saldo Devedor",
+    ]
 
     ws_resumo = workbook["Resumo"]
     ws_pendencias = workbook["Pendências"]
@@ -602,3 +608,141 @@ class TestScoreSheet:
         }
         for banda in ("A", "B", "C", "D", "E"):
             assert banda in all_values, f"Banda {banda} não encontrada na aba Score"
+
+
+# ---------------------------------------------------------------------------
+# Testes — abas por dimensão (TECH-02)
+# ---------------------------------------------------------------------------
+
+
+class TestAbasPorDimensao:
+    def test_cria_aba_para_cada_dimensao_com_pendencia(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+    ) -> None:
+        """Cada dimensão com pendências vira aba entre Pendências e Saldo Devedor."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+        )
+        wb = load_workbook(output)
+        assert wb.sheetnames == [
+            "Resumo",
+            "Pendências",
+            "Fechamento",
+            "Temporal",
+            "Saldo Devedor",
+        ]
+
+    def test_aba_dimensao_contem_apenas_pendencias_da_dimensao(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+    ) -> None:
+        """A aba de uma dimensão lista somente as pendências daquela dimensão."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+        )
+        wb = load_workbook(output)
+        ws = wb["Fechamento"]
+        # 2 pendências de Fechamento + cabeçalho
+        assert ws.max_row == 3
+        dim_col = _find_column_index(ws, "Dimensão")
+        assert dim_col is not None
+        valores = {
+            ws.cell(row=r, column=dim_col).value for r in range(2, ws.max_row + 1)
+        }
+        assert valores == {"Fechamento"}
+
+    def test_dimensao_sem_pendencia_nao_gera_aba(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+    ) -> None:
+        """Dimensão ausente nas pendências não cria aba."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+        )
+        wb = load_workbook(output)
+        assert "PCASP" not in wb.sheetnames
+
+    def test_aba_dimensao_preserva_formatacao(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+    ) -> None:
+        """Aba de dimensão tem freeze, cabeçalhos PT e cor por severidade."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+        )
+        wb = load_workbook(output)
+        ws = wb["Fechamento"]
+        assert ws.freeze_panes == "A2"
+        headers = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
+        assert "Regra" in headers
+        assert "regra_id" not in headers
+
+        sev_col = _find_column_index(ws, "Severidade")
+        assert sev_col is not None
+        for r in range(2, ws.max_row + 1):
+            if ws.cell(row=r, column=sev_col).value == "ERRO":
+                assert _extract_rgb(ws.cell(row=r, column=1)).endswith("F8D7DA")
+                break
+        else:
+            pytest.fail("Sem linha ERRO na aba Fechamento")
+
+    def test_nome_de_aba_sanitiza_caracteres_invalidos(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+    ) -> None:
+        """Dimensão com caracteres proibidos pelo Excel gera nome de aba saneado."""
+        df = pendencias_sinteticas.copy()
+        df.loc[df["regra_id"] == "R084", "dimensao"] = "IC/Domínio: [extra]"
+        output = export_issues_excel(
+            df,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+        )
+        wb = load_workbook(output)
+        forbidden = set("[]:*?/\\")
+        for name in wb.sheetnames:
+            assert not (set(name) & forbidden), f"Aba com caractere inválido: {name}"
+            assert len(name) <= 31
+
+    def test_pendencias_vazias_nao_gera_aba_de_dimensao(
+        self,
+        local_tmp_dir: Path,
+    ) -> None:
+        """Sem pendências, não há abas de dimensão (apenas as fixas)."""
+        vazio = pd.DataFrame(columns=list(pendencias_sinteticas_columns()))
+        output = export_issues_excel(
+            vazio,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+        )
+        wb = load_workbook(output)
+        assert wb.sheetnames == ["Resumo", "Pendências", "Saldo Devedor"]
+
+
+def pendencias_sinteticas_columns() -> tuple[str, ...]:
+    """Colunas obrigatórias de uma pendência (espelha FACT_RESULTADO_REGRAS_COLUMNS)."""
+    return (
+        "regra_id",
+        "regra_nome",
+        "dimensao",
+        "severidade",
+        "conta_contabil",
+        "descricao",
+        "valor_esperado",
+        "valor_encontrado",
+        "competencia",
+    )
