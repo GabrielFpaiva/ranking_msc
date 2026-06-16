@@ -1,9 +1,10 @@
 # Backlog Operacional - MCRA PMJP
 
-> **Atualizado:** 2026-06-01
+> **Atualizado:** 2026-06-16
 > **Fonte unica de planejamento corrente:** este arquivo
-> **Estado atual:** motor concluido (`78/78` regras), Fase 4 encerrada e Fase 5 em fechamento operacional.
+> **Estado atual:** motor concluido (`78/78` regras), Fase 4 encerrada e Fase 5 em fechamento operacional. Hardening de frontend mergeado (`#113`, UX-01 a UX-06) e topologia de publicacao nginx + TLS mergeada (`#114`, GO-04). Restam validacoes no ambiente alvo da PMJP, decisoes de escopo (TECH-02/03/04) e treinamento/handoff (F5-10/F5-11).
 > **Ultima validacao completa:** `make validate` verde em 2026-06-01 (`979` testes aprovados, `1` ignorado, cobertura `95,56%`, lint, tipos e build frontend).
+> **Validacao de runtime (local):** stack de producao (`make prod-up`) exercitada em 2026-06-16 — HTTPS `/api/health` 200, redirect 308, app isolado do host, auth imposta (401 sem token), login JWT e upload `/api/run` (pipeline 78 regras, score/banda/pendencias) OK.
 
 ---
 
@@ -21,10 +22,10 @@ Nao reabrir tarefas concluidas sem registrar um bug, uma nova necessidade ou uma
 |---|---|---|
 | Motor MSC | Concluido | `78/78` regras implementadas e registradas |
 | Score e historico | Concluido | Score `0-100`, bandas `A-E`, historico e comparacao entre competencias |
-| Frontend oficial | Concluido com hardening visual pendente | React + FastAPI substituiu a interface Panel |
+| Frontend oficial | Concluido | React + FastAPI substituiu a interface Panel; hardening visual mergeado (`#113`) |
 | Exportacoes | Concluido com decisao de escopo pendente | Excel de pendencias e PDF executivo; confirmar se o PDF tambem deve conter pendencias completas |
 | Autenticacao | Concluido com decisao de modelo pendente | JWT multiusuario implementado; confirmar se artefatos devem ser compartilhados por ente ou isolados por usuario |
-| Deploy | Concluido na aplicacao com publicacao pendente | Docker, compose e testes E2E prontos; definir reverse proxy e terminacao HTTP/TLS no ambiente alvo |
+| Deploy | Concluido; publicacao definida | Docker, compose e E2E prontos; topologia nginx + TLS definida, documentada e mergeada (`#114`); falta exercitar no ambiente alvo da PMJP |
 | Superavit por FR | Concluido tecnicamente | Falta validacao contabil com dados reais da PMJP |
 | Ranking Regional | Fora do fechamento | Depende de base comparativa externa ainda nao definida |
 
@@ -44,7 +45,7 @@ Checklist:
 - [x] gerar `security.secret_key` segura;
 - [x] cadastrar ao menos um usuario com hash bcrypt;
 - [x] confirmar `app.esfera`, paths, permissoes e volumes Docker;
-- [ ] validar login e `GET /api/health` no ambiente real.
+- [ ] validar login e `GET /api/health` no ambiente real *(validado localmente em 2026-06-16; pendente no servidor da PMJP)*.
 
 **Criterio de aceite:** aplicacao sobe sem warnings de configuracao, login funciona e a API informa as regras esperadas.
 
@@ -82,15 +83,15 @@ Checklist:
 
 ### GO-04 - Definir topologia de publicacao
 
-A antiga task F0-08 citava `Docker + nginx`. O projeto entrega container e compose da aplicacao na porta `8000`, mas ainda nao define como a prefeitura publicara o servico.
+A antiga task F0-08 citava `Docker + nginx`. **Mergeado em `#114`:** `docker-compose.prod.yml` com nginx reverse proxy + TLS, app isolado do host (porta `8000` apenas interna), `make gen-cert`/`prod-up`, healthcheck e redirect HTTP->HTTPS; topologia documentada no `doc/guia_operacao.md`.
 
 Checklist:
 
 - [ ] confirmar se a infraestrutura alvo ja possui reverse proxy institucional;
-- [ ] definir terminacao HTTP/TLS, hostname e porta publica;
-- [ ] decidir se nginx pertence a este repositorio ou a infraestrutura externa;
-- [ ] documentar a configuracao adotada no guia de operacao;
-- [ ] validar `/api/health`, login e upload atraves do endpoint publico.
+- [x] definir terminacao HTTP/TLS, hostname e porta publica;
+- [x] decidir se nginx pertence a este repositorio ou a infraestrutura externa *(decisao: nginx no repo via `docker-compose.prod.yml`)*;
+- [x] documentar a configuracao adotada no guia de operacao;
+- [x] validar `/api/health`, login e upload atraves do endpoint publico *(exercitado localmente em 2026-06-16; revalidar no ambiente alvo)*.
 
 **Criterio de aceite:** topologia de publicacao definida, documentada e exercitada no ambiente alvo.
 
@@ -98,69 +99,7 @@ Checklist:
 
 ## P1 - Hardening de Frontend e Usabilidade
 
-### UX-01 - Limpar navegacao, acoes sem funcao e sessao
-
-- [x] remover sublinhado dos links da sidebar;
-- [ ] remover o botao `Reprocessar` (sem funcionalidade prevista para go-live);
-- [ ] remover o botao de notificacao/sino (sem handler);
-- [ ] auditar outros botoes com placeholder ou handler vazio no TopBar, Home, Pendencias, Executivo, Regras e drawers;
-- [ ] exibir erro de exportacao no TopBar em vez de silenciar falhas com `.catch(() => undefined)`;
-- [ ] adicionar botao `Sair` em local previsivel (TopBar);
-- [ ] exibir o usuario logado junto da acao de sair;
-- [ ] limpar token ao sair e redirecionar para `/login`;
-- [ ] garantir que rotas protegidas nao continuem acessiveis apos logout.
-
-**Criterio de aceite:** nenhuma acao visivel fica sem resposta funcional; usuario consegue sair sem limpar navegador manualmente.
-
-### UX-02 - Tornar o fluxo principal autoexplicativo
-
-- [ ] revisar textos de login, upload, score, pendencias, executivo e comparar;
-- [ ] adicionar chamadas diretas para `Inicio` nos estados vazios;
-- [ ] indicar visualmente linhas clicaveis para abrir regra ou conta;
-- [ ] revisar mensagens de erro para linguagem operacional;
-- [ ] validar o fluxo com pelo menos um usuario da equipe contabil.
-
-**Criterio de aceite:** usuario consegue executar `login -> upload -> revisar pendencias -> exportar` sem orientacao paralela.
-
-### UX-03 - Melhorar Pendencias
-
-- [ ] implementar paginacao real usando `offset` e `limit`;
-- [ ] mostrar intervalo exibido e total de resultados;
-- [ ] preservar clareza dos filtros por severidade, regra e conta;
-- [ ] validar tabela com grandes volumes de pendencias.
-
-**Criterio de aceite:** usuario navega por todas as pendencias sem depender exclusivamente do Excel.
-
-### UX-04 - Revisar responsividade minima
-
-- [ ] adicionar breakpoints para sidebar, TopBar, grids e filtros;
-- [ ] garantir uso aceitavel em notebook com largura reduzida;
-- [ ] verificar tabelas, heatmap e drawers sem corte de conteudo.
-
-**Criterio de aceite:** telas principais permanecem legiveis em notebook padrao e viewport reduzida acordada com a PMJP.
-
-### UX-05 - Alinhar tela de login ao design MCRA
-
-- [ ] substituir estilos inline pelo kit visual existente;
-- [x] alinhar cores e tipografia base aos tokens SAMID;
-- [ ] confirmar identificacao institucional;
-- [ ] revisar feedback de credenciais invalidas e expiracao de sessao.
-
-**Criterio de aceite:** login parece parte do mesmo produto e comunica falhas de forma clara.
-
-### UX-06 - Padronizar mensagens de erro do frontend
-
-**Problema observado:** mensagens de erro estao exibindo codigos tecnicos, como `401`, em vez de feedback claro para o usuario.
-
-Checklist:
-
-- [ ] mapear respostas comuns da API (`401`, `403`, `404`, `409`, `422`, `500`) para mensagens amigaveis;
-- [ ] tratar credenciais invalidas, sessao expirada e falta de permissao com textos especificos;
-- [ ] evitar exibir codigo bruto ou payload tecnico como mensagem principal;
-- [ ] manter detalhe tecnico apenas em area secundaria/log quando util para suporte;
-- [ ] aplicar o padrao nas telas de login, upload, exportacoes, consultas e comparacao.
-
-**Criterio de aceite:** usuario ve mensagens operacionais claras e nenhum erro comum aparece apenas como codigo HTTP bruto.
+**Concluido em `#113` (UX-01 a UX-06).** Entregue: navegacao/sessao limpas com logout e usuario logado no TopBar; fluxo principal autoexplicativo; paginacao real de pendencias; responsividade minima; tela de login alinhada ao design MCRA; e padronizacao de mensagens de erro (sem codigos HTTP brutos). Historico detalhado no Git.
 
 ---
 
@@ -234,14 +173,15 @@ Estes itens nao bloqueiam a entrega e nao devem disputar prioridade com go-live,
 
 ## Ordem Recomendada de Execucao
 
-1. `GO-01` - configuracao operacional real;
-2. `GO-02` - validacao contabil do Superavit;
-3. `UX-01` a `UX-05` - rodada unica de hardening visual e intuitividade;
-4. `GO-04` - definir topologia de publicacao;
-5. `TECH-01` a `TECH-04` - limpeza e decisoes finais de escopo;
-6. `GO-03` - smoke test no ambiente alvo;
-7. `F5-10` - treinamento;
-8. `F5-11` - handoff e encerramento.
+Concluido: `GO-01` (config; falta validar no servidor real), `UX-01` a `UX-06` (`#113`), `GO-04` (`#114`; falta exercitar no ambiente alvo), `TECH-01` (`#112`), `GO-03` (smoke local; falta backup).
+
+Restante:
+
+1. `GO-02` - validacao contabil do Superavit com a equipe (dados reais da PMJP);
+2. `TECH-02` a `TECH-04` - decisoes finais de escopo (Excel por categoria, multiusuario, PDF);
+3. `GO-03` (backup) + validacao de `GO-01`/`GO-04` no ambiente alvo da PMJP;
+4. `F5-10` - treinamento e demonstracao;
+5. `F5-11` - handoff e encerramento.
 
 ---
 
