@@ -114,13 +114,13 @@ dependencias se necessario, rodar validacoes e subir novamente.
 - [ ] GO-02 - validacao contabil do superavit por FR com a area contabil *(planilha de conferencia por FR ja disponivel como apoio)*
 - [ ] GO-01 / GO-04 - validar login, `/api/health` e upload no servidor da PMJP
 - [ ] GO-03 - validar rotina de backup (e restauracao) no ambiente alvo *(dry-run local OK)*
-- [ ] TECH-02 - decidir escopo do Excel por categoria
-- [ ] TECH-03 - decidir isolamento multiusuario dos artefatos
-- [ ] TECH-04 - decidir escopo do PDF de pendencias
 - [ ] Certificado TLS institucional instalado no lugar do self-signed
 - [ ] Senha de producao forte definida (substituir credenciais de teste)
 - [ ] Responsaveis preenchidos e cientes
 - [ ] F5-10 - treinamento realizado
+
+> Decisoes de escopo TECH-02/03/04 ja **encerradas** (ver `doc/governanca_documental.md` §7);
+> nao sao bloqueadores de encerramento.
 
 ---
 
