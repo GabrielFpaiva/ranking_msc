@@ -145,15 +145,17 @@ A antiga task F0-06 previa `Visao Executiva (1 pagina) + Pendencias completas`. 
 
 ### F5-10 - Treinamento e demonstracao
 
-- [ ] preparar roteiro curto baseado no fluxo operacional;
+- [x] preparar roteiro curto baseado no fluxo operacional *(`doc/roteiro_treinamento.md`)*;
 - [ ] demonstrar login, upload, score, pendencias, regras, exportacoes, superavit e comparar;
 - [ ] coletar duvidas e registrar ajustes finais realmente necessarios.
 
 ### F5-11 - Handoff operacional
 
-- [ ] entregar manual do usuario e guia de operacao;
-- [ ] registrar commit/versao publicada;
-- [ ] confirmar rotina de backup, logs e atualizacao;
+Documento base: `doc/handoff.md` (criado; campos dependentes da PMJP marcados como `<a definir>`).
+
+- [x] entregar manual do usuario e guia de operacao *(referenciados no handoff)*;
+- [ ] registrar commit/versao publicada *(v0.1.0 / main; fixar o commit exato no deploy)*;
+- [ ] confirmar rotina de backup, logs e atualizacao *(documentada; validar no ambiente alvo)*;
 - [ ] definir responsaveis por suporte e escalonamento;
 - [ ] encerrar formalmente a entrega.
 
