@@ -74,9 +74,10 @@ Detalhado em `doc/guia_operacao.md` (secao "Backup e retencao"):
 - Reter os snapshots mensais usados em comparacoes e auditorias.
 - Logs de execucao em JSON Lines (ver guia, "Saidas geradas").
 
-> Confirmar com a TI da PMJP a rotina de backup automatizada do servidor alvo
-> e validar uma restauracao de teste antes do encerramento (fecha o item de
-> backup da GO-03).
+> Dry-run de backup/restore (`config` + `data`) validado localmente em 2026-06-16:
+> arquivo `.tar.gz` gerado, restaurado em diretorio limpo e checksums conferindo
+> em todos os arquivos. Falta confirmar com a TI da PMJP a rotina automatizada do
+> servidor alvo e validar uma restauracao de teste la (fecha o item de backup da GO-03).
 
 ---
 
@@ -110,16 +111,16 @@ dependencias se necessario, rodar validacoes e subir novamente.
 
 ## Pendencias para o encerramento formal
 
-- [ ] GO-02 - validacao contabil do superavit por FR com a area contabil
+- [ ] GO-02 - validacao contabil do superavit por FR com a area contabil *(planilha de conferencia por FR ja disponivel como apoio)*
 - [ ] GO-01 / GO-04 - validar login, `/api/health` e upload no servidor da PMJP
-- [ ] GO-03 - validar rotina de backup (e restauracao) no ambiente alvo
-- [ ] TECH-02 - decidir escopo do Excel por categoria
-- [ ] TECH-03 - decidir isolamento multiusuario dos artefatos
-- [ ] TECH-04 - decidir escopo do PDF de pendencias
+- [ ] GO-03 - validar rotina de backup (e restauracao) no ambiente alvo *(dry-run local OK)*
 - [ ] Certificado TLS institucional instalado no lugar do self-signed
 - [ ] Senha de producao forte definida (substituir credenciais de teste)
 - [ ] Responsaveis preenchidos e cientes
 - [ ] F5-10 - treinamento realizado
+
+> Decisoes de escopo TECH-02/03/04 ja **encerradas** (ver `doc/governanca_documental.md` §7);
+> nao sao bloqueadores de encerramento.
 
 ---
 

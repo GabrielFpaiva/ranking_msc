@@ -133,3 +133,38 @@ Decisão:
 - A arquitetura principal segue reconhecível e operacional.
 - O desvio D1 (engine → outputs) foi aceito como intencional. Issue #98 encerrada.
 - Semáforo de concorrência por competência implementado em `engine/locks.py` e aplicado pela API (`app/api/routes/run.py`). Os TODOs correspondentes no executor foram removidos.
+
+## 7. Decisões de escopo (Fase 5)
+
+Decisões finais de escopo herdadas de tarefas antigas, registradas para encerrar
+ambiguidade antes do go-live.
+
+### TECH-02 — Organização do Excel por dimensão
+
+Decisão: **implementado**. Além das abas `Resumo`, `Pendências`, `Saldo Devedor`
+e `Score`, o Excel passa a ter **uma aba por dimensão** que tenha pendências
+(criada só quando há linhas), facilitando a navegação da equipe contábil por
+área (Fechamento, IC/Domínio, PCASP, Temporal etc.). Implementação em
+`src/ranking_msc/outputs/reports.py` (`_add_dimension_sheets`).
+
+### TECH-03 — Visibilidade dos artefatos (multiusuário)
+
+Decisão: **modelo institucional compartilhado** (sem isolamento por usuário).
+
+Justificativa:
+
+- existe uma única MSC oficial do ente por competência; o sistema valida o ente,
+  não o trabalho individual de cada analista;
+- snapshots e relatórios são compartilhados por `siconfi + competência`, e o lock
+  de concorrência (`engine/locks.py`) já impede escrita simultânea para o mesmo par;
+- o JWT identifica **quem** executou (auditoria), sem necessidade de isolar artefatos;
+- isolamento por usuário quebraria a continuidade (supervisão, substituição) e a
+  comparação entre competências subidas por pessoas diferentes.
+
+Requisito antigo (F0-07, namespacing por usuário) **encerrado** — não será implementado.
+
+### TECH-04 — Escopo do PDF de pendências
+
+Decisão: **manter a divisão atual** — PDF entrega a Visão Executiva (1 página) e o
+Excel entrega as pendências completas. Não há duplicação das pendências no PDF.
+Requisito antigo (F0-06, pendências completas no PDF) **encerrado**.
