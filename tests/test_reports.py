@@ -88,6 +88,35 @@ def local_tmp_dir() -> Iterator[Path]:
         shutil.rmtree(created, ignore_errors=True)
 
 
+class TestExcelBranding:
+    """Estilo branded MCRA (cabeçalho navy, fonte branca/bold, bordas)."""
+
+    def test_cabecalho_pendencias_navy_branco(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+    ) -> None:
+        output = export_issues_excel(
+            pendencias_sinteticas, competencia="2024-01", output_dir=local_tmp_dir
+        )
+        ws = load_workbook(output)["Pendências"]
+        header = ws.cell(row=1, column=1)
+        assert header.fill.fgColor.rgb.endswith("0F1E3D")  # navy
+        assert header.font.bold is True
+        assert header.font.color.rgb.endswith("FFFFFF")  # branco
+
+    def test_pendencias_tem_bordas(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+    ) -> None:
+        output = export_issues_excel(
+            pendencias_sinteticas, competencia="2024-01", output_dir=local_tmp_dir
+        )
+        ws = load_workbook(output)["Pendências"]
+        assert ws.cell(row=2, column=1).border.left.style == "thin"
+
+
 def test_export_issues_excel_gera_arquivo_com_abas_esperadas(
     local_tmp_dir: Path,
     pendencias_sinteticas: pd.DataFrame,

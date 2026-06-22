@@ -15,16 +15,19 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-from openpyxl.styles import Font, PatternFill
+from openpyxl.styles import Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from ranking_msc.engine.score_engine import ScoreResult
 from ranking_msc.exceptions import ReportError
+from ranking_msc.outputs import brand
 from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS
 
 logger = logging.getLogger("ranking_msc")
 
+# Tintas pálidas para fundo de linha por severidade (legíveis com texto escuro);
+# as cores saturadas da marca ficam só nos chips/barras, não em linhas inteiras.
 _SEVERITY_ORDER = ["ERRO", "ALERTA", "INFO"]
 _SEVERITY_COLORS: dict[str, str] = {
     "ERRO": "FFF8D7DA",
@@ -32,8 +35,11 @@ _SEVERITY_COLORS: dict[str, str] = {
     "INFO": "FFE2E3E5",
 }
 
-_HEADER_FILL = PatternFill(fill_type="solid", fgColor="FFDDEBF7")
-_HEADER_FONT = Font(bold=True)
+_HEADER_FILL = brand.HEADER_FILL
+_HEADER_FONT = brand.HEADER_FONT
+
+_THIN_SIDE = Side(style="thin", color="FFD9D9D9")
+_BORDER = Border(left=_THIN_SIDE, right=_THIN_SIDE, top=_THIN_SIDE, bottom=_THIN_SIDE)
 
 _SALDO_DEVEDOR_FILL = PatternFill(fill_type="solid", fgColor="FFFFC7CE")
 _SALDO_DEVEDOR_COLUMNS: dict[str, str] = {
@@ -77,14 +83,8 @@ _RESERVED_SHEET_NAMES = ("Resumo", "Pendências", "Saldo Devedor", "Score")
 _MAX_SHEET_NAME_LEN = 31
 _EXCEL_FORBIDDEN_CHARS = set("[]:*?/\\")
 
-# Cores para aba Score — por banda A-E
-_BAND_FILLS: dict[str, PatternFill] = {
-    "A": PatternFill(fill_type="solid", fgColor="FF70AD47"),  # verde
-    "B": PatternFill(fill_type="solid", fgColor="FFC6EFCE"),  # verde claro
-    "C": PatternFill(fill_type="solid", fgColor="FFFFEB9C"),  # amarelo
-    "D": PatternFill(fill_type="solid", fgColor="FFFFCC00"),  # laranja
-    "E": PatternFill(fill_type="solid", fgColor="FFFFC7CE"),  # vermelho
-}
+# Cores para aba Score — por banda A-E (paleta MCRA compartilhada)
+_BAND_FILLS: dict[str, PatternFill] = {b: brand.fill(brand.band_hex(b)) for b in "ABCDE"}
 
 # Thresholds de banda para tabela de benchmarks — doc/modelo_pontuacao.md §6
 _BAND_THRESHOLDS: list[tuple[str, str]] = [
@@ -253,6 +253,7 @@ def _write_pendencias_sheet(
     _apply_severity_colors(ws)
     _auto_fit_columns(ws)
     _rename_headers(ws)
+    _apply_borders(ws)
     return ws
 
 
@@ -323,6 +324,13 @@ def _format_header(ws: Worksheet) -> None:
     for cell in ws[1]:
         cell.font = _HEADER_FONT
         cell.fill = _HEADER_FILL
+
+
+def _apply_borders(ws: Worksheet) -> None:
+    """Aplica borda fina cinza em toda a faixa preenchida da planilha."""
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=ws.max_column):
+        for cell in row:
+            cell.border = _BORDER
 
 
 def _freeze_and_filter(ws: Worksheet) -> None:
@@ -503,6 +511,7 @@ def _add_score_sheet(
         ws.cell(row=row_idx, column=2).fill = bench_fill
 
     _auto_fit_columns(ws)
+    _apply_borders(ws)
 
 
 def _add_saldo_devedor_sheet(
@@ -534,6 +543,7 @@ def _add_saldo_devedor_sheet(
         ws = writer.sheets[sheet_name]
         _format_header(ws)
         _auto_fit_columns(ws)
+        _apply_borders(ws)
         return
 
     cols = list(_SALDO_DEVEDOR_COLUMNS.keys())
@@ -555,3 +565,5 @@ def _add_saldo_devedor_sheet(
     for row_idx in range(2, ws.max_row + 1):
         for col_idx in range(1, ws.max_column + 1):
             ws.cell(row=row_idx, column=col_idx).fill = _SALDO_DEVEDOR_FILL
+
+    _apply_borders(ws)
