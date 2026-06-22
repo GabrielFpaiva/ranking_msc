@@ -28,6 +28,9 @@ export function Home() {
       return;
     }
     let cancelled = false;
+    // Limpa o resumo anterior antes da nova busca: evita exibir score/contagem
+    // de outra competência sob o título já trocado enquanto a request resolve.
+    setSummary(null);
     api
       .summary(siconfi, competencia)
       .then((data) => {
