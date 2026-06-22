@@ -18,6 +18,7 @@ import type {
   RunSummary,
   Score,
   ScoreHistory,
+  Summary,
   SuperavitData,
 } from '../types';
 
@@ -128,6 +129,11 @@ export const api = {
 
   score: (siconfi: string, competencia: string): Promise<Score> =>
     fetchAuth(`${BASE}/score${qs({ siconfi, competencia })}`).then((r) => jsonOrThrow<Score>(r)),
+
+  summary: (siconfi: string, competencia: string): Promise<Summary> =>
+    fetchAuth(`${BASE}/summary${qs({ siconfi, competencia })}`).then((r) =>
+      jsonOrThrow<Summary>(r),
+    ),
 
   scoreHistory: (siconfi: string, meses = 6): Promise<ScoreHistory> =>
     fetchAuth(`${BASE}/score-history${qs({ siconfi, meses })}`).then((r) =>

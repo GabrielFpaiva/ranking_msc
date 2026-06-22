@@ -24,6 +24,14 @@ export interface Score {
   regras_falhas_alerta: number;
 }
 
+export interface Summary {
+  siconfi: string;
+  competencia: string;
+  total_pendencias: number;
+  score: Score;
+  top_regras: TopRule[];
+}
+
 export interface TopRule {
   regra_id: string;
   regra_nome: string;

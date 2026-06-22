@@ -8,7 +8,7 @@ import { UploadDrop } from '../components/UploadDrop';
 import { ScoreChart } from '../components/charts/ScoreChart';
 import { useDrawer } from '../store/useDrawer';
 import { useMCRA } from '../store/useMCRA';
-import type { RunSummary, ScoreHistory } from '../types';
+import type { RunSummary, ScoreHistory, Summary } from '../types';
 
 export function Home() {
   const { siconfi, competencia, lastRun, setLastRun } = useMCRA();
@@ -16,8 +16,30 @@ export function Home() {
   const [history, setHistory] = useState<ScoreHistory | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [run, setRun] = useState<RunSummary | null>(lastRun);
+  const [summary, setSummary] = useState<Summary | null>(null);
   const [exportBusy, setExportBusy] = useState<'excel' | 'pdf' | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // Score, contagem e top-regras refletem a competência ATIVA (dropdown da
+  // TopBar), não o último upload — buscamos um resumo por competência.
+  useEffect(() => {
+    if (!siconfi || !competencia) {
+      setSummary(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .summary(siconfi, competencia)
+      .then((data) => {
+        if (!cancelled) setSummary(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSummary(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [siconfi, competencia]);
 
   useEffect(() => {
     if (!siconfi) return;
@@ -58,7 +80,7 @@ export function Home() {
             </div>
           </div>
           <UploadDrop onFile={handleFile} />
-          {run && (
+          {run && run.competencia === competencia && (
             <>
               <div className="samid-kv" style={{ marginTop: 16 }}>
                 <div>
@@ -134,11 +156,11 @@ export function Home() {
               <h2 className="samid-card-title">{competencia ?? '—'}</h2>
             </div>
           </div>
-          {run ? (
+          {summary ? (
             <>
-              <ScoreBadge pontuacao={run.score.pontuacao} banda={run.score.banda} size="lg" />
+              <ScoreBadge pontuacao={summary.score.pontuacao} banda={summary.score.banda} size="lg" />
               <div className="samid-score-breakdown">
-                {Object.entries(run.score.dimensions).map(([key, dim]) => (
+                {Object.entries(summary.score.dimensions).map(([key, dim]) => (
                   <div key={key} className="samid-score-row">
                     <div className="samid-score-dim">{dim.dimension}</div>
                     <div className="samid-score-bar">
@@ -178,14 +200,14 @@ export function Home() {
           <div>
             <div className="samid-eyebrow">Top 8 regras violadas</div>
             <h2 className="samid-card-title">
-              {run ? `${run.total_pendencias.toLocaleString('pt-BR')} pendência(s) na competência` : 'Aguardando execução'}
+              {summary ? `${summary.total_pendencias.toLocaleString('pt-BR')} pendência(s) na competência` : 'Aguardando execução'}
             </h2>
           </div>
         </div>
-        {run && run.top_regras.length > 0 ? (
+        {summary && summary.top_regras.length > 0 ? (
           <div className="samid-bars">
-            {run.top_regras.map((r) => {
-              const max = run.top_regras[0].pendencias || 1;
+            {summary.top_regras.map((r) => {
+              const max = summary.top_regras[0].pendencias || 1;
               const pct = (r.pendencias / max) * 100;
               const fillClass =
                 r.severidade_max === 'ERRO'
@@ -216,7 +238,7 @@ export function Home() {
               );
             })}
           </div>
-        ) : run ? (
+        ) : summary ? (
           <p className="samid-muted">Sem regras violadas — parabéns.</p>
         ) : (
           <p className="samid-muted">A lista aparece após a primeira execução.</p>
