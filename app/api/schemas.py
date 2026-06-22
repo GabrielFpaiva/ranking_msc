@@ -76,6 +76,20 @@ class RunSummaryOut(BaseModel):
     fim: str
 
 
+class SummaryOut(BaseModel):
+    """Resumo de uma competência já persistida (GET /api/summary).
+
+    Reflete a competência ativa na Home sem depender do último ``POST /api/run``:
+    score, total de pendências e ranking de regras, lidos do snapshot.
+    """
+
+    siconfi: str
+    competencia: str
+    total_pendencias: int
+    score: ScoreOut
+    top_regras: list[TopRuleOut]
+
+
 class PendenciaOut(BaseModel):
     """Linha da tabela de Pendências."""
 

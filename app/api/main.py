@@ -31,6 +31,7 @@ from app.api.routes import recommendations as recommendations_routes
 from app.api.routes import rules as rules_routes
 from app.api.routes import run as run_routes
 from app.api.routes import score as score_routes
+from app.api.routes import summary as summary_routes
 from app.api.routes import superavit as superavit_routes
 
 app = FastAPI(
@@ -43,6 +44,7 @@ app.include_router(auth_routes.router)
 app.include_router(run_routes.router)
 app.include_router(competencias_routes.router)
 app.include_router(score_routes.router)
+app.include_router(summary_routes.router)
 app.include_router(pendencias_routes.router)
 app.include_router(rules_routes.router)
 app.include_router(contas_routes.router)
