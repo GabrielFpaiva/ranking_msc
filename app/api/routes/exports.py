@@ -8,6 +8,7 @@ GET /api/exports/pdf — gera/baixa o PDF da Visão Executiva.
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -23,7 +24,13 @@ from ranking_msc.engine.compare_periods import compare_periods
 from ranking_msc.engine.score_engine import calculate_score
 from ranking_msc.exceptions import SnapshotCorruptError, SnapshotNotFoundError
 from ranking_msc.outputs.aggregations import derive_recommendations
-from ranking_msc.outputs.executive_pdf import ExecutivePdfPayload, write_executive_pdf
+from ranking_msc.outputs.executive_pdf import (
+    DimItem,
+    ExecutivePdfPayload,
+    HistItem,
+    RecItem,
+    write_executive_pdf,
+)
 from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
 
 router = APIRouter(
@@ -119,6 +126,31 @@ def _build_pdf_payload(siconfi: str, competencia: str) -> ExecutivePdfPayload:
         for index, item in enumerate(recommendations, start=1)
     ]
 
+    # -- Dados estruturados para o layout branded (F5-18) ---------------------
+    dim_items = [
+        DimItem(nome=dimension.dimension, pct=dimension.score * 100)
+        for dimension in sorted(score.dimensions.values(), key=lambda item: item.score)
+    ]
+    hist_items = [
+        HistItem(
+            competencia=point.competencia,
+            score=point.score_result.pontuacao,
+            banda=point.score_result.banda,
+        )
+        for point in history_periods[-6:]
+    ]
+    rec_items = [
+        RecItem(
+            ordem=index,
+            titulo=item.titulo,
+            descricao=item.descricao,
+            severidade=item.severidade,
+            referencia=item.referencia,
+        )
+        for index, item in enumerate(recommendations, start=1)
+    ]
+    data_geracao = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M")
+
     return ExecutivePdfPayload(
         siconfi=siconfi,
         competencia=competencia,
@@ -131,6 +163,10 @@ def _build_pdf_payload(siconfi: str, competencia: str) -> ExecutivePdfPayload:
         history_lines=history_lines,
         dimension_lines=dimension_lines,
         recommendation_lines=recommendation_lines,
+        dimensions=dim_items,
+        recommendations=rec_items,
+        history=hist_items,
+        data_geracao=data_geracao,
     )
 
 
