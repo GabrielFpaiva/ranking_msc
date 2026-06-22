@@ -27,6 +27,11 @@ export function Executivo() {
   useEffect(() => {
     if (!siconfi || !competencia) return;
     let cancelled = false;
+    // Limpa score/recomendações da competência anterior antes da nova busca,
+    // evitando exibir dados de outro mês sob o cabeçalho já trocado.
+    setScore(null);
+    setRecos([]);
+    setError(null);
     Promise.all([
       api.score(siconfi, competencia),
       api.scoreHistory(siconfi, 6),
@@ -39,7 +44,10 @@ export function Executivo() {
         setRecos((r as { items: Recommendation[] }).items);
       })
       .catch((err: Error) => {
-        if (!cancelled) setError(err.message);
+        if (!cancelled) {
+          setScore(null);
+          setError(err.message);
+        }
       });
     return () => {
       cancelled = true;

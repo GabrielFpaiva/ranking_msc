@@ -13,10 +13,19 @@ export function Passivos() {
   useEffect(() => {
     if (!siconfi || !competencia) return;
     let cancelled = false;
+    // Limpa o payload anterior antes da nova busca para não exibir dados de
+    // outra competência sob o cabeçalho já trocado (request lenta ou com erro).
+    setList(null);
+    setError(null);
     api
       .passivos(siconfi, competencia)
       .then((l) => !cancelled && setList(l))
-      .catch((err: Error) => !cancelled && setError(err.message));
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setList(null);
+          setError(err.message);
+        }
+      });
     return () => {
       cancelled = true;
     };

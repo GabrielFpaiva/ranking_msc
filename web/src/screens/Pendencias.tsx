@@ -25,7 +25,12 @@ export function Pendencias() {
   const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
+    // Troca de competência/ente: zera paginação e limpa a tabela anterior para
+    // não exibir pendências de outro mês sob o cabeçalho já trocado. (Mudanças
+    // de filtro/página preservam a tabela durante a carga — sem flash.)
     setCurrentPage(0);
+    setPage(null);
+    setError(null);
   }, [siconfi, competencia]);
 
   useEffect(() => {

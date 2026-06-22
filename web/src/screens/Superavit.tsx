@@ -14,6 +14,10 @@ export function Superavit() {
   useEffect(() => {
     if (!siconfi || !competencia) return;
     let cancelled = false;
+    // Limpa o payload anterior antes da nova busca (evita FR de outra competência
+    // sob o cabeçalho já trocado durante request lenta ou com erro).
+    setPayload(null);
+    setError(null);
     api
       .superavit(siconfi, competencia)
       .then((body) => {
