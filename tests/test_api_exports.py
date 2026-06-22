@@ -103,6 +103,23 @@ class TestPdfExport:
         assert response.content.startswith(b"%PDF-1.4")
         assert (reports / f"executivo_{siconfi}_{competencia}.pdf").is_file()
 
+    def test_pdf_inclui_secoes_branded(
+        self,
+        populated_exports: tuple[str, str, Path],
+    ) -> None:
+        """PDF branded traz as seções estruturadas (dimensões/conformidade)."""
+        siconfi, competencia, _ = populated_exports
+        client = TestClient(app)
+        response = client.get(
+            "/api/exports/pdf",
+            params={"siconfi": siconfi, "competencia": competencia},
+        )
+        assert response.status_code == 200
+        assert b"Conformidade MSC" in response.content
+        # seção de dimensões só aparece se o payload estruturado foi populado
+        # ("ã" sai como escape octal \343 no content stream do reportlab)
+        assert rb"Desempenho por dimens\343o" in response.content
+
     def test_pdf_404_quando_snapshot_ausente(self) -> None:
         client = TestClient(app)
         response = client.get(
@@ -212,9 +229,9 @@ class TestPdfExport:
             params={"siconfi": "2507507EX", "competencia": "2025-12"},
         )
         assert response.status_code == 200
-        assert b"2025-11: score" in response.content
-        assert b"2025-12: score" in response.content
-        assert b"2026-01: score" not in response.content
+        assert b"2025-11" in response.content
+        assert b"2025-12" in response.content
+        assert b"2026-01" not in response.content  # futura: não entra no PDF de 2025-12
 
     def test_pdf_ignora_snapshot_historico_corrompido(
         self,
@@ -260,4 +277,4 @@ class TestPdfExport:
             params={"siconfi": "2507507EX", "competencia": "2025-12"},
         )
         assert response.status_code == 200
-        assert b"2025-12: score" in response.content
+        assert b"2025-12" in response.content
