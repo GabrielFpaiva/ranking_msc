@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useLocation } from 'react-router-dom';
 
 import { ApiError, api } from '../api/client';
 import { useMCRA } from '../store/useMCRA';
+import type { Competencia } from '../types';
 
 const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
   '/inicio': { breadcrumb: 'Análise', title: 'Início' },
@@ -24,7 +25,7 @@ interface TopBarProps {
 
 export function TopBar({ onMenuToggle }: TopBarProps) {
   const { pathname } = useLocation();
-  const { competencia, siconfi } = useMCRA();
+  const { competencia, siconfi, setCurrent } = useMCRA();
   const hasSelection = Boolean(siconfi && competencia);
   const { breadcrumb, title } = ROUTE_TITLES[pathname] ?? {
     breadcrumb: 'MCRA',
@@ -32,11 +33,39 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
   };
   const [exportBusy, setExportBusy] = useState<'excel' | 'pdf' | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [comps, setComps] = useState<Competencia[]>([]);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!siconfi) {
+      setComps([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .competencias(siconfi)
+      .then((items) => {
+        if (!cancelled) setComps(items);
+      })
+      .catch(() => {
+        if (!cancelled) setComps([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [siconfi, competencia]);
+
+  const competenciaOptions = useMemo(() => {
+    const months = comps.map((item) => item.competencia);
+    if (competencia && !months.includes(competencia)) {
+      return [competencia, ...months];
+    }
+    return months;
+  }, [comps, competencia]);
 
   function triggerExport(type: 'excel' | 'pdf') {
     if (!siconfi || !competencia || exportBusy) return;
@@ -83,7 +112,22 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
           <div className="samid-competencia-lbl">
             {siconfi ? `ENTE ${siconfi}` : 'COMPETÊNCIA'}
           </div>
-          <div className="samid-competencia-val">{competencia ?? '—'}</div>
+          {siconfi && competencia ? (
+            <select
+              className="samid-select samid-competencia-select"
+              aria-label="Trocar competência"
+              value={competencia}
+              onChange={(e) => setCurrent(siconfi, e.target.value)}
+            >
+              {competenciaOptions.map((mes) => (
+                <option key={mes} value={mes}>
+                  {mes}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="samid-competencia-val">{competencia ?? '—'}</div>
+          )}
         </div>
         <button
           type="button"
