@@ -146,8 +146,10 @@ antigo F0-06 (pendencias completas no PDF) encerrado. Ver
 ### F5-10 - Treinamento e demonstracao
 
 - [x] preparar roteiro curto baseado no fluxo operacional *(`doc/roteiro_treinamento.md`)*;
-- [ ] demonstrar login, upload, score, pendencias, regras, exportacoes, superavit e comparar;
+- [ ] demonstrar login, upload, score, pendencias, regras, exportacoes, superavit e comparar *(demo ao vivo com a equipe da PMJP ainda pendente)*;
 - [ ] coletar duvidas e registrar ajustes finais realmente necessarios.
+
+**Dry-run local (2026-06-22):** fluxo completo das 9 etapas do roteiro validado no app local (amostra `msc_2026-01.csv`, competencia 2026-01, score 76,4/banda C, 945 pendencias, 78 regras / 0 erro). Login, upload+execucao, score, pendencias (filtro ERRO 945->278), catalogo de 78 regras, exportacoes (Excel + PDF executivo de 1 pagina), superavit por FR, comparar (2025-13 -> 2026-01: -12,03 pts / +489 pendencias) e logout (rota protegida bloqueada) OK, zero erros de console. Evidencias em `doc/demo-evidence/`. Achados nao bloqueantes: formatacao `-R$ 0,00` (zero negativo) em saldos nulos; badge "73 regras" no Executivo (regras com pontuacao/pendencia) pode confundir vs. 78 do catalogo. Falta apenas a demo ao vivo com a equipe.
 
 ### F5-11 - Handoff operacional
 
