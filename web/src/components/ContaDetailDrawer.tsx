@@ -3,14 +3,11 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { Drawer } from './Drawer';
 import { useMCRA } from '../store/useMCRA';
+import { fmtBRL } from '../format';
 import type { ContaDetail } from '../types';
 
 interface ContaDetailDrawerProps {
   contaContabil: string;
-}
-
-function fmtBRL(v: number): string {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 export function ContaDetailDrawer({ contaContabil }: ContaDetailDrawerProps) {

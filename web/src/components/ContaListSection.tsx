@@ -1,9 +1,6 @@
 import { useDrawer } from '../store/useDrawer';
+import { fmtBRL } from '../format';
 import type { ContaListGroup } from '../types';
-
-function fmtBRL(v: number): string {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
 
 function summarizeFR(fr: string | null): string {
   if (!fr) return '—';
