@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { ApiError, api } from '../api/client';
 import { DimTag } from '../components/DimTag';
@@ -9,11 +9,20 @@ import { useMCRA } from '../store/useMCRA';
 import type { PendenciasPage, Severidade } from '../types';
 
 const SEV_OPTIONS: (Severidade | '')[] = ['', 'ERRO', 'ALERTA', 'INFO'];
+const DIM_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Todas' },
+  { value: 'Estrutura', label: 'Estrutura' },
+  { value: 'Fechamento', label: 'Fechamento' },
+  { value: 'IC_Dominio', label: 'IC / Domínio' },
+  { value: 'PCASP_Completude', label: 'PCASP / Completude' },
+  { value: 'Temporal', label: 'Temporal' },
+];
 const PAGE_SIZE = 100;
 
 export function Pendencias() {
   const { siconfi, competencia } = useMCRA();
   const { openRule, openConta } = useDrawer();
+  const [searchParams] = useSearchParams();
   const [page, setPage] = useState<PendenciasPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,6 +31,7 @@ export function Pendencias() {
   const [filterSev, setFilterSev] = useState<Severidade | ''>('');
   const [filterRegra, setFilterRegra] = useState('');
   const [filterConta, setFilterConta] = useState('');
+  const [filterDimensao, setFilterDimensao] = useState(searchParams.get('dimensao') ?? '');
   const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
@@ -45,6 +55,7 @@ export function Pendencias() {
         regra_id: filterRegra || undefined,
         severidade: filterSev || undefined,
         conta_prefix: filterConta || undefined,
+        dimensao: filterDimensao || undefined,
         offset: currentPage * PAGE_SIZE,
         limit: PAGE_SIZE,
       })
@@ -62,12 +73,13 @@ export function Pendencias() {
     return () => {
       cancelled = true;
     };
-  }, [siconfi, competencia, filterRegra, filterSev, filterConta, currentPage]);
+  }, [siconfi, competencia, filterRegra, filterSev, filterConta, filterDimensao, currentPage]);
 
   function resetFilters() {
     setFilterSev('');
     setFilterRegra('');
     setFilterConta('');
+    setFilterDimensao('');
     setCurrentPage(0);
   }
 
@@ -121,6 +133,21 @@ export function Pendencias() {
               {opt || 'Todas'}
             </label>
           ))}
+        </div>
+
+        <div className="samid-filter-group">
+          <span className="samid-filter-lbl">Dimensão</span>
+          <select
+            className="samid-select"
+            value={filterDimensao}
+            onChange={(e) => handleFilterChange(setFilterDimensao)(e.target.value)}
+          >
+            {DIM_OPTIONS.map((o) => (
+              <option key={o.value || 'todas'} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="samid-filter-group">
