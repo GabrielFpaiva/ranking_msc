@@ -247,3 +247,22 @@ class TestAggregateSuperavitRows:
 
         with pytest.raises(ConfigError, match="faltam colunas"):
             aggregate_superavit_rows(df, pcasp=pcasp)
+
+
+def test_filter_pendencias_por_dimensao_de_pontuacao() -> None:
+    """Filtra por dimensão de score, mapeando a categoria da regra."""
+    df = pd.DataFrame(
+        [
+            {"regra_id": "R030", "dimensao": "Fechamento", "severidade": "ERRO",
+             "conta_contabil": "111"},
+            {"regra_id": "R020", "dimensao": "IC", "severidade": "ERRO",
+             "conta_contabil": "222"},
+            {"regra_id": "R045", "dimensao": "ND", "severidade": "ALERTA",
+             "conta_contabil": "333"},
+        ]
+    )
+    # "IC" e "ND" mapeiam para a dimensão de pontuação "IC_Dominio"
+    out = filter_pendencias(df, dimensao="IC_Dominio")
+    assert set(out["regra_id"]) == {"R020", "R045"}
+    out2 = filter_pendencias(df, dimensao="Fechamento")
+    assert set(out2["regra_id"]) == {"R030"}

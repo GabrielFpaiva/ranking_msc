@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from ranking_msc.engine.score_engine import scoring_dimension
 from ranking_msc.exceptions import ConfigError, SnapshotNotFoundError
 from ranking_msc.outputs.snapshot import read_snapshot
 from ranking_msc.rules.base import RULE_REGISTRY, ic_mask_informada
@@ -91,6 +92,7 @@ def filter_pendencias(
     regra_id: str | None = None,
     severidade: str | None = None,
     conta_contabil_prefix: str | None = None,
+    dimensao: str | None = None,
 ) -> pd.DataFrame:
     """Aplica filtros usuais da tela Pendências sobre o DataFrame de pendências.
 
@@ -99,6 +101,8 @@ def filter_pendencias(
         regra_id: filtra por regra exata (ex: ``"R054"``).
         severidade: filtra por severidade exata (``ERRO``/``ALERTA``/``INFO``).
         conta_contabil_prefix: filtra contas que começam com este prefixo (ex: ``"1.1.1"``).
+        dimensao: filtra por dimensão de pontuação (ex: ``"Fechamento"``, ``"IC_Dominio"``),
+            mapeando a categoria da regra de cada pendência via ``scoring_dimension``.
 
     Returns:
         DataFrame filtrado (cópia rasa).
@@ -113,6 +117,8 @@ def filter_pendencias(
         df = df[df["severidade"] == severidade]
     if conta_contabil_prefix:
         df = df[df["conta_contabil"].astype(str).str.startswith(conta_contabil_prefix)]
+    if dimensao:
+        df = df[df["dimensao"].astype(str).map(scoring_dimension) == dimensao]
     return df.reset_index(drop=True)
 
 
