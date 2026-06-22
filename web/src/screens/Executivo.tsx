@@ -92,7 +92,7 @@ export function Executivo() {
             Pontuação consolidada do envio à Matriz de Saldos Contábeis no SICONFI.
           </p>
           <div className="samid-exec-badges">
-            <span className="samid-pill samid-pill-info">{score.regras_executadas} regras</span>
+            <span className="samid-pill samid-pill-info" title="Regras que entram no cálculo do score (exclui regras informativas)">{score.regras_executadas} pontuáveis</span>
             <span className="samid-pill samid-pill-erro">{score.regras_falhas_erro} ERRO</span>
             <span className="samid-pill samid-pill-alerta">{score.regras_falhas_alerta} ALERTA</span>
           </div>

@@ -3,11 +3,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useMCRA } from '../store/useMCRA';
+import { fmtBRL } from '../format';
 import type { SuperavitData } from '../types';
-
-function fmtBRL(v: number): string {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
 
 export function Superavit() {
   const { siconfi, competencia } = useMCRA();
