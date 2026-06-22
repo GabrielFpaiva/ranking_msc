@@ -133,6 +133,7 @@ def test_export_issues_excel_gera_arquivo_com_abas_esperadas(
 
     workbook = load_workbook(output)
     assert workbook.sheetnames == [
+        "Visão Geral",
         "Resumo",
         "Pendências",
         "Fechamento",
@@ -546,6 +547,27 @@ class TestScoreSheet:
         wb = load_workbook(output)
         assert "Score" not in wb.sheetnames
 
+    def test_capa_visao_geral_e_primeira_aba_branded(
+        self,
+        local_tmp_dir: Path,
+        pendencias_sinteticas: pd.DataFrame,
+        score_result_banda_b: ScoreResult,
+    ) -> None:
+        """A capa 'Visão Geral' é a 1ª aba e traz marca + score."""
+        output = export_issues_excel(
+            pendencias_sinteticas,
+            competencia="2024-01",
+            output_dir=local_tmp_dir,
+            score_result=score_result_banda_b,
+        )
+        wb = load_workbook(output)
+        assert wb.sheetnames[0] == "Visão Geral"
+        ws = wb["Visão Geral"]
+        valores = [str(c.value) for row in ws.iter_rows() for c in row if c.value]
+        assert any("MCRA" in v for v in valores)
+        assert any("Conformidade" in v for v in valores)
+        assert any("87.5" in v or "87,5" in v for v in valores)
+
     def test_com_score_result_cria_aba_score(
         self,
         local_tmp_dir: Path,
@@ -658,6 +680,7 @@ class TestAbasPorDimensao:
         )
         wb = load_workbook(output)
         assert wb.sheetnames == [
+            "Visão Geral",
             "Resumo",
             "Pendências",
             "Fechamento",
@@ -759,7 +782,7 @@ class TestAbasPorDimensao:
             output_dir=local_tmp_dir,
         )
         wb = load_workbook(output)
-        assert wb.sheetnames == ["Resumo", "Pendências", "Saldo Devedor"]
+        assert wb.sheetnames == ["Visão Geral", "Resumo", "Pendências", "Saldo Devedor"]
 
 
 def pendencias_sinteticas_columns() -> tuple[str, ...]:

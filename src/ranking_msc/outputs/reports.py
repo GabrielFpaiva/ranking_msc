@@ -146,6 +146,7 @@ def export_issues_excel(
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
+            _add_cover_sheet(writer, competencia, score_result)
             resumo_df.to_excel(writer, sheet_name="Resumo", index_label="severidade")
             ws_resumo = writer.sheets["Resumo"]
             _format_header(ws_resumo)
@@ -414,6 +415,59 @@ def _dim_band_fill(nota: float) -> PatternFill:
         if nota >= threshold:
             return _BAND_FILLS[band]
     return _BAND_FILLS["E"]
+
+
+def _add_cover_sheet(
+    writer: pd.ExcelWriter,
+    competencia: str,
+    score_result: ScoreResult | None,
+) -> None:
+    """Adiciona a capa 'Visão Geral' como primeira aba (banner + score).
+
+    Banner navy com wordmark MCRA, competência e — quando há ``score_result`` —
+    a nota/banda em destaque e uma mini-tabela de dimensões.
+
+    Args:
+        writer: ExcelWriter aberto (contexto ``with pd.ExcelWriter``).
+        competencia: competência no formato "YYYY-MM".
+        score_result: resultado de ``calculate_score()`` ou ``None``.
+    """
+    ws = writer.book.create_sheet("Visão Geral", 0)
+    ws.sheet_view.showGridLines = False
+
+    ws.merge_cells("A1:F2")
+    banner = ws["A1"]
+    banner.value = "MCRA · PMJP — Conformidade MSC"
+    banner.font = brand.TITLE_FONT
+    banner.fill = brand.HEADER_FILL
+
+    ws["A4"] = "Competência"
+    ws["B4"] = competencia
+
+    if score_result is not None:
+        ws["A6"] = "Nota"
+        nota_cell = ws["B6"]
+        nota_cell.value = round(score_result.pontuacao, 2)
+        nota_cell.fill = brand.fill(brand.band_hex(score_result.banda))
+        nota_cell.font = Font(bold=True, size=20)
+        ws["A7"] = "Banda"
+        ws["B7"] = score_result.banda
+
+        row = 9
+        for col_idx, header in enumerate(("Dimensão", "Nota %"), start=1):
+            cell = ws.cell(row=row, column=col_idx, value=header)
+            cell.font = brand.HEADER_FONT
+            cell.fill = brand.HEADER_FILL
+        for dim_score in sorted(
+            score_result.dimensions.values(), key=lambda item: item.score
+        ):
+            row += 1
+            ws.cell(row=row, column=1, value=dim_score.dimension)
+            nota = round(dim_score.score * 100, 1)
+            cell = ws.cell(row=row, column=2, value=nota)
+            cell.fill = brand.fill(brand.band_hex_for_score(nota))
+
+    _auto_fit_columns(ws)
 
 
 def _add_score_sheet(
