@@ -139,6 +139,20 @@ Decisao: **manter a divisao** PDF executivo (1 pagina) + Excel completo. Requisi
 antigo F0-06 (pendencias completas no PDF) encerrado. Ver
 `doc/governanca_documental.md` §7.
 
+### F5-18 - Relatorios exportados branded — CONCLUIDA
+
+PDF executivo reescrito com `reportlab` (identidade MCRA navy/dourado, 1 pagina:
+faixa de marca, score em destaque, barras por dimensao, historico e cards de
+recomendacao; acentos PT-BR corretos) e Excel re-estilizado (capa "Visao Geral",
+cabecalho navy/branco, bordas, bandas alinhadas a paleta). Paleta centralizada em
+`src/ranking_msc/outputs/brand.py`. Nova dependencia `reportlab>=4.0` (wheel pura,
+sem libs de sistema). Contratos publicos (`export_issues_excel`,
+`render_executive_pdf`, `write_executive_pdf`) inalterados. Spec/plano em
+`doc/specs/` e `doc/plans/`.
+
+> Formato contabil (R$) nas colunas de valor foi descartado: `valor_esperado`/
+> `valor_encontrado` sao textuais nas pendencias, entao nao se aplica.
+
 ---
 
 ## P2 - Treinamento e Entrega

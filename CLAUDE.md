@@ -458,7 +458,8 @@ mypy src/ app/api/             # tipos ok?
 | Exceções | Hierarquia própria sob `RankingMSCError` | Captura seletiva, mensagens claras |
 | Logging | `logging` stdlib + JSON Lines | Thread-safe, parseable, sem dependência |
 | Snapshots | Parquet via pyarrow | Compacto, tipado, rápido para DataFrames |
-| Relatórios | Excel via openpyxl | Familiar para o analista da prefeitura |
+| Relatórios Excel | openpyxl + paleta MCRA (`outputs/brand.py`) | Familiar para o analista; identidade visual consistente (capa, cabeçalho navy, bordas) |
+| Relatórios PDF | reportlab (1 página executiva, branded) | Layout gráfico (score/dimensões/recomendações/histórico); substituiu o gerador manual de PDF |
 | Regras | Classe ABC + Registry + decorator | Extensível sem modificar engine |
 | Testes | pytest | Padrão da indústria, fixtures, boa UX |
 | Lint | ruff | Rápido, substitui flake8+isort+pyupgrade |

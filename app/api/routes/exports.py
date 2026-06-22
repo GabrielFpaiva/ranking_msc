@@ -8,7 +8,7 @@ GET /api/exports/pdf — gera/baixa o PDF da Visão Executiva.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -149,7 +149,7 @@ def _build_pdf_payload(siconfi: str, competencia: str) -> ExecutivePdfPayload:
         )
         for index, item in enumerate(recommendations, start=1)
     ]
-    data_geracao = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+    data_geracao = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M")
 
     return ExecutivePdfPayload(
         siconfi=siconfi,
