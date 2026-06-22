@@ -105,6 +105,15 @@ Checklist:
 
 **Concluido em `#113` (UX-01 a UX-06).** Entregue: navegacao/sessao limpas com logout e usuario logado no TopBar; fluxo principal autoexplicativo; paginacao real de pendencias; responsividade minima; tela de login alinhada ao design MCRA; e padronizacao de mensagens de erro (sem codigos HTTP brutos). Historico detalhado no Git.
 
+### F5-19 - Seletor de competencia na TopBar — CONCLUIDA
+
+Dropdown na TopBar lista as competencias enviadas do ente ativo e troca a
+competencia ativa (`store.setCurrent`), com todas as telas refletindo via
+`useEffect([siconfi, competencia])`. Apenas competencia (um ente); o ente segue
+read-only — multi-ente fica para o futuro (store/API ja chaveados por ente).
+Estado vazio mantem o placeholder. So frontend (`web/src/components/TopBar.tsx`).
+Spec/plano em `doc/specs/` e `doc/plans/`.
+
 ---
 
 ## P1 - Revisao Tecnica Final
