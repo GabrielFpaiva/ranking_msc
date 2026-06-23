@@ -146,6 +146,7 @@ export const api = {
     regra_id?: string;
     severidade?: string;
     conta_prefix?: string;
+    dimensao?: string;
     offset?: number;
     limit?: number;
   }): Promise<PendenciasPage> =>

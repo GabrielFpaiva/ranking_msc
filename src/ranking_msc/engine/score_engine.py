@@ -56,6 +56,11 @@ _CATEGORY_TO_DIMENSION: dict[str, str] = {
     for cat in cats
 }
 
+
+def scoring_dimension(category: str) -> str | None:
+    """Mapeia a categoria de uma regra para a dimensão de pontuação (ou None)."""
+    return _CATEGORY_TO_DIMENSION.get(category)
+
 # ---------------------------------------------------------------------------
 # Bandas de classificação A-E — doc/modelo_pontuacao.md §6
 # (threshold, banda) — primeira entrada com score >= threshold vence

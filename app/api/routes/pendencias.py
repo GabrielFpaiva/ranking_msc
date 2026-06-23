@@ -36,6 +36,9 @@ def list_pendencias(
     conta_prefix: str | None = Query(
         None, description="Filtra contas que começam com este prefixo"
     ),
+    dimensao: str | None = Query(
+        None, description="Dimensão de pontuação (ex: Fechamento, IC_Dominio)"
+    ),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
 ) -> PendenciasPageOut:
@@ -54,6 +57,7 @@ def list_pendencias(
         regra_id=regra_id,
         severidade=severidade,
         conta_contabil_prefix=conta_prefix,
+        dimensao=dimensao,
     )
     total = int(len(filtered))
     page = filtered.iloc[offset : offset + limit]

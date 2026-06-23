@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { Sev } from '../components/Sev';
 import { ScoreChart } from '../components/charts/ScoreChart';
@@ -19,6 +19,7 @@ const BAND_COLOR: Record<Banda, string> = {
 export function Executivo() {
   const { siconfi, competencia } = useMCRA();
   const { openRule } = useDrawer();
+  const navigate = useNavigate();
   const [score, setScore] = useState<Score | null>(null);
   const [history, setHistory] = useState<ScoreHistory | null>(null);
   const [recos, setRecos] = useState<Recommendation[]>([]);
@@ -186,7 +187,20 @@ export function Executivo() {
         </div>
         <div className="samid-score-breakdown">
           {Object.values(score.dimensions).map((dim) => (
-            <div key={dim.dimension} className="samid-score-row">
+            <div
+              key={dim.dimension}
+              className="samid-score-row"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: 'pointer' }}
+              title={`Ver pendências de ${dim.dimension}`}
+              onClick={() => navigate(`/pendencias?dimensao=${encodeURIComponent(dim.dimension)}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  navigate(`/pendencias?dimensao=${encodeURIComponent(dim.dimension)}`);
+                }
+              }}
+            >
               <div className="samid-score-dim">{dim.dimension}</div>
               <div className="samid-score-bar">
                 <div style={{ width: `${(dim.score * 100).toFixed(1)}%` }} />

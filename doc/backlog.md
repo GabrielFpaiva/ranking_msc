@@ -186,6 +186,68 @@ Documento base: `doc/handoff.md` (criado; campos dependentes da PMJP marcados co
 
 ---
 
+## Backlog de Evolucao — Reuniao Bruno (2026-06-22)
+
+Itens levantados em reuniao com o Bruno. Capturados via briefing; nao bloqueiam
+o go-live atual. Itens 1 e 2 sao UX pequenas e relacionadas; o item 3 e um epico.
+
+### UX-09 - Filtro por dimensao em Pendencias — CONCLUIDA
+
+**Objetivo:** permitir filtrar a tela de Pendencias por dimensao/tipo de problema,
+alem dos filtros atuais (Severidade, Regra, Conta).
+
+- [x] backend: `GET /api/pendencias` aceita `dimensao` (mapeia a categoria da regra
+      para a dimensao de pontuacao via `scoring_dimension`/`DIMENSION_CATEGORIES`);
+- [x] frontend: seletor de dimensao no rail de `Pendencias.tsx` (5 dimensoes de score);
+- [x] teste do filtro (backend) + verificacao manual.
+
+Decisao: vocabulario sao as **5 dimensoes de pontuacao** (Estrutura, Fechamento,
+IC_Dominio, PCASP_Completude, Temporal), coerente com as barras de score.
+
+### UX-08 - Deep-link dimensao -> Pendencias filtradas — CONCLUIDA
+
+**Objetivo:** clicar numa dimensao no score (Home/Executivo) abre Pendencias **ja
+filtrada** por aquela dimensao.
+
+- [x] linhas de dimensao do breakdown clicaveis (Home e Executivo);
+- [x] navega para `/pendencias?dimensao=<dim>`; `Pendencias.tsx` le o query param;
+- [x] o filtro vem pre-selecionado e a lista ja aparece filtrada.
+
+Verificado: clicar "Fechamento" leva a Pendencias mostrando so as de Fechamento.
+
+### EPIC-EDIT - Correcao assistida da MSC no sistema
+
+**Objetivo:** corrigir pendencias editando os dados da MSC dentro do sistema,
+reprocessar para ver o impacto, e exportar a MSC corrigida para reenvio ao SICONFI.
+
+Decisoes do briefing (2026-06-22):
+
+- **O que edita:** depende da regra/pendencia. Clicar na pendencia abre a linha da
+  MSC daquela conta com o(s) campo(s) relevante(s) destacado(s) — pode ser um
+  **valor** (saldo) ou um **classificador** (IC, ND, FS, FR...), conforme o que a
+  regra apontou.
+- **Persistencia:** original do upload fica **imutavel**; edicoes vao para uma
+  **copia de trabalho** da MSC (por ente/competencia). Edicao em lote.
+- **Revalidacao:** botao **"Reprocessar"** re-roda o pipeline sobre a copia de
+  trabalho e atualiza pendencias/score (nao ao vivo por celula).
+- **Entregavel final:** **exportar a MSC corrigida** (layout SICONFI) para reenvio.
+
+Pontos em aberto (resolver no design do epico):
+
+- mapear, por regra, qual(is) campo(s) sao editaveis para "consertar" aquela
+  pendencia;
+- trilha de auditoria (quem editou o que — modelo institucional, JWT ja identifica
+  o usuario; ver `TECH-03`); revert/reset para o original; versionamento da copia
+  de trabalho;
+- validacao dos valores editados antes de aceitar; concorrencia (lock por
+  ente/competencia ja existe);
+- garantir que o CSV exportado bate exatamente com o layout MSC do SICONFI.
+
+> Este epico precisa do seu proprio ciclo spec -> plano -> implementacao (e
+> provavelmente ser quebrado em sub-tarefas) antes de codar.
+
+---
+
 ## Fora do Fechamento Atual
 
 Estes itens nao bloqueiam a entrega e nao devem disputar prioridade com go-live, UX ou treinamento.

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { ApiError, api } from '../api/client';
 import { DimTag } from '../components/DimTag';
@@ -13,6 +14,7 @@ import type { RunSummary, ScoreHistory, Summary } from '../types';
 export function Home() {
   const { siconfi, competencia, lastRun, setLastRun } = useMCRA();
   const { openRule } = useDrawer();
+  const navigate = useNavigate();
   const [history, setHistory] = useState<ScoreHistory | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [run, setRun] = useState<RunSummary | null>(lastRun);
@@ -164,7 +166,20 @@ export function Home() {
               <ScoreBadge pontuacao={summary.score.pontuacao} banda={summary.score.banda} size="lg" />
               <div className="samid-score-breakdown">
                 {Object.entries(summary.score.dimensions).map(([key, dim]) => (
-                  <div key={key} className="samid-score-row">
+                  <div
+                    key={key}
+                    className="samid-score-row"
+                    role="button"
+                    tabIndex={0}
+                    style={{ cursor: 'pointer' }}
+                    title={`Ver pendências de ${dim.dimension}`}
+                    onClick={() => navigate(`/pendencias?dimensao=${encodeURIComponent(dim.dimension)}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        navigate(`/pendencias?dimensao=${encodeURIComponent(dim.dimension)}`);
+                      }
+                    }}
+                  >
                     <div className="samid-score-dim">{dim.dimension}</div>
                     <div className="samid-score-bar">
                       <div style={{ width: `${(dim.score * 100).toFixed(1)}%` }} />
