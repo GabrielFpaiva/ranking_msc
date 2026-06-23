@@ -191,31 +191,29 @@ Documento base: `doc/handoff.md` (criado; campos dependentes da PMJP marcados co
 Itens levantados em reuniao com o Bruno. Capturados via briefing; nao bloqueiam
 o go-live atual. Itens 1 e 2 sao UX pequenas e relacionadas; o item 3 e um epico.
 
-### UX-09 - Filtro por dimensao em Pendencias
+### UX-09 - Filtro por dimensao em Pendencias — CONCLUIDA
 
-**Objetivo:** permitir filtrar a tela de Pendencias por dimensao/tipo de problema
-(Fechamento, Dominio, Estrutura, IC, Completude, Temporal...), alem dos filtros
-atuais (Severidade, Regra, Conta).
+**Objetivo:** permitir filtrar a tela de Pendencias por dimensao/tipo de problema,
+alem dos filtros atuais (Severidade, Regra, Conta).
 
-- [ ] backend: aceitar parametro `dimensao` no `GET /api/pendencias` (hoje aceita
-      `regra_id`, `severidade`, `conta_prefix`);
-- [ ] frontend: adicionar um seletor de dimensao no rail de filtros de `Pendencias.tsx`;
-- [ ] teste do filtro (backend) + verificacao manual.
+- [x] backend: `GET /api/pendencias` aceita `dimensao` (mapeia a categoria da regra
+      para a dimensao de pontuacao via `scoring_dimension`/`DIMENSION_CATEGORIES`);
+- [x] frontend: seletor de dimensao no rail de `Pendencias.tsx` (5 dimensoes de score);
+- [x] teste do filtro (backend) + verificacao manual.
 
-**Criterio de aceite:** selecionar uma dimensao reduz a lista as pendencias
-daquela dimensao.
+Decisao: vocabulario sao as **5 dimensoes de pontuacao** (Estrutura, Fechamento,
+IC_Dominio, PCASP_Completude, Temporal), coerente com as barras de score.
 
-### UX-08 - Deep-link dimensao -> Pendencias filtradas
+### UX-08 - Deep-link dimensao -> Pendencias filtradas — CONCLUIDA
 
-**Objetivo:** clicar numa dimensao no dashboard/score (ex.: barra "Fechamento" na
-Home/Executivo) abre a tela de Pendencias **ja filtrada** por aquela dimensao.
+**Objetivo:** clicar numa dimensao no score (Home/Executivo) abre Pendencias **ja
+filtrada** por aquela dimensao.
 
-- [ ] tornar as linhas de dimensao do breakdown clicaveis (Home e/ou Executivo);
-- [ ] navegar para `/pendencias` aplicando o filtro de dimensao (depende de `UX-09`);
-- [ ] o filtro vem pre-selecionado e a lista ja aparece filtrada.
+- [x] linhas de dimensao do breakdown clicaveis (Home e Executivo);
+- [x] navega para `/pendencias?dimensao=<dim>`; `Pendencias.tsx` le o query param;
+- [x] o filtro vem pre-selecionado e a lista ja aparece filtrada.
 
-**Depende de:** `UX-09` (o filtro precisa existir). **Criterio de aceite:** clicar
-em "Fechamento" leva a Pendencias mostrando so as pendencias de Fechamento.
+Verificado: clicar "Fechamento" leva a Pendencias mostrando so as de Fechamento.
 
 ### EPIC-EDIT - Correcao assistida da MSC no sistema
 
