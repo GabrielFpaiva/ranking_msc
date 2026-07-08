@@ -5,23 +5,29 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  /* ---------- Core palette ---------- */
-  --samid-midnight:    #0F1E3D;  /* sidebar, headers */
-  --samid-midnight-80: #27334F;  /* sidebar hover */
-  --samid-midnight-60: #4A5469;  /* sidebar inactive */
-  --samid-parchment:   #F6F4EE;  /* main background */
-  --samid-parchment-dk:#E6E3DA;  /* dividers, table borders */
+  /* ---------- Marca PMJP ---------- */
+  --jp-red:      #E1251B;   /* marca / primário */
+  --jp-red-dk:   #B4160F;   /* hover / pressed */
+  --jp-red-lt:   #FDE8E7;   /* tint de fundo */
+  --jp-charcoal: #1B1B1F;   /* superfície escura estrutural */
+
+  /* ---------- Core palette (repontada p/ PMJP) ---------- */
+  --samid-midnight:    #1B1B1F;  /* estrutural escuro: hero, log, drawer, brand mark */
+  --samid-midnight-80: #2C2C31;
+  --samid-midnight-60: #54545C;
+  --samid-parchment:   #F7F7F8;  /* fundo neutro (era bege) */
+  --samid-parchment-dk:#E4E4E7;  /* dividers, table borders */
   --samid-paper:       #FFFFFF;  /* cards */
   --samid-ink:         #1B1B1F;  /* primary text on light */
   --samid-graphite:    #5A5C66;  /* secondary text */
   --samid-slate:       #8A8D96;  /* tertiary text, placeholders */
-  --samid-gold:        #C9A449;  /* primary accent */
-  --samid-gold-dk:     #A8862E;  /* gold pressed/hover */
-  --samid-gold-lt:     #F3E6BA;  /* gold background tint */
+  --samid-gold:        #E1251B;  /* acento de marca (era dourado) */
+  --samid-gold-dk:     #B4160F;  /* pressed/hover */
+  --samid-gold-lt:     #FDE8E7;  /* tint da marca */
 
   /* ---------- Semantic / status ---------- */
-  --samid-erro:     #C02B2B;
-  --samid-erro-bg:  #FBEAEA;
+  --samid-erro:     #A01818;  /* bordô — distinto da marca */
+  --samid-erro-bg:  #F7E4E3;
   --samid-alerta:   #D98B1C;
   --samid-alerta-bg:#FBEFD9;
   --samid-info:     #1E5AA8;
@@ -45,26 +51,26 @@
   /* ---------- Background aliases ---------- */
   --bg-canvas:  var(--samid-parchment);
   --bg-surface: var(--samid-paper);
-  --bg-sunken:  #EFECE3;
-  --bg-nav:     var(--samid-midnight);
+  --bg-sunken:  #EEEEF0;
+  --bg-nav:     #FFFFFF;         /* sidebar agora clara */
 
   /* ---------- Border ---------- */
-  --border-subtle: #EFECE3;
-  --border-default:#E6E3DA;
-  --border-strong: #D6D2C6;
+  --border-subtle: #EFEFF1;
+  --border-default:#E4E4E7;
+  --border-strong: #D6D6DA;
 
   /* ---------- Type ---------- */
   --font-display: 'Inter Tight', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-body:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --fs-h1:    36px;
-  --fs-h2:    28px;
-  --fs-h3:    22px;
-  --fs-h4:    18px;
-  --fs-body:  16px;
-  --fs-small: 14px;
-  --fs-micro: 12px;
+  --fs-h1:    46px;
+  --fs-h2:    36px;
+  --fs-h3:    28px;
+  --fs-h4:    23px;
+  --fs-body:  20px;
+  --fs-small: 18px;
+  --fs-micro: 16px;
 
   --lh-tight: 1.15;
   --lh-snug:  1.35;
@@ -97,7 +103,7 @@
   --shadow-card:   0 1px 3px rgba(15,30,61,.08), 0 1px 2px rgba(15,30,61,.04);
   --shadow-raised: 0 8px 24px rgba(15,30,61,.12);
   --shadow-modal:  0 24px 60px rgba(15,30,61,.24);
-  --shadow-focus:  0 0 0 3px rgba(201,164,73,.30);
+  --shadow-focus:  0 0 0 3px rgba(225,37,27,.30);
 
   /* ---------- Motion ---------- */
   --ease-out: cubic-bezier(.2,.8,.2,1);

@@ -43,6 +43,9 @@ export function Login() {
         <div className="samid-login-stripe" />
 
         <div className="samid-login-body">
+          <div className="samid-login-logo">
+            <img src="/brand/pmjp-lockup.png" alt="Prefeitura de João Pessoa" />
+          </div>
           <div className="samid-login-header">
             <h1 id="login-title" className="samid-login-title">
               MCRA PMJP — Mapeamento Contábil Ranking A
