@@ -76,42 +76,40 @@ class R020(Rule):
 
         # Garante que as colunas IC existem no DataFrame
         ic_cols_presentes = [col for col in IC_COLS if col in df.columns]
+        ic_upper = [col.upper() for col in ic_cols_presentes]
 
-        # Pegar uma linha por conta (IC é igual para todas as linhas da mesma conta)
-        contas_unicas = df[["conta_contabil"] + ic_cols_presentes].drop_duplicates(
-            subset=["conta_contabil"]
-        ).copy()
-        contas_unicas["conta_contabil"] = contas_unicas["conta_contabil"].astype(str)
+        # Uma conta decompõe-se em VÁRIAS linhas (diferentes fontes/contrapartidas),
+        # cada uma com um subconjunto de ICs. O conjunto de IC "informado" da conta
+        # é a UNIÃO dos ICs presentes em qualquer uma de suas linhas — nunca uma
+        # linha amostrada. Máscara booleana de "informado" por coluna IC:
+        mask_df = pd.DataFrame(
+            {col.upper(): ic_mask_informada(df[col]) for col in ic_cols_presentes},
+            index=df.index,
+        )
+        mask_df["conta_contabil"] = df["conta_contabil"].astype(str).values
+
+        # União por conta: IC informado se aparece em ao menos uma linha da conta.
+        ic_por_conta = mask_df.groupby("conta_contabil", as_index=False).any()
 
         # Merge com PCASP para obter id_ic
-        merged = contas_unicas.merge(pcasp_map, on="conta_contabil", how="inner")
+        merged = ic_por_conta.merge(pcasp_map, on="conta_contabil", how="inner")
 
         if merged.empty:
             # Contas não encontradas no PCASP — R010 trata
             return self.build_issues([])
 
-        # Computar conjuntos IC informados e esperados por conta (vetorizado)
-        # Criar mask booleana por coluna IC
-        ic_informado_masks = {}
-        for col in ic_cols_presentes:
-            ic_informado_masks[col.upper()] = ic_mask_informada(merged[col])
-
-        # Construir set informado por conta — ainda precisa de apply mas sobre DF menor
-        ic_informado_df = pd.DataFrame(ic_informado_masks, index=merged.index)
-
-        # Para cada linha, computar conjunto informado e esperado
+        # Para cada conta, computar conjunto informado e esperado
         issues: list[dict[str, object]] = []
 
         # Agrupar por id_ic para processar em batch
         for id_ic_val, group in merged.groupby("id_ic"):
             ic_esperado = set(IC_MAP[int(float(str(id_ic_val)))])
-            group_idx = group.index
 
-            for idx in group_idx:
+            for idx in group.index:
                 ic_informado = {
                     col_upper
-                    for col_upper in ic_informado_df.columns
-                    if ic_informado_df.at[idx, col_upper]
+                    for col_upper in ic_upper
+                    if bool(merged.at[idx, col_upper])
                 }
 
                 if ic_informado == ic_esperado:

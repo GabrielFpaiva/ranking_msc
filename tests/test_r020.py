@@ -80,6 +80,32 @@ class TestR020:
         assert "CO" in row["descricao"]
         assert "faltantes" in row["descricao"].lower()
 
+    def test_ic_informado_em_qualquer_linha_da_conta_conta_como_informado(
+        self,
+        engine_context: object,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Uma conta decompõe-se em várias linhas com conjuntos de IC diferentes.
+        Um IC informado em QUALQUER linha da conta deve contar como informado
+        (união por conta) — não se pode amostrar uma única linha.
+
+        ID_IC=4 exige PO, FP, FR, CO. A conta tem uma linha sem CO e outra com
+        CO; a união satisfaz o esperado, logo não há pendência.
+        """
+        pcasp = _pcasp_stub([("111110200", "4")])
+        monkeypatch.setattr("ranking_msc.rules.r020.load_pcasp", lambda *a, **kw: pcasp)
+
+        ic_cols = ("po", "fp", "dc", "fs", "fr", "co", "nr", "nd", "ai")
+        base = {c: "" for c in ic_cols}
+        linha_sem_co = {**base, "conta_contabil": "111110200",
+                        "po": "10131", "fp": "1", "fr": "1500"}
+        linha_com_co = {**base, "conta_contabil": "111110200",
+                        "po": "10131", "fp": "1", "fr": "1500", "co": "1001"}
+        df = pd.DataFrame([linha_sem_co, linha_com_co])
+        result = R020().execute(df, engine_context)
+
+        assert len(result) == 0
+
     def test_ic_extra_gera_erro(
         self,
         engine_context: object,
