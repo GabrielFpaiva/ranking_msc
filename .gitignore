@@ -67,3 +67,6 @@ docs/superpowers/
 
 # Relatórios mensais locais (não publicar)
 doc/relatorio-maio/
+
+# Claude Code — settings locais do dev
+.claude/settings.local.json
