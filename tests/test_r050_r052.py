@@ -64,6 +64,24 @@ class TestR050:
         assert result.iloc[0]["regra_id"] == "R050"
         assert result.iloc[0]["conta_contabil"] == ""
 
+    def test_r050_resultado_do_periodo_nao_gera_erro(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Antes do encerramento anual, o resultado (VPA−VPD) ainda não foi
+        incorporado ao PL — fica acumulado nas classes 3 (VPD) e 4 (VPA). A
+        equação patrimonial correta é a estendida: Ativo(1)+VPD(3) =
+        Passivo+PL(2)+VPA(4). Ativo isolado ≠ Passivo+PL é normal, e a diferença
+        é justamente o superávit do exercício."""
+        df = pd.DataFrame({
+            "conta_contabil": ["111110200", "211110100", "311110100", "411110100"],
+            # Ativo=1500, Passivo+PL=800, VPD=500, VPA=1200
+            "saldo_final_debito": [1500.0, 0.0, 500.0, 0.0],
+            "saldo_final_credito": [0.0, 800.0, 0.0, 1200.0],
+        })
+        # 1500 + 500 == 800 + 1200 → patrimônio equilibrado (superávit = 700)
+        result = R050().execute(df, engine_context)
+        assert len(result) == 0
+
     def test_r050_df_vazio_sem_pendencia(self, engine_context: EngineContext) -> None:
         """DF vazio → sem pendência."""
         df = pd.DataFrame(columns=["conta_contabil", "saldo_final_debito", "saldo_final_credito"])

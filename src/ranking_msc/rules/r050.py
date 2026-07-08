@@ -5,15 +5,22 @@ Dimensão: Interconta
 Severidade padrão: ERRO
 
 Lógica:
-    Soma dos saldos finais líquidos da classe 1 (Ativo) deve igualar
-    a soma dos saldos finais líquidos da classe 2 (Passivo + PL).
+    Equação patrimonial estendida (válida durante o exercício, antes do
+    encerramento anual). O resultado do período (VPA − VPD) ainda não foi
+    incorporado ao PL — fica acumulado nas classes 3 e 4 — portanto o balanço
+    só fecha incluindo o resultado:
 
-    ativo   = SUM(SF_D - SF_C)  para contas onde conta_contabil[0] == "1"
-    passivo = SUM(SF_C - SF_D)  para contas onde conta_contabil[0] == "2"
-    SE abs(ativo - passivo) > tolerancia → ERRO
+        Ativo (1) + VPD (3)  =  Passivo + PL (2) + VPA (4)
+
+    lado_devedor = SUM(SF_D - SF_C)  para classes {1, 3}  (Ativo + VPD)
+    lado_credor  = SUM(SF_C - SF_D)  para classes {2, 4}  (Passivo+PL + VPA)
+    SE abs(lado_devedor - lado_credor) > tolerancia → ERRO
+
+    No encerramento (VPD = VPA = 0), a equação reduz-se a Ativo = Passivo + PL.
 
 Referência:
-    Portaria STN 642/2026 — Regras Gerais MSC, R050
+    Portaria STN 642/2026 — Regras Gerais MSC, R050; MCASP — equação
+    patrimonial e apuração do resultado (classes 3 e 4).
 """
 
 from __future__ import annotations
@@ -59,21 +66,27 @@ class R050(Rule):
         for col in ("saldo_final_debito", "saldo_final_credito"):
             work[col] = pd.to_numeric(work[col], errors="coerce").fillna(0.0)
 
-        classe1 = work[work["conta_contabil"].str[:1] == "1"]
-        classe2 = work[work["conta_contabil"].str[:1] == "2"]
+        primeiro_digito = work["conta_contabil"].str[:1]
+        devedor = work[primeiro_digito.isin(("1", "3"))]   # Ativo + VPD
+        credor = work[primeiro_digito.isin(("2", "4"))]     # Passivo+PL + VPA
 
-        ativo = (classe1["saldo_final_debito"] - classe1["saldo_final_credito"]).sum()
-        passivo = (classe2["saldo_final_credito"] - classe2["saldo_final_debito"]).sum()
+        lado_devedor = (
+            devedor["saldo_final_debito"] - devedor["saldo_final_credito"]
+        ).sum()
+        lado_credor = (
+            credor["saldo_final_credito"] - credor["saldo_final_debito"]
+        ).sum()
 
-        diferenca = abs(ativo - passivo)
+        diferenca = abs(lado_devedor - lado_credor)
 
         if diferenca <= TOLERANCIA_CENTAVO:
             return self.build_issues([])
 
         logger.warning(
-            "R050: Ativo (%.2f) ≠ Passivo+PL (%.2f), diferença=%.2f. competência=%s",
-            ativo,
-            passivo,
+            "R050: patrimônio não fecha — Ativo+VPD (%.2f) ≠ Passivo+PL+VPA (%.2f), "
+            "diferença=%.2f. competência=%s",
+            lado_devedor,
+            lado_credor,
             diferenca,
             context.competencia,
             extra=_extra,
@@ -84,10 +97,10 @@ class R050(Rule):
             "conta_contabil": "",
             "descricao": (
                 f"Equação patrimonial desequilibrada: "
-                f"Ativo={ativo:.2f}, Passivo+PL={passivo:.2f}, "
+                f"Ativo+VPD={lado_devedor:.2f}, Passivo+PL+VPA={lado_credor:.2f}, "
                 f"diferença={diferenca:.2f}."
             ),
-            "valor_esperado": f"Ativo={ativo:.2f}",
-            "valor_encontrado": f"Passivo+PL={passivo:.2f}",
+            "valor_esperado": f"Ativo+VPD={lado_devedor:.2f}",
+            "valor_encontrado": f"Passivo+PL+VPA={lado_credor:.2f}",
             "competencia": context.competencia,
         }])
