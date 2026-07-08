@@ -432,14 +432,14 @@ class TestR030:
         self,
         engine_context: EngineContext,
     ) -> None:
-        """Mov_D ≠ Mov_C (diferença > 0.01) em conta patrimonial → pendência ERRO."""
+        """∑D ≠ ∑C (diferença > 0.01) no razão patrimonial → pendência ERRO global."""
         df = self._df_patrimonial("111110200", 1000.00, 500.00)
         result = R030().execute(df, engine_context)
 
         assert len(result) == 1
         assert result.iloc[0]["regra_id"] == "R030"
         assert result.iloc[0]["severidade"] == "ERRO"
-        assert result.iloc[0]["conta_contabil"] == "111110200"
+        assert "não fecha" in result.iloc[0]["descricao"]
 
     def test_conta_de_resultado_classe_5_e_ignorada(
         self,
