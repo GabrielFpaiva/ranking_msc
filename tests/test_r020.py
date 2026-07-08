@@ -106,6 +106,43 @@ class TestR020:
 
         assert len(result) == 0
 
+    def test_co_ausente_nao_gera_erro_por_ser_condicional(
+        self,
+        engine_context: object,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """CO (Código de Acompanhamento da Execução Orçamentária) é condicional:
+        o leiaute MSC 2026 (Anexo II) define que CO é usado 'quando se aplicar'.
+        Sua ausência não é violação, mesmo constando do conjunto do ID_IC.
+
+        ID_IC=4 → PO, FP, FR, CO. Informados PO, FP, FR (sem CO) → sem pendência.
+        """
+        pcasp = _pcasp_stub([("111110200", "4")])
+        monkeypatch.setattr("ranking_msc.rules.r020.load_pcasp", lambda *a, **kw: pcasp)
+
+        df = _df_com_ics(conta_contabil="111110200", po="10131", fp="1", fr="1500")
+        result = R020().execute(df, engine_context)
+
+        assert len(result) == 0
+
+    def test_ic_obrigatorio_faltante_ainda_gera_erro_mesmo_sem_co(
+        self,
+        engine_context: object,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """CO condicional não afrouxa os demais: se falta um IC obrigatório
+        (ex.: FR no ID_IC=4), ainda é ERRO — e CO não aparece como faltante."""
+        pcasp = _pcasp_stub([("111110200", "4")])
+        monkeypatch.setattr("ranking_msc.rules.r020.load_pcasp", lambda *a, **kw: pcasp)
+
+        # ID_IC=4 exige PO, FP, FR (+CO condicional). Falta FR.
+        df = _df_com_ics(conta_contabil="111110200", po="10131", fp="1")
+        result = R020().execute(df, engine_context)
+
+        assert len(result) == 1
+        assert "FR" in result.iloc[0]["descricao"]
+        assert "CO" not in result.iloc[0]["descricao"].split("Esperado")[0]
+
     def test_ic_extra_gera_erro(
         self,
         engine_context: object,

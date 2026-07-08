@@ -39,6 +39,13 @@ logger = logging.getLogger("ranking_msc")
 # Colunas IC do DataFrame normalizado (lowercase)
 IC_COLS: tuple[str, ...] = ("po", "fp", "dc", "fs", "fr", "co", "nr", "nd", "ai")
 
+# ICs condicionais: constam do conjunto do ID_IC, mas seu preenchimento é
+# facultativo ("quando se aplicar", Anexo II da Portaria STN 642/2026). A
+# ausência de um IC condicional não é violação — só sua incompatibilidade seria.
+# CO (Código de Acompanhamento da Execução Orçamentária) complementa a Fonte de
+# Recursos apenas quando aplicável.
+IC_CONDICIONAIS: frozenset[str] = frozenset({"CO"})
+
 
 @register_rule
 class R020(Rule):
@@ -112,12 +119,14 @@ class R020(Rule):
                     if bool(merged.at[idx, col_upper])
                 }
 
-                if ic_informado == ic_esperado:
+                # ICs condicionais (ex.: CO) não são exigidos quando ausentes.
+                faltantes = sorted((ic_esperado - ic_informado) - IC_CONDICIONAIS)
+                extras = sorted(ic_informado - ic_esperado)
+
+                if not faltantes and not extras:
                     continue
 
                 conta = str(merged.at[idx, "conta_contabil"])
-                faltantes = sorted(ic_esperado - ic_informado)
-                extras = sorted(ic_informado - ic_esperado)
 
                 partes: list[str] = []
                 if faltantes:
