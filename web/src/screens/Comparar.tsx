@@ -171,7 +171,7 @@ function DimSide({ pct, side }: { pct: number; side: 'left' | 'right' }) {
     <div className="samid-compare-side">
       {side === 'left' && <span className="samid-compare-barlbl">{pct.toFixed(0)}%</span>}
       <div className={`samid-compare-bar${side === 'left' ? ' samid-compare-bar-left' : ''}`}>
-        <div style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: 'var(--samid-midnight)' }} />
+        <div style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: 'var(--jp-red)' }} />
       </div>
       {side === 'right' && <span className="samid-compare-barlbl">{pct.toFixed(0)}%</span>}
     </div>

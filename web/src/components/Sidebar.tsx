@@ -67,11 +67,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     <aside className={`samid-sidebar${open ? ' open' : ''}`}>
       <div className="samid-brand">
         <div className="samid-brand-mark" aria-hidden>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <rect x="3" y="3" width="3" height="14" fill="#C9A449" />
-            <rect x="8" y="6" width="3" height="11" fill="#C9A449" />
-            <rect x="13" y="9" width="3" height="8" fill="#C9A449" />
-          </svg>
+          <img src="/brand/brasao-vermelho.png" alt="" />
         </div>
         <div>
           <div className="samid-brand-wm">MCRA</div>
