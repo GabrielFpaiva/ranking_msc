@@ -2,6 +2,8 @@
 
 Aplicação web interna para validação da Matriz de Saldos Contábeis (MSC) conforme regras do Ranking SICONFI. Motor Python + interface React/TypeScript (SPA) + FastAPI, para uso na intranet da prefeitura.
 
+**Repositório:** <https://github.com/GabrielFpaiva/ranking_msc>
+
 ---
 
 ## Descrição do Projeto
@@ -51,6 +53,7 @@ Em **prod**: `uvicorn app.api.main:app` serve `/api/*` + `web/dist/` estático.
 
 ```bash
 # Clonar e entrar no repositório
+git clone https://github.com/GabrielFpaiva/ranking_msc.git
 cd ranking_msc
 
 # Bootstrap único: venv + deps Python + deps frontend + config + diretórios
@@ -70,6 +73,45 @@ Se você mover o projeto de pasta e a `.venv` parar de funcionar, recrie-a com:
 ```bash
 rm -rf .venv
 make bootstrap
+```
+
+### Setup no Windows (sem `make`)
+
+No PowerShell, os mesmos passos do `bootstrap` manualmente:
+
+```powershell
+git clone https://github.com/GabrielFpaiva/ranking_msc.git
+cd ranking_msc
+
+# Ambiente Python
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+
+# Dependências do frontend (se o PowerShell bloquear `npm`, use `npm.cmd`)
+cd web; npm.cmd install; cd ..
+
+# Config e diretórios de dados (não sobrescreve settings.yaml existente)
+if (-not (Test-Path config\settings.yaml)) { Copy-Item config\settings.yaml.example config\settings.yaml }
+New-Item -ItemType Directory -Force data\snapshots, data\reports, data\logs
+```
+
+Para rodar em dev no Windows:
+
+```powershell
+# Terminal 1 — backend
+.\.venv\Scripts\python.exe -m uvicorn app.api.main:app --reload --port 8000
+
+# Terminal 2 — frontend
+cd web; npm.cmd run dev
+```
+
+### Alternativa com uv
+
+O repositório versiona `uv.lock`. Com o [uv](https://docs.astral.sh/uv/) instalado, o ambiente Python pode ser criado com uma única linha (substitui venv + pip do bootstrap; frontend, config e diretórios continuam como acima):
+
+```bash
+uv sync --extra dev
 ```
 
 ### Rodar em desenvolvimento (frontend + backend)
@@ -197,6 +239,13 @@ Campos e efeito operacional:
 \* Em dev puro (sem login), `secret_key` padrão + `users=[]` é aceito com warning.
 Em uso autenticado, é obrigatório configurar chave forte e ao menos um usuário.
 
+Para gerar o hash bcrypt de uma senha:
+
+```bash
+.venv/bin/python -c "import bcrypt; print(bcrypt.hashpw(b'minha-senha', bcrypt.gensalt()).decode())"
+# Windows: .\.venv\Scripts\python.exe -c "..."
+```
+
 Observações importantes:
 
 - `config/settings.yaml` real não deve ser commitado.
@@ -314,7 +363,7 @@ ranking_msc/
 │       │   ├── executor.py      # Motor principal (EngineContext, EngineResult)
 │       │   ├── score_engine.py  # Cálculo de score por dimensão/banda
 │       │   └── compare_periods.py  # Diff de score entre competências
-│       ├── rules/               # Uma regra por arquivo (R003..R054)
+│       ├── rules/               # 78 regras, uma por arquivo (R001–R093)
 │       ├── io/
 │       │   ├── reader_msc.py    # Leitura do CSV MSC
 │       │   └── ref_loader.py    # Carregamento de tabelas de referência
@@ -329,11 +378,12 @@ ranking_msc/
 ├── ref/                         # Tabelas de referência (PCASP, domínios)
 ├── data/                        # Outputs gerados (gitignored)
 ├── doc/
-│   ├── backlog.md               # Backlog consolidado e status atual
-│   ├── fase0_plan.md            # Referência das pendências F0-03/F0-04
 │   ├── guia_operacao.md         # Operação local, validações e troubleshooting
 │   ├── manual_usuario.md        # Fluxo de uso para equipe contábil
-│   └── modelo_pontuacao.md      # Especificação do score
+│   ├── modelo_pontuacao.md      # Especificação do score
+│   ├── handoff.md               # Handoff operacional (entrega formal)
+│   ├── roteiro_treinamento.md   # Roteiro de demonstração/treinamento
+│   └── atas/                    # Atas de reunião (PDF)
 ├── .claude/                     # Automação/skills locais do fluxo Claude
 ├── pyproject.toml
 ├── README.md
@@ -405,13 +455,12 @@ rules:
 |---|---|
 | `README.md` | Visão geral, setup, comandos e superfície pública da API |
 | `CLAUDE.md` | Convenções operacionais permanentes do repositório |
-| `doc/backlog.md` | Status consolidado, pendências e prioridades |
 | `doc/manual_usuario.md` | Fluxo de uso, telas e exportações para a equipe contábil |
 | `doc/guia_operacao.md` | Setup, execução, validações, logs e rotina de sustentação |
 | `doc/modelo_pontuacao.md` | Regra de negócio do score |
-| `doc/governanca_documental.md` | Política documental e revisão de aderência arquitetural |
-| `doc/fase0_plan.md` | Registro histórico da entrega de bootstrap/frontend |
-| `doc/legacy_inventory.md` | Registro histórico da remoção do legado Panel |
+| `doc/handoff.md` | Handoff operacional — entrega formal para operação |
+| `doc/roteiro_treinamento.md` | Roteiro de demonstração e treinamento |
+| `doc/atas/` | Atas de reunião do projeto (PDF) |
 
 ---
 

@@ -23,8 +23,6 @@ sistema de forma autonoma e o projeto possa ser encerrado formalmente.
 | Guia de operacao | `doc/guia_operacao.md` | Deploy, backup, troubleshooting, reverse proxy |
 | Roteiro de treinamento | `doc/roteiro_treinamento.md` | Roteiro da demonstracao (F5-10) |
 | Modelo de pontuacao | `doc/modelo_pontuacao.md` | Regra de negocio do score |
-| Governanca documental | `doc/governanca_documental.md` | Politica documental e arquitetura |
-| Backlog operacional | `doc/backlog.md` | Trabalho aberto e decisoes pendentes |
 
 ---
 
@@ -119,8 +117,8 @@ dependencias se necessario, rodar validacoes e subir novamente.
 - [ ] Responsaveis preenchidos e cientes
 - [ ] F5-10 - treinamento realizado
 
-> Decisoes de escopo TECH-02/03/04 ja **encerradas** (ver `doc/governanca_documental.md` §7);
-> nao sao bloqueadores de encerramento.
+> Decisoes de escopo TECH-02/03/04 ja **encerradas** (registradas na governanca documental,
+> hoje fora do repositorio de entrega); nao sao bloqueadores de encerramento.
 
 ---
 

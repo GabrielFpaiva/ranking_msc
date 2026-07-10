@@ -17,14 +17,14 @@ O pipeline principal é:
 CSV MSC → read_msc_csv() → normalize_ic() → run_engine(regras) → snapshot + Excel + log
 ```
 
-O estado de referência do projeto fica em `doc/backlog.md`. A política documental e a revisão arquitetural corrente ficam em `doc/governanca_documental.md`.
+O handoff operacional (entrega formal) fica em `doc/handoff.md`; a rotina de operação e sustentação em `doc/guia_operacao.md`.
 
 Resumo atual:
 
 - **78 de 78 regras implementadas** (Fase 4 concluída — F4-01 a F4-20)
 - API FastAPI em `app/api/`
-- Frontend React/Vite em `web/` (Fase 0 concluída — 10 telas + 2 drawers)
-- **Próxima fase: Fase 5** — produção, deploy Docker, auth, export PDF, manual
+- Frontend React/Vite em `web/` (10 telas + 2 drawers)
+- **Fase 5 concluída** — deploy Docker (compose dev/prod + nginx TLS), auth JWT, export Excel/PDF branded, manual do usuário e handoff
 
 ---
 

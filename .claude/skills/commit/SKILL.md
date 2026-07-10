@@ -97,7 +97,7 @@ If you don't know the exact task number, use the closest one and note it's appro
 Current active closing phases:
 
 - **F4/F5** for remaining catalogue, infra and delivery work
-- check `doc/backlog.md` before choosing task id
+- check `doc/handoff.md` and recent `git log` before choosing task id
 
 ## Branches
 
