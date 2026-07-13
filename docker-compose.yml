@@ -8,6 +8,9 @@ services:
       - "8000:8000"
     environment:
       PORT: "8000"
+      # Opcional: provisiona usuário no primeiro boot (ver docker/entrypoint.sh).
+      RANKING_MSC_ADMIN_USERNAME: "${RANKING_MSC_ADMIN_USERNAME:-}"
+      RANKING_MSC_ADMIN_PASSWORD: "${RANKING_MSC_ADMIN_PASSWORD:-}"
     volumes:
       - ./data:/app/data
       - ./config:/app/config

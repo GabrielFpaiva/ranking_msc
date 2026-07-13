@@ -57,7 +57,10 @@ src = ["src", "tests"]
 select = ["E", "F", "W", "I", "N", "UP", "B"]
 
 [tool.mypy]
-python_version = "3.11"
+# 3.12 casa com o runtime real (CI e Docker) e permite parsear os stubs do
+# numpy >= 2.2, que usam `type statement` (sintaxe 3.12+). Com "3.11" o mypy
+# aborta em site-packages antes de checar o projeto.
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 mypy_path = "src"

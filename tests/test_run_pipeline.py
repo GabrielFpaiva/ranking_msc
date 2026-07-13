@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 import scripts.run_pipeline as cli
 
+import ranking_msc.services.pipeline as pipeline_service
 from ranking_msc.config.settings import PathsSettings, Settings
 from ranking_msc.exceptions import ConfigError
 from ranking_msc.io.reader_msc import RawMSC
@@ -173,11 +174,12 @@ def test_run_cli_fluxo_feliz_orquestra_pipeline(
     monkeypatch.setattr(cli, "load_settings", fake_load_settings)
     monkeypatch.setattr(cli, "setup_logging", fake_setup_logging)
     monkeypatch.setattr(cli, "read_msc_csv", fake_read_msc_csv)
-    monkeypatch.setattr(cli, "normalize_ic", fake_normalize_ic)
-    monkeypatch.setattr(cli, "run_engine", fake_run_engine)
-    monkeypatch.setattr(cli, "write_snapshot_atomic", fake_write_snapshot_atomic)
-    monkeypatch.setattr(cli, "export_issues_excel", fake_export_issues_excel)
-    monkeypatch.setattr(cli, "log_execucao", fake_log_execucao)
+    # A orquestração vive em ranking_msc.services.pipeline (compartilhada com a API).
+    monkeypatch.setattr(pipeline_service, "normalize_ic", fake_normalize_ic)
+    monkeypatch.setattr(pipeline_service, "run_engine", fake_run_engine)
+    monkeypatch.setattr(pipeline_service, "write_snapshot_atomic", fake_write_snapshot_atomic)
+    monkeypatch.setattr(pipeline_service, "export_issues_excel", fake_export_issues_excel)
+    monkeypatch.setattr(pipeline_service, "log_execucao", fake_log_execucao)
 
     exit_code = cli.run_cli(
         [

@@ -95,8 +95,7 @@ class UserSettings:
 
 @dataclass(frozen=True)
 class SecuritySettings:
-    """Configuração de segurança, autenticação JWT e concorrência."""
-    max_concurrent_jobs: int = 3
+    """Configuração de segurança e autenticação JWT."""
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 480  # 8 horas

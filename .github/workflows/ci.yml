@@ -21,17 +21,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Provision local settings
-        run: cp config/settings.yaml.example config/settings.yaml
-
+      # Sem "cp settings.yaml.example → settings.yaml": os testes são
+      # herméticos (tests/conftest.py gera a config a partir do example).
+      # Rodar sem o cp garante que um clone limpo passa.
       - name: Ruff
         run: ruff check src tests app
 
       - name: Mypy
         run: mypy src app/api
 
-      - name: Pytest
-        run: pytest
+      - name: Pytest (com gate de cobertura)
+        # Cobertura atual: 95% — gate em 90 segura regressões sem ser frágil.
+        run: pytest --cov=ranking_msc --cov=app --cov-report=term --cov-fail-under=90
 
   frontend:
     runs-on: ubuntu-latest
@@ -55,3 +56,6 @@ jobs:
 
       - name: Lint frontend
         run: npm run lint
+
+      - name: Test frontend
+        run: npm test

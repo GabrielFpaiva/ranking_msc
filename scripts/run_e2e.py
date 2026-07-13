@@ -92,7 +92,6 @@ def _render_settings_yaml(username: str, password_hash: str) -> str:
         '    - "R082"\n'
         "  fail_fast: false\n"
         "security:\n"
-        "  max_concurrent_jobs: 3\n"
         '  secret_key: "e2e-secret-key-not-for-prod"\n'
         '  algorithm: "HS256"\n'
         "  access_token_expire_minutes: 60\n"

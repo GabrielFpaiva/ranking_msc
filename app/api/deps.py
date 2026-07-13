@@ -12,6 +12,7 @@ RULE_REGISTRY antes que qualquer rota tente listar regras.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -32,11 +33,36 @@ PROJECT_ROOT: Path = _PROJECT_ROOT
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 
-@lru_cache(maxsize=1)
+def get_config_path() -> Path:
+    """Resolve o caminho do ``settings.yaml``.
+
+    Honra a variável de ambiente ``RANKING_MSC_CONFIG`` (mesma semântica do
+    loader e dos CLIs); sem ela, usa ``<raiz do projeto>/config/settings.yaml``.
+    """
+    env_path = os.environ.get("RANKING_MSC_CONFIG")
+    return Path(env_path) if env_path else PROJECT_ROOT / "config" / "settings.yaml"
+
+
+@lru_cache(maxsize=8)
+def _load_settings_cached(path: str, mtime_ns: int) -> Settings:
+    """Cache de settings keyed por (caminho, mtime do arquivo)."""
+    return load_settings(Path(path))
+
+
 def get_settings() -> Settings:
-    """Carrega o ``settings.yaml`` (ou retorna defaults)."""
-    config_path = PROJECT_ROOT / "config" / "settings.yaml"
-    return load_settings(config_path)
+    """Carrega o ``settings.yaml`` (ver ``get_config_path()``).
+
+    O cache é keyed por (caminho, mtime): quando o arquivo muda no disco —
+    ex. usuário criado por ``scripts/create_user.py`` ou pelo setup de
+    primeiro acesso com a API no ar — a requisição seguinte recarrega as
+    configurações automaticamente, sem reiniciar o processo.
+    """
+    config_path = get_config_path()
+    try:
+        mtime_ns = config_path.stat().st_mtime_ns
+    except OSError:
+        mtime_ns = -1
+    return _load_settings_cached(str(config_path), mtime_ns)
 
 
 @lru_cache(maxsize=1)

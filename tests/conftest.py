@@ -8,6 +8,7 @@ Fixtures compartilhadas entre todos os módulos de teste.
 from __future__ import annotations
 
 import io
+import os
 from collections.abc import Callable, Generator
 from pathlib import Path
 
@@ -15,6 +16,30 @@ import pytest
 
 from ranking_msc.config.settings import Settings
 from ranking_msc.engine.executor import EngineContext
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _hermetic_settings(tmp_path_factory: pytest.TempPathFactory) -> Generator[None, None, None]:
+    """Config hermética: os testes nunca dependem do config/settings.yaml local.
+
+    O settings.yaml real é gitignored — um clone limpo não o possui. Esta
+    fixture gera uma cópia do settings.yaml.example (versionado) em diretório
+    temporário e aponta RANKING_MSC_CONFIG para ela, de modo que load_settings()
+    e app.api.deps.get_settings() usem sempre a mesma config em qualquer máquina.
+    """
+    example = _PROJECT_ROOT / "config" / "settings.yaml.example"
+    config_path = tmp_path_factory.mktemp("config") / "settings.yaml"
+    config_path.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+
+    original = os.environ.get("RANKING_MSC_CONFIG")
+    os.environ["RANKING_MSC_CONFIG"] = str(config_path)
+    yield
+    if original is None:
+        os.environ.pop("RANKING_MSC_CONFIG", None)
+    else:
+        os.environ["RANKING_MSC_CONFIG"] = original
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -110,7 +110,7 @@ class TestSettings:
         from ranking_msc.config.settings import Settings
         s = Settings()
         assert s.app.title == "Ranking MSC"
-        assert s.security.max_concurrent_jobs == 3
+        assert s.security.algorithm == "HS256"
 
     def test_load_from_yaml(self, tmp_path: Path) -> None:
         """Settings a partir de um YAML mínimo."""
@@ -123,8 +123,6 @@ paths:
 rules:
   enabled: ["R082"]
   fail_fast: true
-security:
-  max_concurrent_jobs: 1
 """
         yaml_file = tmp_path / "settings.yaml"
         yaml_file.write_text(yaml_content)

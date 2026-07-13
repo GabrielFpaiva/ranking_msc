@@ -13,6 +13,8 @@ COPY app ./app
 COPY src ./src
 COPY ref ./ref
 COPY config/settings.yaml.example ./config/settings.yaml.example
+# create_user.py é chamado pelo entrypoint no provisionamento via env vars.
+COPY scripts/create_user.py ./scripts/create_user.py
 COPY --from=frontend-builder /app/web/dist ./web/dist
 COPY docker/entrypoint.sh /app/docker/entrypoint.sh
 RUN chmod +x /app/docker/entrypoint.sh     && pip install --upgrade pip     && pip install .

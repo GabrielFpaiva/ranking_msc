@@ -207,7 +207,6 @@ rules:
   fail_fast: false
 
 security:
-  max_concurrent_jobs: 3
   secret_key: "change-me-in-production"
   algorithm: "HS256"
   access_token_expire_minutes: 480
@@ -230,7 +229,6 @@ Campos e efeito operacional:
 | `paths` | `ref_dir` | não | `./ref` | tabelas de referência do motor |
 | `rules` | `enabled` | não | `[]` | lista de regras executadas |
 | `rules` | `fail_fast` | não | `false` | interrompe no primeiro erro fatal |
-| `security` | `max_concurrent_jobs` | não | `3` | reservado para hardening multiusuário |
 | `security` | `secret_key` | sim* | `change-me-in-production` | chave de assinatura JWT (`HS256`) |
 | `security` | `algorithm` | não | `HS256` | algoritmo JWT usado no encode/decode |
 | `security` | `access_token_expire_minutes` | não | `480` | expiração do access token |
@@ -239,12 +237,15 @@ Campos e efeito operacional:
 \* Em dev puro (sem login), `secret_key` padrão + `users=[]` é aceito com warning.
 Em uso autenticado, é obrigatório configurar chave forte e ao menos um usuário.
 
-Para gerar o hash bcrypt de uma senha:
+Para criar o primeiro usuário há três caminhos (nenhum exige gerar hash na mão):
 
-```bash
-.venv/bin/python -c "import bcrypt; print(bcrypt.hashpw(b'minha-senha', bcrypt.gensalt()).decode())"
-# Windows: .\.venv\Scripts\python.exe -c "..."
-```
+1. **Navegador (recomendado)** — com o app no ar e nenhum usuário configurado,
+   a tela de login vira "Primeiro acesso" e cria o administrador ali mesmo
+   (`POST /api/auth/setup`, que tranca após o primeiro usuário existir).
+2. **CLI** — `python scripts/create_user.py --username admin` (senha pedida no
+   prompt; hash bcrypt e `secret_key` seguro gerados automaticamente).
+3. **Docker** — defina `RANKING_MSC_ADMIN_USERNAME` e `RANKING_MSC_ADMIN_PASSWORD`
+   no ambiente: o entrypoint cadastra o usuário sozinho no primeiro boot.
 
 Observações importantes:
 

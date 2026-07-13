@@ -8,7 +8,7 @@
 
 ## 1. Objetivo
 
-Definir a fórmula, pesos e critérios de classificação para produzir uma **nota de conformidade 0–100** a partir dos resultados de validação da MSC (Matriz de Saldos Contábeis). A nota sintetiza o conjunto das 67 regras do catálogo em um único indicador comparável entre entes e entre competências.
+Definir a fórmula, pesos e critérios de classificação para produzir uma **nota de conformidade 0–100** a partir dos resultados de validação da MSC (Matriz de Saldos Contábeis). A nota sintetiza o conjunto das 78 regras do catálogo em um único indicador comparável entre entes e entre competências.
 
 ---
 
