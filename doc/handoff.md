@@ -44,6 +44,11 @@ sistema de forma autonoma e o projeto possa ser encerrado formalmente.
 ## Ambiente e publicacao
 
 - Execucao via Docker: `make prod-up` sobe app + nginx (gera o certificado se faltar).
+  O primeiro usuario e criado sem passo manual: ao abrir o app sem usuarios
+  configurados, a tela de login vira "Primeiro acesso" e cria o administrador
+  pelo navegador. Alternativas: exportar `RANKING_MSC_ADMIN_USERNAME` e
+  `RANKING_MSC_ADMIN_PASSWORD` antes do `make prod-up` (o entrypoint cadastra
+  no primeiro boot) ou rodar `scripts/create_user.py`.
 - App nao exposto diretamente no host; acesso somente via nginx (HTTP redireciona
   para HTTPS).
 - Substituir o certificado self-signed pelo certificado institucional antes do

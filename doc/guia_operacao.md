@@ -56,19 +56,23 @@ Campos criticos:
 - `security.secret_key`: chave JWT;
 - `security.users`: usuarios e hashes bcrypt.
 
-Para gerar hash de senha:
+Para criar o primeiro usuario nao ha passo manual de hash. Tres caminhos:
+
+1. **Navegador (recomendado)**: com o app no ar e nenhum usuario configurado,
+   a tela de login vira "Primeiro acesso" e cria o administrador ali mesmo.
+   O endpoint (`POST /api/auth/setup`) tranca assim que existe um usuario.
+2. **CLI** (tambem para usuarios adicionais/troca de senha):
 
 ```powershell
-.\.venv\Scripts\python.exe -c "import bcrypt; print(bcrypt.hashpw(b'senha', bcrypt.gensalt()).decode())"
+.\.venv\Scripts\python.exe scripts\create_user.py --username admin
+# a senha e pedida no prompt, sem eco
 ```
 
-Para gerar secret:
+3. **Docker**: defina `RANKING_MSC_ADMIN_USERNAME` e `RANKING_MSC_ADMIN_PASSWORD`
+   no ambiente do compose: o `entrypoint.sh` cadastra o usuario no primeiro boot.
 
-```powershell
-.\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"
-```
-
-Em producao, nao use `change-me-in-production`.
+Em todos os caminhos o hash bcrypt e um `secret_key` seguro sao gerados
+automaticamente (o placeholder `change-me-in-production` e substituido).
 
 ---
 

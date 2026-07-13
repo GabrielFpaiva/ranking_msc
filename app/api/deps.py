@@ -33,16 +33,20 @@ PROJECT_ROOT: Path = _PROJECT_ROOT
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 
-@lru_cache(maxsize=1)
-def get_settings() -> Settings:
-    """Carrega o ``settings.yaml``.
+def get_config_path() -> Path:
+    """Resolve o caminho do ``settings.yaml``.
 
     Honra a variável de ambiente ``RANKING_MSC_CONFIG`` (mesma semântica do
     loader e dos CLIs); sem ela, usa ``<raiz do projeto>/config/settings.yaml``.
     """
     env_path = os.environ.get("RANKING_MSC_CONFIG")
-    config_path = Path(env_path) if env_path else PROJECT_ROOT / "config" / "settings.yaml"
-    return load_settings(config_path)
+    return Path(env_path) if env_path else PROJECT_ROOT / "config" / "settings.yaml"
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Carrega o ``settings.yaml`` (ver ``get_config_path()``)."""
+    return load_settings(get_config_path())
 
 
 @lru_cache(maxsize=1)

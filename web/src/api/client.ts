@@ -78,6 +78,24 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
+export async function apiSetupStatus(): Promise<boolean> {
+  const res = await fetch(`${BASE}/auth/setup-status`);
+  const data = await jsonOrThrow<{ needs_setup: boolean }>(res);
+  return data.needs_setup;
+}
+
+export async function apiSetup(username: string, password: string): Promise<void> {
+  const res = await fetch(`${BASE}/auth/setup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new ApiError(res.status, body.detail ?? 'Falha ao criar o usuário.');
+  }
+}
+
 export async function apiLogin(username: string, password: string): Promise<void> {
   const form = new URLSearchParams({ username, password, grant_type: 'password' });
   const res = await fetch(`${BASE}/auth/token`, {
