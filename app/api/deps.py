@@ -12,6 +12,7 @@ RULE_REGISTRY antes que qualquer rota tente listar regras.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -34,8 +35,13 @@ _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Carrega o ``settings.yaml`` (ou retorna defaults)."""
-    config_path = PROJECT_ROOT / "config" / "settings.yaml"
+    """Carrega o ``settings.yaml``.
+
+    Honra a variável de ambiente ``RANKING_MSC_CONFIG`` (mesma semântica do
+    loader e dos CLIs); sem ela, usa ``<raiz do projeto>/config/settings.yaml``.
+    """
+    env_path = os.environ.get("RANKING_MSC_CONFIG")
+    config_path = Path(env_path) if env_path else PROJECT_ROOT / "config" / "settings.yaml"
     return load_settings(config_path)
 
 

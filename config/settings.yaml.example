@@ -107,8 +107,11 @@ security:
   algorithm: "HS256"
   access_token_expire_minutes: 480    # 8 horas
 
-  # Usuários cadastrados. Gere o hash com:
+  # Usuários cadastrados. Sem usuários e com secret_key padrão o sistema sobe
+  # em modo não configurado (nenhum login possível) — configure os DOIS juntos:
+  # um secret_key real (openssl rand -hex 32) E ao menos um usuário.
+  # Gere o hash com:
   #   python -c "import bcrypt; print(bcrypt.hashpw(b'sua-senha', bcrypt.gensalt()).decode())"
-  users:
-    - username: "admin"
-      hashed_password: "$2b$12$SUBSTITUA_PELO_HASH_REAL"
+  # users:
+  #   - username: "admin"
+  #     hashed_password: "$2b$12$SUBSTITUA_PELO_HASH_REAL"
