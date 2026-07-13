@@ -125,6 +125,7 @@ def setup(body: SetupIn) -> UserOut:
         body.password,
         example_path=_EXAMPLE_PATH,
     )
-    # Invalida o cache para que o login enxergue o usuário recém-criado.
-    get_settings.cache_clear()
+    # get_settings() recarrega sozinho: o cache é keyed pelo mtime do arquivo,
+    # que acabou de mudar. Vale também para usuários criados por
+    # scripts/create_user.py com a API no ar.
     return UserOut(username=body.username)

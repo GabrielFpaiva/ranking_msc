@@ -1,4 +1,10 @@
-"""Testes do primeiro acesso via navegador (GET/POST /api/auth/setup*)."""
+"""Testes do primeiro acesso via navegador (GET/POST /api/auth/setup*).
+
+O cache de settings da API é keyed por (caminho, mtime) — ver
+``app.api.deps.get_settings`` — então mudanças no arquivo de config (setup,
+scripts/create_user.py) valem na requisição seguinte, sem restart nem
+invalidação manual de cache nos testes.
+"""
 
 from __future__ import annotations
 
@@ -6,9 +12,10 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from app.api import deps as api_deps
 from app.api.main import app
 from fastapi.testclient import TestClient
+
+from ranking_msc.services.users import provision_user
 
 _EXAMPLE = Path(__file__).resolve().parents[1] / "config" / "settings.yaml.example"
 
@@ -18,17 +25,11 @@ def fresh_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[Path]:
-    """Config recém-instalada (example, zero usuários) isolada em tmp_path.
-
-    Aponta RANKING_MSC_CONFIG para a cópia temporária e limpa o cache de
-    get_settings antes e depois, para não vazar estado entre testes.
-    """
+    """Config recém-instalada (example, zero usuários) isolada em tmp_path."""
     config_path = tmp_path / "settings.yaml"
     config_path.write_text(_EXAMPLE.read_text(encoding="utf-8"), encoding="utf-8")
     monkeypatch.setenv("RANKING_MSC_CONFIG", str(config_path))
-    api_deps.get_settings.cache_clear()
     yield config_path
-    api_deps.get_settings.cache_clear()
 
 
 class TestSetupStatus:
@@ -50,12 +51,10 @@ class TestSetupStatus:
         depender dele, senão responde 500 e o primeiro acesso nunca aparece.
         """
         monkeypatch.setenv("RANKING_MSC_CONFIG", str(tmp_path / "nao-existe.yaml"))
-        api_deps.get_settings.cache_clear()
         client = TestClient(app)
 
         response = client.get("/api/auth/setup-status")
 
-        api_deps.get_settings.cache_clear()
         assert response.status_code == 200
         assert response.json() == {"needs_setup": True}
 
@@ -75,12 +74,10 @@ class TestSetupStatus:
             encoding="utf-8",
         )
         monkeypatch.setenv("RANKING_MSC_CONFIG", str(config_path))
-        api_deps.get_settings.cache_clear()
         client = TestClient(app)
 
         response = client.get("/api/auth/setup-status")
 
-        api_deps.get_settings.cache_clear()
         assert response.status_code == 200
         assert response.json() == {"needs_setup": True}
 
@@ -123,6 +120,81 @@ class TestSetup:
 
         assert response.status_code == 403
 
+    def test_usuario_criado_externamente_loga_sem_restart(
+        self,
+        fresh_config: Path,
+    ) -> None:
+        """Usuário criado por scripts/create_user.py com a API no ar já loga.
+
+        Cenário do review: o 403 do setup manda usar create_user.py, mas o
+        script roda em outro processo. O cache por mtime garante que a API
+        recarregue o settings.yaml na requisição seguinte — sem restart.
+        """
+        client = TestClient(app)
+        client.post(
+            "/api/auth/setup",
+            json={"username": "admin", "password": "senha-forte-123"},
+        )
+        # get_settings() já cacheado com o estado pós-setup:
+        assert client.get("/api/auth/setup-status").json() == {"needs_setup": False}
+
+        # Operador roda create_user.py em outro processo, API continua no ar.
+        provision_user(fresh_config, "maria", "senha-da-maria-1", example_path=_EXAMPLE)
+
+        token = client.post(
+            "/api/auth/token",
+            data={"username": "maria", "password": "senha-da-maria-1"},
+        )
+        assert token.status_code == 200, token.text
+
+    def test_setup_com_config_ausente_cria_do_example(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """POST /setup sem settings.yaml cria o arquivo a partir do example."""
+        config_path = tmp_path / "settings.yaml"
+        monkeypatch.setenv("RANKING_MSC_CONFIG", str(config_path))
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/auth/setup",
+            json={"username": "admin", "password": "senha-forte-123"},
+        )
+
+        assert response.status_code == 201, response.text
+        assert config_path.exists()
+        token = client.post(
+            "/api/auth/token",
+            data={"username": "admin", "password": "senha-forte-123"},
+        )
+        assert token.status_code == 200, token.text
+
+    def test_setup_preserva_secret_existente_sem_usuarios(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """POST /setup no estado 'secret válido + zero usuários' não troca a chave."""
+        import yaml
+
+        config_path = tmp_path / "settings.yaml"
+        config_path.write_text(
+            'security:\n  secret_key: "chave-forte-configurada-pelo-operador"\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("RANKING_MSC_CONFIG", str(config_path))
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/auth/setup",
+            json={"username": "admin", "password": "senha-forte-123"},
+        )
+
+        assert response.status_code == 201, response.text
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        assert raw["security"]["secret_key"] == "chave-forte-configurada-pelo-operador"
+
     def test_senha_curta_retorna_422(self, fresh_config: Path) -> None:
         """Senha com menos de 8 caracteres é rejeitada na validação."""
         client = TestClient(app)
@@ -140,58 +212,6 @@ class TestSetup:
             json={"username": "ad min!", "password": "senha-forte-123"},
         )
         assert response.status_code == 422
-
-    def test_setup_com_config_ausente_cria_do_example(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """POST /setup sem settings.yaml cria o arquivo a partir do example."""
-        config_path = tmp_path / "settings.yaml"
-        monkeypatch.setenv("RANKING_MSC_CONFIG", str(config_path))
-        api_deps.get_settings.cache_clear()
-        client = TestClient(app)
-
-        response = client.post(
-            "/api/auth/setup",
-            json={"username": "admin", "password": "senha-forte-123"},
-        )
-
-        assert response.status_code == 201, response.text
-        assert config_path.exists()
-        token = client.post(
-            "/api/auth/token",
-            data={"username": "admin", "password": "senha-forte-123"},
-        )
-        api_deps.get_settings.cache_clear()
-        assert token.status_code == 200, token.text
-
-    def test_setup_preserva_secret_existente_sem_usuarios(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """POST /setup no estado 'secret válido + zero usuários' não troca a chave."""
-        import yaml
-
-        config_path = tmp_path / "settings.yaml"
-        config_path.write_text(
-            'security:\n  secret_key: "chave-forte-configurada-pelo-operador"\n',
-            encoding="utf-8",
-        )
-        monkeypatch.setenv("RANKING_MSC_CONFIG", str(config_path))
-        api_deps.get_settings.cache_clear()
-        client = TestClient(app)
-
-        response = client.post(
-            "/api/auth/setup",
-            json={"username": "admin", "password": "senha-forte-123"},
-        )
-
-        api_deps.get_settings.cache_clear()
-        assert response.status_code == 201, response.text
-        raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-        assert raw["security"]["secret_key"] == "chave-forte-configurada-pelo-operador"
 
     def test_setup_gera_secret_key_seguro(self, fresh_config: Path) -> None:
         """Após o setup, o secret_key placeholder foi substituído."""

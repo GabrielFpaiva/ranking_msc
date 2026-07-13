@@ -74,6 +74,10 @@ Para criar o primeiro usuario nao ha passo manual de hash. Tres caminhos:
 Em todos os caminhos o hash bcrypt e um `secret_key` seguro sao gerados
 automaticamente (o placeholder `change-me-in-production` e substituido).
 
+Nao e preciso reiniciar a API depois de criar/alterar usuarios: o servidor
+detecta mudancas no `settings.yaml` (mtime) e recarrega a configuracao na
+requisicao seguinte.
+
 ---
 
 ## Subir em desenvolvimento
