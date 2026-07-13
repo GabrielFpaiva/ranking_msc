@@ -28,6 +28,25 @@ from ranking_msc.exceptions import ConfigError
 logger = logging.getLogger("ranking_msc")
 
 
+def config_has_users(config_path: Path) -> bool:
+    """Indica se o YAML tem ao menos um usuário em ``security.users``.
+
+    Inspeciona o arquivo cru, sem a validação completa de ``load_settings()``:
+    estados não provisionados (arquivo ausente, secret configurado mas sem
+    usuários) fazem o loader levantar ``ConfigError`` e não podem impedir o
+    fluxo de primeiro acesso de responder. YAML ilegível conta como "sem
+    usuários" — o ``provision_user()`` subsequente falha fechado ao parsear.
+    """
+    if not config_path.exists():
+        return False
+    try:
+        raw: dict[str, Any] = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return False
+    users = (raw.get("security") or {}).get("users") or []
+    return bool(users)
+
+
 def provision_user(
     config_path: Path,
     username: str,

@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authStore } from '../store/auth';
-import { ApiError, api, apiLogin } from './client';
+import { ApiError, api, apiLogin, apiSetup } from './client';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -81,6 +81,35 @@ describe('fetchAuth — 401 força logout', () => {
     await expect(api.rules()).rejects.toMatchObject({ status: 500 });
 
     expect(authStore.getToken()).toBe('tok-valido');
+  });
+});
+
+describe('normalização do detail (erros de validação FastAPI)', () => {
+  it('detail em array (422) vira string com as mensagens — nunca objetos', async () => {
+    const validationBody = {
+      detail: [
+        { type: 'string_too_short', loc: ['body', 'password'], msg: 'String should have at least 8 characters' },
+        { type: 'string_pattern_mismatch', loc: ['body', 'username'], msg: 'String should match pattern' },
+      ],
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(422, validationBody)));
+
+    const err = await apiSetup('ad min', 'curta').catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ApiError);
+    expect(typeof (err as ApiError).detail).toBe('string');
+    expect((err as ApiError).detail).toBe(
+      'String should have at least 8 characters; String should match pattern',
+    );
+  });
+
+  it('detail em array sem msg utilizável cai no fallback string', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(422, { detail: [{ foo: 1 }] })));
+
+    const err = await api.rules().catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ApiError);
+    expect(typeof (err as ApiError).detail).toBe('string');
   });
 });
 

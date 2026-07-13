@@ -18,11 +18,22 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import authenticate_user, create_access_token
 from app.api.deps import PROJECT_ROOT, get_config_path, get_current_user, get_settings
-from ranking_msc.services.users import provision_user
+from ranking_msc.services.users import config_has_users, provision_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 _EXAMPLE_PATH: Path = PROJECT_ROOT / "config" / "settings.yaml.example"
+
+
+def _needs_setup() -> bool:
+    """True enquanto nenhum usuário está configurado.
+
+    Lê o YAML cru (``config_has_users``) em vez de ``get_settings()``: nos
+    estados não provisionados — arquivo ausente ou secret_key configurado sem
+    usuários — o loader levanta ``ConfigError`` e o onboarding pelo navegador
+    ficaria inutilizável (status 500 e setup nunca liberado).
+    """
+    return not config_has_users(get_config_path())
 
 
 class TokenOut(BaseModel):
@@ -85,7 +96,7 @@ class SetupIn(BaseModel):
 )
 def setup_status() -> SetupStatusOut:
     """Retorna ``needs_setup=True`` enquanto nenhum usuário está configurado."""
-    return SetupStatusOut(needs_setup=not get_settings().security.users)
+    return SetupStatusOut(needs_setup=_needs_setup())
 
 
 @router.post(
@@ -102,7 +113,7 @@ def setup(body: SetupIn) -> UserOut:
     qualquer usuário configurado, o endpoint responde 403 para sempre —
     novos usuários passam a ser cadastrados via ``scripts/create_user.py``.
     """
-    if get_settings().security.users:
+    if not _needs_setup():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Setup já concluído. Cadastre usuários via scripts/create_user.py.",

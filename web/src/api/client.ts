@@ -64,16 +64,33 @@ async function fetchAuth(input: RequestInfo | URL, init: RequestInit = {}): Prom
   return res;
 }
 
+// Normaliza o campo `detail` do FastAPI para string. Em erros de validação
+// (422) o detail é um ARRAY de objetos {msg, loc, ...} — sem normalizar, o
+// array vazaria para ApiError.detail e as telas tentariam renderizar objetos
+// como children do React.
+function detailToString(detail: unknown): string | undefined {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((item) =>
+        item && typeof item === 'object' && typeof (item as { msg?: unknown }).msg === 'string'
+          ? (item as { msg: string }).msg
+          : null,
+      )
+      .filter((msg): msg is string => msg !== null);
+    if (msgs.length > 0) return msgs.join('; ');
+  }
+  return undefined;
+}
+
+async function extractDetail(res: Response): Promise<string | undefined> {
+  const body = (await res.json().catch(() => ({}))) as { detail?: unknown };
+  return detailToString(body.detail);
+}
+
 async function jsonOrThrow<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body?.detail) detail = body.detail;
-    } catch {
-      // body não é JSON; mantém statusText
-    }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(res.status, (await extractDetail(res)) ?? res.statusText);
   }
   return (await res.json()) as T;
 }
@@ -91,8 +108,7 @@ export async function apiSetup(username: string, password: string): Promise<void
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { detail?: string };
-    throw new ApiError(res.status, body.detail ?? 'Falha ao criar o usuário.');
+    throw new ApiError(res.status, (await extractDetail(res)) ?? 'Falha ao criar o usuário.');
   }
 }
 
@@ -104,8 +120,7 @@ export async function apiLogin(username: string, password: string): Promise<void
     body: form.toString(),
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { detail?: string };
-    throw new ApiError(res.status, body.detail ?? 'Credenciais inválidas');
+    throw new ApiError(res.status, (await extractDetail(res)) ?? 'Credenciais inválidas');
   }
   const data = (await res.json()) as { access_token: string };
   authStore.setToken(data.access_token);
@@ -226,8 +241,7 @@ export const api = {
   exportExcel: async (siconfi: string, competencia: string): Promise<void> => {
     const res = await fetchAuth(`${BASE}/exports/excel${qs({ siconfi, competencia })}`);
     if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { detail?: string };
-      throw new ApiError(res.status, body.detail ?? res.statusText);
+      throw new ApiError(res.status, (await extractDetail(res)) ?? res.statusText);
     }
     _triggerBlobDownload(await res.blob(), `pendencias_${siconfi}_${competencia}.xlsx`);
   },
@@ -235,8 +249,7 @@ export const api = {
   exportPdf: async (siconfi: string, competencia: string): Promise<void> => {
     const res = await fetchAuth(`${BASE}/exports/pdf${qs({ siconfi, competencia })}`);
     if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { detail?: string };
-      throw new ApiError(res.status, body.detail ?? res.statusText);
+      throw new ApiError(res.status, (await extractDetail(res)) ?? res.statusText);
     }
     _triggerBlobDownload(await res.blob(), `executivo_${siconfi}_${competencia}.pdf`);
   },

@@ -39,6 +39,51 @@ class TestSetupStatus:
         assert response.status_code == 200
         assert response.json() == {"needs_setup": True}
 
+    def test_config_ausente_precisa_de_setup(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Sem settings.yaml algum, o onboarding continua funcionando.
+
+        load_settings() levantaria ConfigError aqui — o endpoint não pode
+        depender dele, senão responde 500 e o primeiro acesso nunca aparece.
+        """
+        monkeypatch.setenv("RANKING_MSC_CONFIG", str(tmp_path / "nao-existe.yaml"))
+        api_deps.get_settings.cache_clear()
+        client = TestClient(app)
+
+        response = client.get("/api/auth/setup-status")
+
+        api_deps.get_settings.cache_clear()
+        assert response.status_code == 200
+        assert response.json() == {"needs_setup": True}
+
+    def test_secret_configurado_sem_usuarios_precisa_de_setup(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Operador gerou secret_key mas não criou usuários → ainda é setup.
+
+        Essa combinação faz load_settings() levantar ConfigError (lockout);
+        o fluxo de primeiro acesso é justamente a saída desse estado.
+        """
+        config_path = tmp_path / "settings.yaml"
+        config_path.write_text(
+            'security:\n  secret_key: "chave-forte-configurada-pelo-operador"\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("RANKING_MSC_CONFIG", str(config_path))
+        api_deps.get_settings.cache_clear()
+        client = TestClient(app)
+
+        response = client.get("/api/auth/setup-status")
+
+        api_deps.get_settings.cache_clear()
+        assert response.status_code == 200
+        assert response.json() == {"needs_setup": True}
+
 
 class TestSetup:
     def test_cria_admin_e_permite_login(self, fresh_config: Path) -> None:
@@ -95,6 +140,58 @@ class TestSetup:
             json={"username": "ad min!", "password": "senha-forte-123"},
         )
         assert response.status_code == 422
+
+    def test_setup_com_config_ausente_cria_do_example(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """POST /setup sem settings.yaml cria o arquivo a partir do example."""
+        config_path = tmp_path / "settings.yaml"
+        monkeypatch.setenv("RANKING_MSC_CONFIG", str(config_path))
+        api_deps.get_settings.cache_clear()
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/auth/setup",
+            json={"username": "admin", "password": "senha-forte-123"},
+        )
+
+        assert response.status_code == 201, response.text
+        assert config_path.exists()
+        token = client.post(
+            "/api/auth/token",
+            data={"username": "admin", "password": "senha-forte-123"},
+        )
+        api_deps.get_settings.cache_clear()
+        assert token.status_code == 200, token.text
+
+    def test_setup_preserva_secret_existente_sem_usuarios(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """POST /setup no estado 'secret válido + zero usuários' não troca a chave."""
+        import yaml
+
+        config_path = tmp_path / "settings.yaml"
+        config_path.write_text(
+            'security:\n  secret_key: "chave-forte-configurada-pelo-operador"\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("RANKING_MSC_CONFIG", str(config_path))
+        api_deps.get_settings.cache_clear()
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/auth/setup",
+            json={"username": "admin", "password": "senha-forte-123"},
+        )
+
+        api_deps.get_settings.cache_clear()
+        assert response.status_code == 201, response.text
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        assert raw["security"]["secret_key"] == "chave-forte-configurada-pelo-operador"
 
     def test_setup_gera_secret_key_seguro(self, fresh_config: Path) -> None:
         """Após o setup, o secret_key placeholder foi substituído."""

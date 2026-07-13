@@ -11,9 +11,33 @@ import yaml
 
 from ranking_msc.config.settings import load_settings
 from ranking_msc.exceptions import ConfigError
-from ranking_msc.services.users import provision_user
+from ranking_msc.services.users import config_has_users, provision_user
 
 _EXAMPLE = Path(__file__).resolve().parents[1] / "config" / "settings.yaml.example"
+
+
+class TestConfigHasUsers:
+    def test_arquivo_ausente_retorna_false(self, tmp_path: Path) -> None:
+        """Config inexistente → sem usuários (estado de primeiro acesso)."""
+        assert config_has_users(tmp_path / "nao-existe.yaml") is False
+
+    def test_config_com_usuario_retorna_true(self, tmp_path: Path) -> None:
+        """Config com um usuário provisionado → True."""
+        config_path = tmp_path / "settings.yaml"
+        provision_user(config_path, "admin", "senha-forte", example_path=_EXAMPLE)
+        assert config_has_users(config_path) is True
+
+    def test_secret_sem_usuarios_retorna_false(self, tmp_path: Path) -> None:
+        """secret_key configurado mas sem users → ainda precisa de setup."""
+        config_path = tmp_path / "settings.yaml"
+        config_path.write_text('security:\n  secret_key: "abc"\n', encoding="utf-8")
+        assert config_has_users(config_path) is False
+
+    def test_yaml_invalido_retorna_false(self, tmp_path: Path) -> None:
+        """YAML ilegível → False (provision_user subsequente falha fechado)."""
+        config_path = tmp_path / "settings.yaml"
+        config_path.write_text("security: [invalido\n  users:", encoding="utf-8")
+        assert config_has_users(config_path) is False
 
 
 class TestProvisionUser:
