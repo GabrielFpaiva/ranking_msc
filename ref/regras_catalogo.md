@@ -3,7 +3,8 @@
 > **Fonte:** Leiaute MSC 2026 (Anexo II, Portaria STN 642), Regras Gerais MSC 2026 (Anexo I),
 > Documento de Validações de Consistência da MSC (Siconfi), MCASP, MDF.
 >
-> **Total: 67 regras** — 32 ERRO · 26 ALERTA · 6 INFO
+> **Total: 78 regras** (contagem verificada contra o RULE_REGISTRY em
+> `tests/test_docs_consistency.py` — atualize este número junto com o código)
 >
 > **Versão:** 2026-03-17
 
