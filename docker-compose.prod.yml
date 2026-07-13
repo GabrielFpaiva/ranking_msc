@@ -11,6 +11,11 @@ services:
       - "8000"
     environment:
       PORT: "8000"
+      # Provisionamento automático do primeiro boot (opcional): com as duas
+      # variáveis definidas no ambiente do host, o entrypoint cria o usuário
+      # e um secret_key seguro — deploy de um comando, sem hash manual.
+      RANKING_MSC_ADMIN_USERNAME: "${RANKING_MSC_ADMIN_USERNAME:-}"
+      RANKING_MSC_ADMIN_PASSWORD: "${RANKING_MSC_ADMIN_PASSWORD:-}"
     volumes:
       - ./data:/app/data
       - ./config:/app/config
