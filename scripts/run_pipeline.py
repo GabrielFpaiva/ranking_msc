@@ -20,16 +20,19 @@ for _p in (str(_SRC_DIR), str(_SCRIPTS_DIR)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from _cli_helpers import OutputPaths, _log_failure, _resolve_config_path, _resolve_output_paths, _resolve_project_path  # noqa: E402, F401
+from _cli_helpers import (  # noqa: E402, F401
+    OutputPaths,
+    _log_failure,
+    _resolve_config_path,
+    _resolve_output_paths,
+    _resolve_project_path,
+)
+
 from ranking_msc.config.settings import Settings, load_settings  # noqa: E402
-from ranking_msc.engine.executor import EngineContext, run_engine  # noqa: E402
-from ranking_msc.engine.score_engine import calculate_score  # noqa: E402
 from ranking_msc.exceptions import InputFormatError, RankingMSCError  # noqa: E402
 from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
-from ranking_msc.outputs.logs import log_execucao, setup_logging  # noqa: E402
-from ranking_msc.outputs.reports import export_issues_excel  # noqa: E402
-from ranking_msc.outputs.snapshot import write_scoring_metadata, write_snapshot_atomic  # noqa: E402
-from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
+from ranking_msc.outputs.logs import setup_logging  # noqa: E402
+from ranking_msc.services.pipeline import run_full_pipeline  # noqa: E402
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -129,99 +132,32 @@ def _execute_pipeline(
     logger.info("Iniciando pipeline CLI para arquivo: %s", csv_path)
 
     raw_msc = read_msc_csv(csv_path)
-    normalized_df = normalize_ic(raw_msc.df)
 
-    # Grava snapshot do DataFrame normalizado ANTES de executar as regras.
-    # Namespaceado por siconfi para evitar colisão entre entes no mesmo diretório.
-    # R054 e regras temporais futuras leem este snapshot para comparar com o mês anterior.
-    write_snapshot_atomic(
-        normalized_df,
-        raw_msc.competencia,
-        base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
-        label="msc_normalizado",
-    )
-
-    context = EngineContext(
-        competencia=raw_msc.competencia,
-        siconfi=raw_msc.siconfi,
+    run = run_full_pipeline(
+        raw_msc,
         settings=settings,
         snapshots_dir=output_paths.snapshots_dir,
+        reports_dir=output_paths.reports_dir,
+        logger=logger,
         usuario="cli",
-        pre_pivot_issues=raw_msc.pre_pivot_issues,
-    )
-    logger.info(
-        "Executando motor de regras para competencia=%s siconfi=%s",
-        context.competencia,
-        context.siconfi,
-        extra={
-            "execucao_id": context.execucao_id,
-            "competencia": context.competencia,
-            "siconfi": context.siconfi,
-            "usuario": context.usuario,
-        },
-    )
-
-    engine_result = run_engine(normalized_df, context)
-
-    score_result = calculate_score(
-        engine_result.pendencias,
-        engine_result.executed_rule_ids,
-    )
-    logger.info(
-        "Score calculado: pontuacao=%.2f banda=%s regras=%d",
-        score_result.pontuacao,
-        score_result.banda,
-        score_result.regras_executadas,
-        extra={
-            "execucao_id": context.execucao_id,
-            "competencia": context.competencia,
-            "siconfi": context.siconfi,
-        },
-    )
-
-    snapshot_path = write_snapshot_atomic(
-        engine_result.pendencias,
-        raw_msc.competencia,
-        base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
-        label="resultado_regras",
-    )
-    write_scoring_metadata(
-        engine_result.executed_rule_ids,
-        raw_msc.competencia,
-        base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
-    )
-    report_path = export_issues_excel(
-        engine_result.pendencias,
-        raw_msc.competencia,
-        output_dir=output_paths.reports_dir,
-        score_result=score_result,
-    )
-
-    log_execucao(
-        logger,
-        execucao_id=context.execucao_id,
-        competencia=context.competencia,
-        status=engine_result.status,
-        message="Execução CLI concluída",
-        siconfi=context.siconfi,
-        usuario=context.usuario,
+        log_message="Execução CLI concluída",
     )
 
     logger.info(
         "Pipeline concluído: status=%s pendencias=%d snapshot=%s report=%s",
-        engine_result.status,
-        engine_result.total_pendencias,
-        snapshot_path,
-        report_path,
+        run.engine_result.status,
+        run.engine_result.total_pendencias,
+        run.snapshot_path,
+        run.report_path,
         extra={
-            "execucao_id": context.execucao_id,
-            "competencia": context.competencia,
-            "siconfi": context.siconfi,
-            "usuario": context.usuario,
+            "execucao_id": run.context.execucao_id,
+            "competencia": run.context.competencia,
+            "siconfi": run.context.siconfi,
+            "usuario": run.context.usuario,
         },
     )
 
-    return engine_result.status
+    return run.engine_result.status
 
 
 def main() -> None:

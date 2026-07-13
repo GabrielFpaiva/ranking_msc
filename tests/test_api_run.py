@@ -71,6 +71,32 @@ class TestRunEndpoint:
         )
         assert snapshot_path.exists()
 
+    def test_run_excel_gerado_pela_api_contem_aba_score(
+        self,
+        isolated_dirs: tuple[Path, Path],
+    ) -> None:
+        """Regressão: o Excel gerado pelo /api/run inclui a aba Score.
+
+        A cópia antiga do pipeline na rota não passava score_result ao
+        export_issues_excel e o relatório saía sem a aba Score.
+        """
+        from openpyxl import load_workbook
+
+        _, reports = isolated_dirs
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/run",
+            files={"file": ("msc.csv", _build_msc_csv_bytes(), "text/csv")},
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        report_path = reports / f"pendencias_{body['siconfi']}_{body['competencia']}.xlsx"
+        assert report_path.exists()
+        workbook = load_workbook(report_path, read_only=True)
+        assert "Score" in workbook.sheetnames
+
     def test_run_arquivo_vazio_retorna_400(
         self,
         isolated_dirs: tuple[Path, Path],

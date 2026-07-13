@@ -28,21 +28,16 @@ from app.api.schemas import (
     ScoreOut,
     TopRuleOut,
 )
-from ranking_msc.engine.executor import EngineContext, run_engine
 from ranking_msc.engine.locks import (
     ExecutionLock,
     ExecutionLockExistsError,
     acquire_execution_lock,
     release_execution_lock,
 )
-from ranking_msc.engine.score_engine import calculate_score
-from ranking_msc.exceptions import InputFormatError
+from ranking_msc.exceptions import ConfigError, InputFormatError, ReportError, SnapshotError
 from ranking_msc.io.reader_msc import read_msc_csv
 from ranking_msc.outputs.aggregations import top_violated_rules
-from ranking_msc.outputs.logs import log_execucao
-from ranking_msc.outputs.reports import export_issues_excel
-from ranking_msc.outputs.snapshot import write_scoring_metadata, write_snapshot_atomic
-from ranking_msc.transform.ic_normalize import normalize_ic
+from ranking_msc.services.pipeline import run_full_pipeline
 
 router = APIRouter(
     prefix="/api",
@@ -96,26 +91,29 @@ async def run_pipeline(
     )
     try:
         try:
-            df = normalize_ic(raw.df)
-        except Exception as exc:  # noqa: BLE001
+            run = run_full_pipeline(
+                raw,
+                settings=settings,
+                snapshots_dir=snapshots_dir,
+                reports_dir=reports_dir,
+                logger=api_logger,
+                usuario=current_user,
+                lock_token=lock.token,
+                report_filename=f"pendencias_{raw.siconfi}_{raw.competencia}.xlsx",
+                log_message="Execucao /api/run concluida",
+            )
+        except (InputFormatError, ConfigError) as exc:
             api_logger.error("Falha ao normalizar CSV no /api/run: %s", exc, exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Erro na normalizacao: {exc}",
             ) from exc
-
-        ctx = EngineContext(
-            competencia=raw.competencia,
-            siconfi=raw.siconfi,
-            settings=settings,
-            pre_pivot_issues=raw.pre_pivot_issues,
-            snapshots_dir=snapshots_dir,
-            usuario=current_user,
-            lock_token=lock.token,
-        )
-
-        try:
-            result = run_engine(df, ctx)
+        except (SnapshotError, ReportError) as exc:
+            api_logger.error("Falha ao persistir resultados: %s", exc, exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Falha ao persistir os resultados (snapshots/relatorios).",
+            ) from exc
         except Exception as exc:  # noqa: BLE001
             api_logger.error("Falha no motor no /api/run: %s", exc, exc_info=True)
             raise HTTPException(
@@ -123,43 +121,9 @@ async def run_pipeline(
                 detail=f"Erro no motor: {exc}",
             ) from exc
 
-        score_result = calculate_score(result.pendencias, result.executed_rule_ids)
-
-        snap_base = snapshots_dir / raw.siconfi
-        try:
-            write_snapshot_atomic(df, raw.competencia, base_dir=snap_base, label="msc_normalizado")
-            write_snapshot_atomic(
-                result.pendencias,
-                raw.competencia,
-                base_dir=snap_base,
-                label="resultado_regras",
-            )
-            write_scoring_metadata(
-                result.executed_rule_ids,
-                raw.competencia,
-                base_dir=snap_base,
-            )
-            export_issues_excel(
-                result.pendencias,
-                raw.competencia,
-                output_dir=reports_dir,
-                filename=f"pendencias_{raw.siconfi}_{raw.competencia}.xlsx",
-            )
-            log_execucao(
-                api_logger,
-                execucao_id=ctx.execucao_id,
-                competencia=raw.competencia,
-                status=result.status,
-                message="Execucao /api/run concluida",
-                siconfi=raw.siconfi,
-                usuario=ctx.usuario,
-            )
-        except Exception as exc:  # noqa: BLE001
-            api_logger.error("Falha ao persistir resultados: %s", exc, exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Falha ao persistir os resultados (snapshots/relatorios).",
-            ) from exc
+        ctx = run.context
+        result = run.engine_result
+        score_result = run.score_result
 
         top = top_violated_rules(result.pendencias, limit=8)
 
