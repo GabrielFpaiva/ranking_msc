@@ -65,6 +65,9 @@ htmlcov/
 graphify-out/
 docs/superpowers/
 
+# Documentos internos de trabalho (não vão para a entrega)
+docs/
+
 # Relatórios mensais locais (não publicar)
 doc/relatorio-maio/
 
