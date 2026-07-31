@@ -28,10 +28,19 @@ def _hermetic_settings(tmp_path_factory: pytest.TempPathFactory) -> Generator[No
     fixture gera uma cópia do settings.yaml.example (versionado) em diretório
     temporário e aponta RANKING_MSC_CONFIG para ela, de modo que load_settings()
     e app.api.deps.get_settings() usem sempre a mesma config em qualquer máquina.
+
+    ``paths.data_dir`` também é redirecionado para um tmp de sessão: sem isso,
+    qualquer rota que escreva sob ``settings.paths.data_dir`` (ex.: o cache do
+    Siconfi em `app/api/routes/entregas.py`) gravaria no `data/` real do
+    repositório, com testes dependendo de ordem de execução.
     """
     example = _PROJECT_ROOT / "config" / "settings.yaml.example"
     config_path = tmp_path_factory.mktemp("config") / "settings.yaml"
-    config_path.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+    data_dir = tmp_path_factory.mktemp("data")
+    conteudo = example.read_text(encoding="utf-8").replace(
+        'data_dir: "./data"', f'data_dir: "{data_dir.as_posix()}"'
+    )
+    config_path.write_text(conteudo, encoding="utf-8")
 
     original = os.environ.get("RANKING_MSC_CONFIG")
     os.environ["RANKING_MSC_CONFIG"] = str(config_path)

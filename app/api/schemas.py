@@ -11,6 +11,7 @@ completo de pendências fica em rotas paginadas, não em respostas inline.
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -320,3 +321,47 @@ class LogEntryOut(BaseModel):
 class LogPageOut(BaseModel):
     total: int
     items: list[LogEntryOut]
+
+
+# ---------------------------------------------------------------------------
+# Gestão da Informação — entregas ao Siconfi (F7)
+# ---------------------------------------------------------------------------
+
+
+class EntregaOut(BaseModel):
+    """Uma entrega ao Siconfi, classificada."""
+
+    instituicao: str
+    entregavel: str
+    periodo: int
+    periodicidade: str
+    status: str = Field(..., description="HOMOLOGADO, RETIFICADO ou SEM_STATUS")
+    data_status: datetime | None = None
+    fim_periodo: date | None = None
+    dias_apos_fim_periodo: int | None = None
+    prazo_dias: int | None = Field(
+        None, description="Prazo configurado; ausente quando não há base normativa"
+    )
+    atrasada: bool | None = Field(
+        None, description="null quando não há base para julgar — nunca inferir False"
+    )
+
+
+class ResumoEntregasOut(BaseModel):
+    """Contagens do exercício."""
+
+    total: int
+    homologadas: int
+    retificadas: int
+
+
+class EntregasOut(BaseModel):
+    """Resposta de GET /api/entregas."""
+
+    ano: int
+    id_ente: int
+    origem: str = Field(..., description="api, cache ou indisponivel")
+    buscado_em: datetime | None = None
+    aviso: str | None = None
+    resumo: ResumoEntregasOut
+    entregas: list[EntregaOut]

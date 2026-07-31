@@ -113,3 +113,15 @@ security:
   # users:
   #   - username: "admin"
   #     hashed_password: "$2b$12$SUBSTITUA_PELO_HASH_REAL"
+
+siconfi:
+  id_ente: 2507507              # codigo IBGE do ente (Joao Pessoa - PB)
+  cache_ttl_horas: 24
+  # Prazo em dias apos o fim do periodo. Entregavel ausente deste mapa aparece
+  # na tela apenas com o dado factual (dias decorridos), SEM veredicto de
+  # atraso -- preferimos nao julgar a julgar errado.
+  # Fundamentados: RREO e RGF (LRF arts. 52 e 55 par. 2o).
+  # DCA e MSC ficam DE FORA ate a contabilidade confirmar os prazos.
+  prazos_dias:
+    "Relatório Resumido de Execução Orçamentária": 30
+    "Relatório de Gestão Fiscal": 30
