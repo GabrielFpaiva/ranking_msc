@@ -46,14 +46,23 @@ def test_cache_expirado_devolve_none(tmp_path: Path) -> None:
 
 
 def test_cache_expirado_ainda_serve_no_modo_degradado(tmp_path: Path) -> None:
-    """Com a API fora, cache velho é melhor que tela vazia — desde que datado."""
-    gravar_cache(tmp_path, 2507507, 2025, ITENS, agora=AGORA)
+    """Com a API fora, cache velho é melhor que tela vazia — desde que datado.
 
+    Grava cache com data ANTIGA (meses atrás). Verifica que:
+    1. Com TTL respeitado (caminho normal), cache é rejeitado por expiração
+    2. Sem TTL (modo degradado), cache é aceito mesmo expirado
+    """
+    data_antiga = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    gravar_cache(tmp_path, 2507507, 2025, ITENS, agora=data_antiga)
+
+    # Caminho normal: com TTL de 24h, cache de janeiro é rejeitado em julho
+    assert ler_cache(tmp_path, 2507507, 2025, ttl_horas=24, agora=AGORA) is None
+
+    # Modo degradado: ignora TTL, retorna dados mesmo antigos
     entrada = ler_cache_ignorando_ttl(tmp_path, 2507507, 2025)
-
     assert entrada is not None
     assert entrada.itens == ITENS
-    assert entrada.buscado_em == AGORA
+    assert entrada.buscado_em == data_antiga
 
 
 def test_entes_e_exercicios_nao_se_misturam(tmp_path: Path) -> None:

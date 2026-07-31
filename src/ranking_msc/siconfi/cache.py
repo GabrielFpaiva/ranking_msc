@@ -41,7 +41,7 @@ def _carregar(caminho: Path) -> EntradaCache | None:
             itens=dados["itens"],
             buscado_em=datetime.fromisoformat(dados["buscado_em"]),
         )
-    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError):
         logger.warning("Cache do Siconfi ilegível, ignorando: %s", caminho)
         return None
 
@@ -54,17 +54,37 @@ def gravar_cache(
     *,
     agora: datetime | None = None,
 ) -> None:
-    """Grava os itens com carimbo de data/hora."""
+    """Grava os itens com carimbo de data/hora.
+
+    Usa escrita atômica (tmp + replace) para evitar corrupção em caso de
+    falha ou leitura concorrente durante a escrita.
+    """
     caminho = _caminho(cache_dir, id_ente, exercicio)
+    caminho_tmp = caminho.with_suffix(".json.tmp")
     caminho.parent.mkdir(parents=True, exist_ok=True)
     momento = agora or datetime.now(UTC)
-    caminho.write_text(
-        json.dumps(
-            {"itens": itens, "buscado_em": momento.isoformat()},
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
+
+    try:
+        # Limpar arquivo tmp anterior se existir
+        if caminho_tmp.exists():
+            caminho_tmp.unlink()
+
+        # Escrever no arquivo temporário
+        caminho_tmp.write_text(
+            json.dumps(
+                {"itens": itens, "buscado_em": momento.isoformat()},
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        # Renomear de forma atômica (replace no mesmo filesystem)
+        caminho_tmp.replace(caminho)
+    except OSError:
+        # Limpar tmp em caso de falha
+        if caminho_tmp.exists():
+            caminho_tmp.unlink()
+        raise
 
 
 def ler_cache(
