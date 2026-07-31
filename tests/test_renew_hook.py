@@ -513,6 +513,43 @@ def test_hook_deriva_repo_dir_do_proprio_caminho_quando_env_ausente(
     assert (fake_repo / "docker" / "nginx" / "certs" / "fullchain.pem").exists()
 
 
+def test_hook_falha_alto_sem_override_e_com_derivacao_invalida(
+    fake_letsencrypt: Path,
+    tmp_path: Path,
+    compose_spy_stack_running: tuple[Path, Path],
+) -> None:
+    """Sem `RANKING_MSC_REPO_DIR` e com a derivação apontando para um diretório
+    que não é repo (sem `docker-compose.prod.yml`), o hook deve falhar alto.
+
+    Este é o espaço que o antigo `test_hook_exige_repo_dir` cobria antes de o
+    fallback do C2 tornar a variável opcional: sem esta guarda, um refactor que
+    movesse a validação para dentro do ramo do override passaria verde e o hook
+    voltaria a gravar PEMs num caminho inválido, saindo 0."""
+    stub, _ = compose_spy_stack_running
+    nao_repo = tmp_path / "nao-e-repo"
+    hook_copy = _copy_hook_into(nao_repo)
+
+    result = _run(
+        {
+            "RENEWED_LINEAGE": str(fake_letsencrypt),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
+        },
+        hook_path=hook_copy,
+    )
+
+    assert result.returncode != 0, (
+        "hook deveria falhar: sem override e a derivacao nao aponta para um repo"
+    )
+    saida = result.stderr + result.stdout
+    assert "RANKING_MSC_REPO_DIR" in saida, (
+        f"a mensagem precisa citar o override como saida; recebido: {saida!r}"
+    )
+    assert not (nao_repo / "docker" / "nginx" / "certs" / "fullchain.pem").exists(), (
+        "nenhum PEM pode ser publicado quando a raiz e invalida"
+    )
+
+
 def test_hook_ranking_msc_repo_dir_e_override_sobre_derivacao(
     fake_letsencrypt: Path,
     fake_repo: Path,
