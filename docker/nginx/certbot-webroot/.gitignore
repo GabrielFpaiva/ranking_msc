@@ -1,0 +1,4 @@
+# Desafios ACME sao efemeros (o certbot cria e remove a cada validacao).
+# Mantem apenas a pasta no repo, para o bind mount do nginx nao falhar.
+*
+!.gitignore
