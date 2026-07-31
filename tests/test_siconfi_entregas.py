@@ -175,13 +175,33 @@ class TestClassificar:
         assert entrega.dias_apos_fim_periodo is None
         assert entrega.atrasada is None
 
+    def test_madrugada_nao_sofre_deslocamento_de_data_por_fuso(self) -> None:
+        """Guarda contra reintrodução de conversão de fuso.
+
+        Este teste falha se alguém faz `.astimezone()` para converter de UTC.
+        Entrega em horário 01:30 (janela 00:00–03:00):
+        - Como naive (correto): data = 2025-03-01, fim = 2025-02-28 ⇒ 1 dia
+        - Se convertido de UTC para Brasília (−3): 2025-02-28 22:30 ⇒ 0 dias (quebra)
+        """
+        item = dict(ITEM_REAL) | {
+            "periodo": 1,
+            "periodicidade": "B",
+            "exercicio": 2025,
+            "data_status": "2025-03-01T01:30:00Z",
+        }
+        (bruta,) = parse_entregas([item])
+        entrega = classificar(bruta, {})
+
+        assert entrega.fim_periodo == date(2025, 2, 28)
+        assert entrega.dias_apos_fim_periodo == 1
+
     def test_entrega_no_mesmo_dia_do_fim_periodo_da_zero_dias(self) -> None:
-        """Fronteira: entrega no mesmo dia do fim do período ⇒ 0 dias após."""
+        """Aritmética de dias: entrega no próprio fim de período ⇒ 0 dias."""
         item = dict(ITEM_REAL) | {
             "periodo": 1,
             "periodicidade": "M",
             "exercicio": 2025,
-            "data_status": "2025-01-31T23:30:00Z",
+            "data_status": "2025-01-31T15:00:00Z",
         }
         (bruta,) = parse_entregas([item])
         entrega = classificar(bruta, {})
