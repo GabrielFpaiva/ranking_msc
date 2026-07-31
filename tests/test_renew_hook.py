@@ -121,12 +121,17 @@ exit 0
 def _run(hook_env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     """Executa o hook com ambiente controlado.
 
-    As tres variaveis do contrato sao removidas do ambiente herdado antes de
+    As variaveis do contrato sao removidas do ambiente herdado antes de
     aplicar `hook_env` — senao um valor presente na maquina do dev faria o
     teste de variavel ausente passar por engano.
     """
     env = os.environ.copy()
-    for var in ("RANKING_MSC_REPO_DIR", "RENEWED_LINEAGE", "DOCKER_COMPOSE_CMD"):
+    for var in (
+        "RANKING_MSC_REPO_DIR",
+        "RENEWED_LINEAGE",
+        "DOCKER_COMPOSE_BIN",
+        "DOCKER_COMPOSE_SUBCMD",
+    ):
         env.pop(var, None)
     env.update(hook_env)
     return subprocess.run(
@@ -143,7 +148,8 @@ def test_hook_publica_pems_dereferenciando_symlinks(
         {
             "RANKING_MSC_REPO_DIR": str(fake_repo),
             "RENEWED_LINEAGE": str(fake_letsencrypt),
-            "DOCKER_COMPOSE_CMD": str(stub),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
         }
     )
 
@@ -167,7 +173,8 @@ def test_hook_restringe_permissao_da_chave_privada(
         {
             "RANKING_MSC_REPO_DIR": str(fake_repo),
             "RENEWED_LINEAGE": str(fake_letsencrypt),
-            "DOCKER_COMPOSE_CMD": str(stub),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
         }
     )
 
@@ -184,7 +191,8 @@ def test_hook_fullchain_termina_com_permissao_644(
         {
             "RANKING_MSC_REPO_DIR": str(fake_repo),
             "RENEWED_LINEAGE": str(fake_letsencrypt),
-            "DOCKER_COMPOSE_CMD": str(stub),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
         }
     )
 
@@ -201,7 +209,8 @@ def test_hook_recarrega_nginx(
         {
             "RANKING_MSC_REPO_DIR": str(fake_repo),
             "RENEWED_LINEAGE": str(fake_letsencrypt),
-            "DOCKER_COMPOSE_CMD": str(stub),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
         }
     )
 
@@ -220,7 +229,8 @@ def test_hook_nao_falha_com_stack_parado(
         {
             "RANKING_MSC_REPO_DIR": str(fake_repo),
             "RENEWED_LINEAGE": str(fake_letsencrypt),
-            "DOCKER_COMPOSE_CMD": str(stub),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
         }
     )
 
@@ -237,7 +247,8 @@ def test_hook_falha_se_reload_falha_e_stack_rodando(
         {
             "RANKING_MSC_REPO_DIR": str(fake_repo),
             "RENEWED_LINEAGE": str(fake_letsencrypt),
-            "DOCKER_COMPOSE_CMD": str(stub),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
         }
     )
 
@@ -276,16 +287,19 @@ def test_hook_valida_compose_arquivo_existe(
     assert "docker-compose.prod.yml" in (result.stderr + result.stdout)
 
 
-def test_hook_com_docker_compose_cmd_com_espaco_no_caminho(
+def test_hook_suporta_docker_compose_bin_com_espaco_no_caminho(
     fake_letsencrypt: Path, fake_repo: Path, tmp_path: Path
 ) -> None:
-    """DOCKER_COMPOSE_CMD com espaços no caminho deve funcionar."""
-    # Criar um caminho com espaço
+    """DOCKER_COMPOSE_BIN com espaços no caminho deve ser invocado corretamente."""
+    # Criar um diretório com espaço e um stub dentro
     bindir = tmp_path / "bin com espaco"
     bindir.mkdir()
-    stub = bindir / "docker-compose"
+    log = tmp_path / "log.txt"
+    stub = bindir / "compose-stub.sh"
     stub.write_text(
-        '''#!/bin/sh
+        f'''#!/bin/sh
+# Registrar a invocação — prova que o binário foi invocado
+echo "invocado" >> "{log}"
 # Se é um 'ps', retornar com "running"
 if [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] && [ "$3" = "ps" ]; then
   echo "nginx  running"
@@ -304,12 +318,47 @@ exit 0
         {
             "RANKING_MSC_REPO_DIR": str(fake_repo),
             "RENEWED_LINEAGE": str(fake_letsencrypt),
-            "DOCKER_COMPOSE_CMD": str(stub),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
         }
     )
 
     assert result.returncode == 0, result.stderr
     assert (fake_repo / "docker" / "nginx" / "certs" / "fullchain.pem").exists()
+    # Prova não-tautológica: o stub foi realmente invocado
+    assert log.exists() and log.read_text().strip(), "Stub não foi invocado"
+
+
+def test_hook_nao_sofre_injecao_via_docker_compose_bin(
+    fake_letsencrypt: Path, fake_repo: Path, tmp_path: Path
+) -> None:
+    """DOCKER_COMPOSE_BIN com ';' e comando malicioso não deve executar a injeção."""
+    # Criar um binário que falharia em ps (simular stack parado) mas não executaria injeção
+    injection_proof = tmp_path / "injection-proof.txt"
+    stub = tmp_path / "malicious.sh"
+    stub.write_text(
+        f'''#!/bin/sh
+# Comando malicioso que tentaria ser injetado
+echo "Tentativa de injeção"
+touch "{injection_proof}"
+exit 0
+'''
+    )
+    stub.chmod(stub.stat().st_mode | stat.S_IEXEC)
+
+    _run(
+        {
+            "RANKING_MSC_REPO_DIR": str(fake_repo),
+            "RENEWED_LINEAGE": str(fake_letsencrypt),
+            # Usar valor contendo ';' que seria problemático com eval
+            "DOCKER_COMPOSE_BIN": f"{stub}; touch {injection_proof}",
+            "DOCKER_COMPOSE_SUBCMD": "",
+        }
+    )
+
+    # Hook deve falhar (arquivo não encontrado) ou suceder (stack parado) sem executar injeção
+    # O importante é que injection_proof.txt NÃO foi criado pela injeção
+    assert not injection_proof.exists(), "Injeção de comando foi executada!"
 
 
 def test_hook_exige_repo_dir(

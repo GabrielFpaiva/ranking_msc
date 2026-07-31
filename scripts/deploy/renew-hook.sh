@@ -7,9 +7,10 @@
 # de live/ levaria symlinks quebrados para dentro do container.
 #
 # Variaveis de ambiente:
-#   RANKING_MSC_REPO_DIR  raiz do repositorio (obrigatoria)
-#   RENEWED_LINEAGE       definida pelo certbot: /etc/letsencrypt/live/<dominio>
-#   DOCKER_COMPOSE_CMD    opcional; default "docker compose"
+#   RANKING_MSC_REPO_DIR        raiz do repositorio (obrigatoria)
+#   RENEWED_LINEAGE             definida pelo certbot: /etc/letsencrypt/live/<dominio>
+#   DOCKER_COMPOSE_BIN          binario do compose (opcional; default "docker")
+#   DOCKER_COMPOSE_SUBCMD       subcomando (opcional; default "compose"; "" para standalone v1)
 set -eu
 
 # Fechar janela de permissao: umask evita que privkey fique legivel ao grupo/outros
@@ -64,21 +65,24 @@ chmod 644 "${CERT_DIR}/fullchain.pem"
 # Distinguir "stack parado" (tolerar) de "stack rodando mas reload falhou" (erro).
 cd "$RANKING_MSC_REPO_DIR"
 
-# Checagem explícita de estado: nginx está rodando?
-# Usamos 'docker compose ps' para ver se o serviço está running.
-# Tratamos a variável DOCKER_COMPOSE_CMD como array via set --.
-if [ -z "${DOCKER_COMPOSE_CMD:-}" ]; then
-  set -- docker compose
-else
-  # Resolver a variável como um comando (pode ter espaços, ex: "/path/to/docker compose")
-  # Usamos eval de forma controlada aqui apenas para split DOCKER_COMPOSE_CMD
-  eval "set -- $DOCKER_COMPOSE_CMD"
-fi
+# Duas variaveis para que um executavel cujo caminho contenha espaco funcione
+# (sempre aspeado) e o default "docker compose" continue como binario + subcomando.
+# Nada aqui passa por eval.
+DOCKER_COMPOSE_BIN="${DOCKER_COMPOSE_BIN:-docker}"
+DOCKER_COMPOSE_SUBCMD="${DOCKER_COMPOSE_SUBCMD-compose}"
 
-# Tentar verificar estado do nginx
-if "$@" -f docker-compose.prod.yml ps nginx 2>/dev/null | grep -q running; then
+compose_cmd() {
+  if [ -n "$DOCKER_COMPOSE_SUBCMD" ]; then
+    "$DOCKER_COMPOSE_BIN" "$DOCKER_COMPOSE_SUBCMD" "$@"
+  else
+    "$DOCKER_COMPOSE_BIN" "$@"
+  fi
+}
+
+# Checagem explícita de estado: nginx está rodando?
+if compose_cmd -f docker-compose.prod.yml ps nginx 2>/dev/null | grep -q running; then
   # Stack está rodando. Tentar reload. Se falhar, é erro real.
-  if ! "$@" -f docker-compose.prod.yml exec -T nginx nginx -s reload 2>/dev/null; then
+  if ! compose_cmd -f docker-compose.prod.yml exec -T nginx nginx -s reload 2>/dev/null; then
     echo "erro: nginx reload falhou mas stack esta rodando" >&2
     exit 1
   fi
