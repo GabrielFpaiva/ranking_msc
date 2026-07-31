@@ -9,6 +9,7 @@ Doc: https://apidatalake.tesouro.gov.br/docs/siconfi/
 
 from __future__ import annotations
 
+import json
 import logging
 
 import httpx
@@ -44,14 +45,15 @@ def buscar_extrato(
         Lista de itens crus do extrato, já concatenada de todas as páginas.
 
     Raises:
-        SiconfiIndisponivelError: erro HTTP, timeout ou falha de conexão.
+        SiconfiIndisponivelError: erro HTTP, timeout, falha de conexão, JSON malformado
+            ou resposta truncada (teto de páginas atingido).
     """
     itens: list[dict[str, object]] = []
     offset = 0
 
     try:
         with httpx.Client(transport=transport, timeout=timeout) as client:
-            for _ in range(_MAX_PAGINAS):
+            for _pagina in range(_MAX_PAGINAS):
                 resp = client.get(
                     BASE_URL,
                     params={
@@ -66,18 +68,39 @@ def buscar_extrato(
                 itens.extend(dados.get("items", []))
                 if not dados.get("hasMore"):
                     return itens
-                offset += int(dados.get("limit", 25))
 
-        logger.warning(
-            "Extrato do Siconfi excedeu %s páginas — resultado truncado. ente=%s ano=%s",
-            _MAX_PAGINAS,
-            id_ente,
-            exercicio,
-        )
-        return itens
+                # Extrai limit defensivamente — pode ser None, string, ou número
+                limit_raw = dados.get("limit", 25)
+                try:
+                    limit = int(limit_raw) if limit_raw is not None else 25
+                except (ValueError, TypeError) as e:
+                    raise SiconfiIndisponivelError(
+                        f"Valor inválido para 'limit' na resposta do Siconfi: {limit_raw!r}"
+                    ) from e
+
+                offset += limit
+
+            # Saiu do loop sem retornar → atingiu teto de páginas com hasMore=true
+            logger.warning(
+                "Extrato do Siconfi excedeu %s páginas — resultado possivelmente truncado. "
+                "ente=%s ano=%s offset=%s",
+                _MAX_PAGINAS,
+                id_ente,
+                exercicio,
+                offset,
+            )
+            raise SiconfiIndisponivelError(
+                f"Extrato do Siconfi excedeu {_MAX_PAGINAS} páginas (ente={id_ente}, "
+                f"exercício={exercicio}) — resposta possivelmente truncada"
+            )
 
     except httpx.HTTPError as exc:
         raise SiconfiIndisponivelError(
             f"Não foi possível consultar o extrato do Siconfi "
+            f"(ente={id_ente}, exercício={exercicio}): {exc}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise SiconfiIndisponivelError(
+            f"Resposta do Siconfi contém JSON malformado "
             f"(ente={id_ente}, exercício={exercicio}): {exc}"
         ) from exc

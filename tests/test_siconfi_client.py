@@ -81,9 +81,53 @@ def test_falha_de_rede_vira_excecao_do_dominio() -> None:
 
 
 def test_resposta_sem_items_nao_quebra() -> None:
-    """Payload inesperado devolve lista vazia em vez de KeyError."""
+    """Payload com chave ausente: JSON válido mas sem 'items' — deveria devolver lista vazia."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"hasMore": False})
 
     assert buscar_extrato(2507507, 2025, transport=httpx.MockTransport(handler)) == []
+
+
+def test_corpo_nao_json_vira_excecao_do_dominio() -> None:
+    """Resposta 200 com corpo que não é JSON válido deve vir como SiconfiIndisponivelError."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"isso nao e json valido {{{")
+
+    with pytest.raises(SiconfiIndisponivelError):
+        buscar_extrato(2507507, 2025, transport=httpx.MockTransport(handler))
+
+
+def test_limit_invalido_vira_excecao_do_dominio() -> None:
+    """Resposta com limit=null ou string causa TypeError — deve virar SiconfiIndisponivelError."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"items": [{"a": 1}], "hasMore": True, "limit": None},
+        )
+
+    with pytest.raises(SiconfiIndisponivelError):
+        buscar_extrato(2507507, 2025, transport=httpx.MockTransport(handler))
+
+
+def test_teto_de_paginas_levanta_excecao() -> None:
+    """Quando atinge _MAX_PAGINAS com hasMore=true, levanta exceção em vez de devolver parcial."""
+    chamadas: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        offset = int(request.url.params.get("offset", 0))
+        chamadas.append(offset)
+        # Simula API com bug: sempre devolve hasMore=true
+        return httpx.Response(
+            200, json={"items": [{"seq": len(chamadas)}], "hasMore": True, "limit": 1}
+        )
+
+    with pytest.raises(SiconfiIndisponivelError) as exc_info:
+        buscar_extrato(2507507, 2025, transport=httpx.MockTransport(handler))
+
+    # Confirma que fez as requisições até o teto
+    assert len(chamadas) == 50
+    # Confirma que a mensagem de exceção menciona truncamento
+    assert "truncado" in str(exc_info.value).lower() or "excedeu" in str(exc_info.value).lower()
