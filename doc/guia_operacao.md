@@ -390,14 +390,30 @@ Requer dominio publico apontando para o servidor e a porta 80 acessivel.
 
 O Let's Encrypt limita 5 falhas por hora por dominio — confirme que a porta
 80 esta alcancavel de fora ANTES de rodar o certbot, para nao gastar essas
-tentativas com um firewall fechado:
+tentativas a toa.
+
+O teste so faz sentido com o stack **ja no ar**, porque quem responde na porta
+80 e o nginx do proprio stack. Se ainda nao subiu, rode antes:
+
+```bash
+make gen-cert   # self-signed temporario, so para o nginx conseguir subir
+make prod-up
+```
+
+Com o stack no ar, teste de uma maquina fora do servidor:
 
 ```bash
 curl -sI http://SEU.DOMINIO | head -1   # deve devolver 308
 ```
 
-Nao prossiga sem essa resposta. Porta fechada geralmente e firewall do host
-(ufw/iptables) ou do provedor (regra de seguranca na nuvem) — nao o nginx.
+Nao prossiga sem essa resposta. Como diagnosticar o que veio:
+
+| Resposta | Causa provavel |
+|---|---|
+| `308` | tudo certo, siga para o certbot |
+| conexao recusada | o stack nao esta no ar — rode `make prod-up` |
+| conexao pendura / timeout | firewall do host (ufw/iptables) ou do provedor (regra de seguranca na nuvem) |
+| responde outro servico | outra coisa ja ocupa a porta 80 no servidor |
 
 ```bash
 sudo apt install certbot
