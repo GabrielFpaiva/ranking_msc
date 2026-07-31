@@ -96,14 +96,33 @@ compose_cmd() {
 # reporta sucesso). "ps -q" devolve o ID do container quando presente
 # (running/restarting/paused, por padrao) e vazio quando parado/inexistente --
 # estavel entre versoes do compose, ao contrario do texto da tabela.
-if [ -n "$(compose_cmd -f docker-compose.prod.yml ps -q nginx 2>/dev/null)" ]; then
+# Saida e status sao capturados SEPARADAMENTE. Um "ps -q" que falha (daemon
+# reiniciando, plugin do compose ausente, usuario do hook sem permissao no
+# socket) tambem devolve stdout vazio. Ler esse vazio como "parado" faria o hook
+# pular o reload de um nginx que esta de pe -- que seguiria servindo o
+# certificado antigo com a renovacao reportada como aplicada. Vazio so significa
+# "parado" quando a consulta em si teve sucesso; caso contrario e "nao sei", e
+# "nao sei" nao pode virar sucesso silencioso.
+if nginx_id=$(compose_cmd -f docker-compose.prod.yml ps -q nginx 2>/dev/null); then
+  consulta_estado_ok=1
+else
+  consulta_estado_ok=0
+fi
+
+if [ "$consulta_estado_ok" -eq 0 ]; then
+  echo "erro: nao foi possivel consultar o estado do nginx (docker indisponivel?);" \
+       "certificado copiado, mas o reload NAO foi confirmado" >&2
+  exit 1
+fi
+
+if [ -n "$nginx_id" ]; then
   # Stack está rodando. Tentar reload. Se falhar, é erro real.
   if ! compose_cmd -f docker-compose.prod.yml exec -T nginx nginx -s reload 2>/dev/null; then
     echo "erro: nginx reload falhou mas stack esta rodando" >&2
     exit 1
   fi
 else
-  # Stack não está rodando (ou nginx não existe). Toleramos.
+  # Consulta teve sucesso e nao ha container: stack realmente parado. Toleramos.
   # Certificado já foi copiado, será lido no próximo boot.
   echo "aviso: nginx nao esta rodando; certificado copiado, sera lido no proximo boot"
 fi

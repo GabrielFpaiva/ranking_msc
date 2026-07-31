@@ -87,6 +87,41 @@ fi
 )
 
 
+_PS_Q_INDISPONIVEL_DISPATCH = (
+    _IS_PS_Q
+    + '''
+# Se é um 'ps -q', falhar como o compose falha quando não consegue falar com
+# o Docker: nada no stdout, mensagem no stderr, exit não-zero. É o cenário
+# em que "vazio" NÃO significa "parado" -- significa "não sei".
+if is_ps_q "$@"; then
+  echo "cannot connect to the Docker daemon" >&2
+  exit 1
+fi
+'''
+)
+
+
+@pytest.fixture
+def compose_spy_status_indisponivel(tmp_path: Path) -> tuple[Path, Path]:
+    """Stub em que a consulta de estado falha (Docker indisponível).
+
+    Reproduz daemon reiniciando, plugin compose ausente ou usuário do hook sem
+    permissão no socket. O `exec` sucede de propósito: se o hook decidisse pelo
+    stdout vazio, ele pularia um reload que teria funcionado.
+    """
+    log = tmp_path / "compose-invocado.log"
+    stub = tmp_path / "compose-stub.sh"
+    stub.write_text(
+        f'''#!/bin/sh
+echo "$@" >> "{log}"
+{_PS_Q_INDISPONIVEL_DISPATCH}
+exit 0
+'''
+    )
+    stub.chmod(stub.stat().st_mode | stat.S_IEXEC)
+    return stub, log
+
+
 @pytest.fixture
 def compose_spy_stack_running(tmp_path: Path) -> tuple[Path, Path]:
     """Stub que simula stack rodando (ps -q devolve ID, exec sucede)."""
@@ -352,6 +387,42 @@ def test_hook_nao_falha_com_stack_parado(
     )
 
     assert result.returncode == 0, result.stderr
+    assert (fake_repo / "docker" / "nginx" / "certs" / "fullchain.pem").exists()
+
+
+def test_hook_falha_quando_nao_consegue_consultar_estado(
+    fake_letsencrypt: Path,
+    fake_repo: Path,
+    compose_spy_status_indisponivel: tuple[Path, Path],
+) -> None:
+    """Consulta de estado que FALHA não pode ser lida como "stack parado".
+
+    Se o `ps -q` sai não-zero (daemon reiniciando, plugin ausente, sem
+    permissão no socket), o stdout vem vazio. Tratar esse vazio como "nginx
+    não está rodando" faz o hook pular o reload e sair 0 — e um nginx que
+    está de pé segue servindo o certificado antigo com a renovação reportada
+    como aplicada. É o mesmo erro do C1 noutra roupagem: confundir "não sei"
+    com "não". O hook precisa distinguir os dois e falhar alto aqui.
+    """
+    stub, _ = compose_spy_status_indisponivel
+
+    result = _run(
+        {
+            "RANKING_MSC_REPO_DIR": str(fake_repo),
+            "RENEWED_LINEAGE": str(fake_letsencrypt),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
+        }
+    )
+
+    assert result.returncode != 0, (
+        "consulta de estado falhando deve ser erro, nao 'stack parado'"
+    )
+    saida = result.stderr + result.stdout
+    assert "aviso: nginx nao esta rodando" not in saida, (
+        "nao pode reportar 'parado' quando na verdade nao foi possivel consultar"
+    )
+    # O certificado continua publicado: o problema é o reload, não a cópia.
     assert (fake_repo / "docker" / "nginx" / "certs" / "fullchain.pem").exists()
 
 
