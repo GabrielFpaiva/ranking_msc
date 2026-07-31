@@ -336,12 +336,11 @@ encerra no startup por falta de `fullchain.pem`/`privkey.pem`:
 
 ### 3. Substituir pelo certificado institucional
 
-Quando a prefeitura fornecer um certificado oficial, basta substituir os dois
-arquivos e reiniciar o nginx:
-
-    cp <cert-institucional>.pem  docker/nginx/certs/fullchain.pem
-    cp <chave-institucional>.pem docker/nginx/certs/privkey.pem
-    docker compose -f docker-compose.prod.yml restart nginx
+Quando a prefeitura fornecer um certificado oficial (ou para configurar
+renovacao automatica via Let's Encrypt), veja a secao "Certificado TLS
+valido" mais abaixo — inclui os comandos e as permissoes corretas. Nao use
+`restart nginx` para trocar o certificado: ele derruba conexoes em
+andamento; a secao referida usa `nginx -s reload`, que e gracioso.
 
 ### 4. Validacao
 
@@ -370,18 +369,35 @@ Qualquer origem de certificado funciona, desde que produza esses dois arquivos.
 
 ### Opcao A — certificado institucional (PMJP)
 
-Copie os dois arquivos fornecidos pela TI para `docker/nginx/certs/` e
-recarregue:
+Copie os dois arquivos fornecidos pela TI para `docker/nginx/certs/`, ajuste
+as permissoes e recarregue:
 
 ```bash
+cp <cert-institucional>.pem  docker/nginx/certs/fullchain.pem
+cp <chave-institucional>.pem docker/nginx/certs/privkey.pem
+chmod 644 docker/nginx/certs/fullchain.pem
+chmod 600 docker/nginx/certs/privkey.pem
 docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
 ```
 
-Permissoes: `privkey.pem` em `600`, `fullchain.pem` em `644`.
+`cp` como root herda o modo do arquivo de origem, entao os `chmod` acima nao
+sao opcionais — sem eles a chave privada pode ficar com permissao mais aberta
+do que `600`.
 
 ### Opcao B — Let's Encrypt (gratuito, renovacao automatica)
 
 Requer dominio publico apontando para o servidor e a porta 80 acessivel.
+
+O Let's Encrypt limita 5 falhas por hora por dominio — confirme que a porta
+80 esta alcancavel de fora ANTES de rodar o certbot, para nao gastar essas
+tentativas com um firewall fechado:
+
+```bash
+curl -sI http://SEU.DOMINIO | head -1   # deve devolver 308
+```
+
+Nao prossiga sem essa resposta. Porta fechada geralmente e firewall do host
+(ufw/iptables) ou do provedor (regra de seguranca na nuvem) — nao o nginx.
 
 ```bash
 sudo apt install certbot
@@ -394,12 +410,33 @@ sudo RANKING_MSC_REPO_DIR=/caminho/do/repo certbot certonly --webroot \
 O `renew-hook.sh` publica os PEMs em `docker/nginx/certs/` e recarrega o nginx.
 A renovacao automatica ja vem no systemd timer instalado com o pacote certbot.
 
+O `RANKING_MSC_REPO_DIR` acima e usado apenas na emissao manual. O certbot
+persiste `renew_hook = <script>` em
+`/etc/letsencrypt/renewal/SEU.DOMINIO.conf`, mas NAO persiste variaveis de
+ambiente — o timer systemd roda `certbot -q renew` com ambiente limpo. Por
+isso o hook deriva a raiz do repositorio sozinho, a partir do proprio
+caminho (`<repo>/scripts/deploy/renew-hook.sh`), sem depender de
+`RANKING_MSC_REPO_DIR` estar definida na renovacao automatica. A variavel
+serve como override explicito, so necessario se o script for instalado fora
+do layout padrao do repo (copiado/symlinkado para outro caminho).
+
 O nginx precisa estar no ar antes da emissao, para servir o desafio na porta 80.
 Na primeira vez: `make gen-cert` (self-signed, so para o nginx subir),
 `make prod-up`, e entao o certbot substitui pelo valido.
 
-Valide a renovacao antes de confiar nela:
+Valide a renovacao antes de confiar nela. `certbot renew --dry-run` valida
+APENAS o desafio ACME (prova que o dominio e alcancavel e o certbot consegue
+emitir) -- ele PULA o deploy hook (log "Dry run: skipping deploy hook
+command"), entao nao prova que o hook publica o certificado nem que o nginx
+recarrega. O flag `--run-deploy-hooks` resolveria isso, mas so existe no
+certbot 2.8+; o `apt install certbot` do Ubuntu 22.04 entrega 1.21. A prova
+real e invocar o hook diretamente:
 
 ```bash
 sudo RANKING_MSC_REPO_DIR=/caminho/do/repo certbot renew --dry-run
+
+sudo RANKING_MSC_REPO_DIR=/caminho/do/repo \
+  RENEWED_LINEAGE=/etc/letsencrypt/live/SEU.DOMINIO \
+  /caminho/do/repo/scripts/deploy/renew-hook.sh
+ls -l docker/nginx/certs/    # mtime deve ser de agora
 ```
