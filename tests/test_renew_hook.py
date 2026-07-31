@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 import stat
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -49,19 +50,52 @@ def fake_repo(tmp_path: Path) -> Path:
     return repo
 
 
+# Helper de shell compartilhado pelos stubs: casa exatamente a invocação que
+# o hook faz para checar estado -- "compose_cmd -f docker-compose.prod.yml
+# ps -q nginx". Quebrado em função para não estourar o limite de linha do
+# arquivo .py (o teste embute isto num heredoc, não é código Python).
+_IS_PS_Q = '''
+is_ps_q() {
+  [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] \\
+    && [ "$3" = "ps" ] && [ "$4" = "-q" ]
+}
+'''
+
+_PS_Q_DISPATCH = (
+    _IS_PS_Q
+    + '''
+# Se é um 'ps -q', devolver o ID hexadecimal (stack rodando) -- o mesmo
+# formato que "docker compose ps -q" devolve de verdade. É isto que o hook
+# usa para detectar o estado; nunca a palavra "running" (docker compose ps
+# nunca imprime essa palavra -- ver comentário no hook).
+if is_ps_q "$@"; then
+  echo "a1b2c3d4e5f6"
+  exit 0
+fi
+'''
+)
+
+_PS_Q_EMPTY_DISPATCH = (
+    _IS_PS_Q
+    + '''
+# Se é um 'ps -q', devolver vazio (stack parado) -- reproduz "docker
+# compose ps -q" com nenhum container correspondente.
+if is_ps_q "$@"; then
+  exit 0
+fi
+'''
+)
+
+
 @pytest.fixture
 def compose_spy_stack_running(tmp_path: Path) -> tuple[Path, Path]:
-    """Stub que simula stack rodando (ps mostra 'running', exec sucede)."""
+    """Stub que simula stack rodando (ps -q devolve ID, exec sucede)."""
     log = tmp_path / "compose-invocado.log"
     stub = tmp_path / "compose-stub.sh"
     stub.write_text(
         f'''#!/bin/sh
 echo "$@" >> "{log}"
-# Se é um 'ps', retornar com "running"
-if [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] && [ "$3" = "ps" ]; then
-  echo "nginx  running"
-  exit 0
-fi
+{_PS_Q_DISPATCH}
 # Se é um 'exec', suceder
 if [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] && [ "$3" = "exec" ]; then
   exit 0
@@ -75,17 +109,13 @@ exit 0
 
 @pytest.fixture
 def compose_spy_stack_stopped(tmp_path: Path) -> tuple[Path, Path]:
-    """Stub que simula stack parado (ps não mostra 'running')."""
+    """Stub que simula stack parado (ps -q não devolve ID nenhum)."""
     log = tmp_path / "compose-invocado.log"
     stub = tmp_path / "compose-stub.sh"
     stub.write_text(
         f'''#!/bin/sh
 echo "$@" >> "{log}"
-# Se é um 'ps', retornar sem "running" (stack parado)
-if [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] && [ "$3" = "ps" ]; then
-  echo "nginx  exited (1) or other state"
-  exit 0
-fi
+{_PS_Q_EMPTY_DISPATCH}
 # Qualquer outro comando sai 1 (stack parado)
 exit 1
 '''
@@ -102,11 +132,7 @@ def compose_stub_exec_fails(tmp_path: Path) -> tuple[Path, Path]:
     stub.write_text(
         f'''#!/bin/sh
 echo "$@" >> "{log}"
-# Se é um 'ps', retornar com "running"
-if [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] && [ "$3" = "ps" ]; then
-  echo "nginx  running"
-  exit 0
-fi
+{_PS_Q_DISPATCH}
 # Se é um 'exec', falhar (reload falha mesmo com stack rodando)
 if [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] && [ "$3" = "exec" ]; then
   exit 1
@@ -118,12 +144,57 @@ exit 0
     return stub, log
 
 
-def _run(hook_env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+@pytest.fixture
+def compose_spy_stack_running_tabela_real(tmp_path: Path) -> tuple[Path, Path]:
+    """Stub que reproduz a saída REAL do 'docker compose ps' (sem -q): a tabela
+    humana com STATUS "Up X minutes (healthy)" -- sem a palavra "running" em
+    lugar nenhum. Só o 'ps -q' devolve o ID do container.
+
+    Este stub existe para provar que a detecção funciona com a saída real do
+    Docker, não com uma premissa inventada: com a implementação antiga
+    (`ps nginx | grep -q running`), este stub faria o hook cair sempre no
+    ramo "stack parado" -- o mesmo bug de produção que motivou a correção.
+    """
+    log = tmp_path / "compose-invocado.log"
+    stub = tmp_path / "compose-stub.sh"
+    stub.write_text(
+        f'''#!/bin/sh
+echo "$@" >> "{log}"
+if [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] \\
+    && [ "$3" = "ps" ]; then
+  if [ "$4" = "-q" ]; then
+    echo "a1b2c3d4e5f6"
+  else
+    # Formato real do "docker compose ps": tabela com STATUS humano,
+    # nunca a palavra "running".
+    printf "NAME          SERVICE  STATUS\\n"
+    printf "proj-nginx-1  nginx    Up 2 minutes (healthy)\\n"
+  fi
+  exit 0
+fi
+if [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] \\
+    && [ "$3" = "exec" ]; then
+  exit 0
+fi
+exit 0
+'''
+    )
+    stub.chmod(stub.stat().st_mode | stat.S_IEXEC)
+    return stub, log
+
+
+def _run(
+    hook_env: dict[str, str], hook_path: Path = HOOK
+) -> subprocess.CompletedProcess[str]:
     """Executa o hook com ambiente controlado.
 
     As variaveis do contrato sao removidas do ambiente herdado antes de
     aplicar `hook_env` — senao um valor presente na maquina do dev faria o
     teste de variavel ausente passar por engano.
+
+    `hook_path` permite executar uma cópia do script montada em outro lugar
+    (usado pelos testes de derivação de RANKING_MSC_REPO_DIR a partir do
+    próprio caminho do script — ver `_copy_hook_into`).
     """
     env = os.environ.copy()
     for var in (
@@ -135,8 +206,24 @@ def _run(hook_env: dict[str, str]) -> subprocess.CompletedProcess[str]:
         env.pop(var, None)
     env.update(hook_env)
     return subprocess.run(
-        ["sh", str(HOOK)], env=env, capture_output=True, text=True
+        ["sh", str(hook_path)], env=env, capture_output=True, text=True
     )
+
+
+def _copy_hook_into(repo_root: Path) -> Path:
+    """Copia o hook real para `<repo_root>/scripts/deploy/renew-hook.sh`.
+
+    Reproduz o layout que a derivação de REPO_DIR assume (script mora em
+    `<repo>/scripts/deploy/`), mas apontando para um repo falso descartável
+    em vez do repositório real — assim o teste nunca escreve em
+    `docker/nginx/certs/` do projeto de verdade.
+    """
+    deploy_dir = repo_root / "scripts" / "deploy"
+    deploy_dir.mkdir(parents=True, exist_ok=True)
+    hook_copy = deploy_dir / "renew-hook.sh"
+    hook_copy.write_text(HOOK.read_text())
+    hook_copy.chmod(hook_copy.stat().st_mode | stat.S_IEXEC)
+    return hook_copy
 
 
 def test_hook_publica_pems_dereferenciando_symlinks(
@@ -220,6 +307,36 @@ def test_hook_recarrega_nginx(
     assert "-s reload" in invocacao
 
 
+def test_hook_detecta_stack_rodando_pela_saida_real_do_compose(
+    fake_letsencrypt: Path,
+    fake_repo: Path,
+    compose_spy_stack_running_tabela_real: tuple[Path, Path],
+) -> None:
+    """Regressão do C1: com a saída REAL do 'docker compose ps' (tabela
+    "Up 2 minutes (healthy)", sem a palavra "running" em lugar nenhum), o
+    hook deve mesmo assim detectar o stack rodando e tentar o reload.
+
+    Este teste falharia com a implementação antiga
+    (`ps nginx | grep -q running`): a tabela real nunca contém "running",
+    então o grep nunca casaria e o hook cairia sempre no ramo "stack
+    parado" -- o nginx nunca recarregaria o certificado novo em produção.
+    """
+    stub, log = compose_spy_stack_running_tabela_real
+    result = _run(
+        {
+            "RANKING_MSC_REPO_DIR": str(fake_repo),
+            "RENEWED_LINEAGE": str(fake_letsencrypt),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
+        }
+    )
+
+    assert result.returncode == 0, result.stderr
+    invocacao = log.read_text()
+    assert "exec" in invocacao
+    assert "-s reload" in invocacao
+
+
 def test_hook_nao_falha_com_stack_parado(
     fake_letsencrypt: Path, fake_repo: Path, compose_spy_stack_stopped: tuple[Path, Path]
 ) -> None:
@@ -259,7 +376,7 @@ def test_hook_falha_se_reload_falha_e_stack_rodando(
 def test_hook_valida_repo_dir_existe(
     fake_letsencrypt: Path, tmp_path: Path
 ) -> None:
-    """RANKING_MSC_REPO_DIR inexistente = erro alto."""
+    """RANKING_MSC_REPO_DIR (override) inexistente = erro alto."""
     result = _run(
         {
             "RANKING_MSC_REPO_DIR": str(tmp_path / "nao-existe"),
@@ -267,7 +384,7 @@ def test_hook_valida_repo_dir_existe(
         }
     )
     assert result.returncode != 0
-    assert "nao e um diretorio" in (result.stderr + result.stdout)
+    assert "raiz do repositorio invalida" in (result.stderr + result.stdout)
 
 
 def test_hook_valida_compose_arquivo_existe(
@@ -300,11 +417,7 @@ def test_hook_suporta_docker_compose_bin_com_espaco_no_caminho(
         f'''#!/bin/sh
 # Registrar a invocação — prova que o binário foi invocado
 echo "invocado" >> "{log}"
-# Se é um 'ps', retornar com "running"
-if [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] && [ "$3" = "ps" ]; then
-  echo "nginx  running"
-  exit 0
-fi
+{_PS_Q_DISPATCH}
 # Se é um 'exec', suceder
 if [ "$1" = "-f" ] && [ "$2" = "docker-compose.prod.yml" ] && [ "$3" = "exec" ]; then
   exit 0
@@ -329,10 +442,23 @@ exit 0
     assert log.exists() and log.read_text().strip(), "Stub não foi invocado"
 
 
+@pytest.mark.parametrize(
+    "make_payload",
+    [
+        pytest.param(lambda stub, proof: f"{stub}; touch {proof}", id="ponto-e-virgula"),
+        pytest.param(lambda stub, proof: f"{stub}`touch {proof}`", id="backtick"),
+        pytest.param(lambda stub, proof: f"{stub}$(touch {proof})", id="dollar-parenteses"),
+    ],
+)
 def test_hook_nao_sofre_injecao_via_docker_compose_bin(
-    fake_letsencrypt: Path, fake_repo: Path, tmp_path: Path
+    fake_letsencrypt: Path,
+    fake_repo: Path,
+    tmp_path: Path,
+    make_payload: Callable[[Path, Path], str],
 ) -> None:
-    """DOCKER_COMPOSE_BIN com ';' e comando malicioso não deve executar a injeção."""
+    """DOCKER_COMPOSE_BIN com metacaracteres de shell (';', backtick, '$()')
+    não deve executar a injeção -- o valor é sempre usado como caminho de
+    executável (quoted), nunca interpolado num `eval` ou `sh -c`."""
     # Criar um binário que falharia em ps (simular stack parado) mas não executaria injeção
     injection_proof = tmp_path / "injection-proof.txt"
     stub = tmp_path / "malicious.sh"
@@ -350,8 +476,7 @@ exit 0
         {
             "RANKING_MSC_REPO_DIR": str(fake_repo),
             "RENEWED_LINEAGE": str(fake_letsencrypt),
-            # Usar valor contendo ';' que seria problemático com eval
-            "DOCKER_COMPOSE_BIN": f"{stub}; touch {injection_proof}",
+            "DOCKER_COMPOSE_BIN": make_payload(stub, injection_proof),
             "DOCKER_COMPOSE_SUBCMD": "",
         }
     )
@@ -361,13 +486,60 @@ exit 0
     assert not injection_proof.exists(), "Injeção de comando foi executada!"
 
 
-def test_hook_exige_repo_dir(
-    fake_letsencrypt: Path, tmp_path: Path
+def test_hook_deriva_repo_dir_do_proprio_caminho_quando_env_ausente(
+    fake_letsencrypt: Path,
+    fake_repo: Path,
+    compose_spy_stack_running: tuple[Path, Path],
 ) -> None:
-    """Sem RANKING_MSC_REPO_DIR o hook falha alto."""
-    result = _run({"RENEWED_LINEAGE": str(fake_letsencrypt)})
-    assert result.returncode != 0
-    assert "RANKING_MSC_REPO_DIR" in (result.stderr + result.stdout)
+    """Regressão do C2: sem RANKING_MSC_REPO_DIR (ambiente limpo do timer
+    systemd do certbot), o hook deriva a raiz a partir do próprio caminho —
+    ele mora em `<repo>/scripts/deploy/renew-hook.sh`, subir dois níveis
+    chega na raiz. A cópia do hook é colocada dentro de `fake_repo` nesse
+    layout para que a derivação aponte para o repo falso, não para o
+    repositório real do projeto."""
+    stub, _ = compose_spy_stack_running
+    hook_copy = _copy_hook_into(fake_repo)
+
+    result = _run(
+        {
+            "RENEWED_LINEAGE": str(fake_letsencrypt),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
+        },
+        hook_path=hook_copy,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (fake_repo / "docker" / "nginx" / "certs" / "fullchain.pem").exists()
+
+
+def test_hook_ranking_msc_repo_dir_e_override_sobre_derivacao(
+    fake_letsencrypt: Path,
+    fake_repo: Path,
+    tmp_path: Path,
+    compose_spy_stack_running: tuple[Path, Path],
+) -> None:
+    """RANKING_MSC_REPO_DIR definida vence a derivação pelo caminho do
+    script. A cópia do hook fica em `<tmp>/outro-lugar/scripts/deploy/` (que
+    NÃO é um repo válido -- sem docker-compose.prod.yml); só passa porque o
+    override aponta para `fake_repo`, provando que a derivação foi
+    ignorada."""
+    stub, _ = compose_spy_stack_running
+    outro_lugar = tmp_path / "outro-lugar"
+    hook_copy = _copy_hook_into(outro_lugar)
+
+    result = _run(
+        {
+            "RANKING_MSC_REPO_DIR": str(fake_repo),
+            "RENEWED_LINEAGE": str(fake_letsencrypt),
+            "DOCKER_COMPOSE_BIN": str(stub),
+            "DOCKER_COMPOSE_SUBCMD": "",
+        },
+        hook_path=hook_copy,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (fake_repo / "docker" / "nginx" / "certs" / "fullchain.pem").exists()
 
 
 def test_hook_exige_renewed_lineage(fake_repo: Path) -> None:

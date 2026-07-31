@@ -7,7 +7,7 @@
 # de live/ levaria symlinks quebrados para dentro do container.
 #
 # Variaveis de ambiente:
-#   RANKING_MSC_REPO_DIR        raiz do repositorio (obrigatoria)
+#   RANKING_MSC_REPO_DIR        raiz do repositorio (opcional; override -- ver abaixo)
 #   RENEWED_LINEAGE             definida pelo certbot: /etc/letsencrypt/live/<dominio>
 #   DOCKER_COMPOSE_BIN          binario do compose (opcional; default "docker")
 #   DOCKER_COMPOSE_SUBCMD       subcomando (opcional; default "compose"; "" para standalone v1)
@@ -17,20 +17,29 @@ set -eu
 # entre o cp e o chmod.
 umask 077
 
-if [ -z "${RANKING_MSC_REPO_DIR:-}" ]; then
-  echo "erro: defina RANKING_MSC_REPO_DIR com a raiz do repositorio" >&2
-  exit 1
+# O certbot persiste "renew_hook = <script>" em
+# /etc/letsencrypt/renewal/<dominio>.conf, mas NAO persiste ambiente: o timer
+# systemd roda "certbot -q renew" com ambiente limpo, entao qualquer guarda
+# baseada em variavel obrigatoria aborta toda renovacao automatica. Por isso
+# derivamos a raiz do repositorio a partir do proprio caminho do script --
+# ele mora em <repo>/scripts/deploy/, entao subir dois niveis chega na raiz.
+# RANKING_MSC_REPO_DIR continua valendo como override explicito, para quando
+# o script for copiado/symlinkado para fora do layout padrao do repo.
+if [ -n "${RANKING_MSC_REPO_DIR:-}" ]; then
+  REPO_DIR="$RANKING_MSC_REPO_DIR"
+else
+  REPO_DIR=$(cd "$(dirname "$0")/../.." && pwd)
 fi
 
-# Validar que RANKING_MSC_REPO_DIR existe e e um diretorio
-if [ ! -d "$RANKING_MSC_REPO_DIR" ]; then
-  echo "erro: RANKING_MSC_REPO_DIR nao e um diretorio: $RANKING_MSC_REPO_DIR" >&2
+# Validar que a raiz (override ou derivada) existe e e um diretorio
+if [ ! -d "$REPO_DIR" ]; then
+  echo "erro: raiz do repositorio invalida: $REPO_DIR (defina RANKING_MSC_REPO_DIR se o script nao estiver em <repo>/scripts/deploy/)" >&2
   exit 1
 fi
 
 # Validar que docker-compose.prod.yml existe
-if [ ! -f "$RANKING_MSC_REPO_DIR/docker-compose.prod.yml" ]; then
-  echo "erro: docker-compose.prod.yml nao encontrado em $RANKING_MSC_REPO_DIR" >&2
+if [ ! -f "$REPO_DIR/docker-compose.prod.yml" ]; then
+  echo "erro: docker-compose.prod.yml nao encontrado em $REPO_DIR (defina RANKING_MSC_REPO_DIR se o script nao estiver em <repo>/scripts/deploy/)" >&2
   exit 1
 fi
 
@@ -39,7 +48,7 @@ if [ -z "${RENEWED_LINEAGE:-}" ]; then
   exit 1
 fi
 
-CERT_DIR="${RANKING_MSC_REPO_DIR}/docker/nginx/certs"
+CERT_DIR="${REPO_DIR}/docker/nginx/certs"
 mkdir -p "$CERT_DIR"
 
 # Escrita atomica: escrever em temporario e depois mv.
@@ -63,7 +72,7 @@ chmod 644 "${CERT_DIR}/fullchain.pem"
 
 # Recarregar o nginx se o stack estiver rodando.
 # Distinguir "stack parado" (tolerar) de "stack rodando mas reload falhou" (erro).
-cd "$RANKING_MSC_REPO_DIR"
+cd "$REPO_DIR"
 
 # Duas variaveis para que um executavel cujo caminho contenha espaco funcione
 # (sempre aspeado) e o default "docker compose" continue como binario + subcomando.
@@ -80,7 +89,14 @@ compose_cmd() {
 }
 
 # Checagem explícita de estado: nginx está rodando?
-if compose_cmd -f docker-compose.prod.yml ps nginx 2>/dev/null | grep -q running; then
+# "docker compose ps" imprime STATUS no formato humano do Docker
+# ("Up 5 hours (healthy)"), nunca a palavra "running" -- um grep nela nunca
+# casa, e o hook cairia sempre no ramo "stack parado" mesmo com o nginx no ar
+# (bug corrigido aqui: cert novo gravado, nginx nunca recarrega, certbot
+# reporta sucesso). "ps -q" devolve o ID do container quando presente
+# (running/restarting/paused, por padrao) e vazio quando parado/inexistente --
+# estavel entre versoes do compose, ao contrario do texto da tabela.
+if [ -n "$(compose_cmd -f docker-compose.prod.yml ps -q nginx 2>/dev/null)" ]; then
   # Stack está rodando. Tentar reload. Se falhar, é erro real.
   if ! compose_cmd -f docker-compose.prod.yml exec -T nginx nginx -s reload 2>/dev/null; then
     echo "erro: nginx reload falhou mas stack esta rodando" >&2
