@@ -4,14 +4,20 @@ app.api.routes.entregas
 
 GET /api/entregas — extrato de entregas ao Siconfi (Dimensão I do Ranking).
 
-Três origens possíveis, todas com HTTP 200:
+``origem``, ``aviso`` e ``buscado_em`` respondem três perguntas diferentes e
+não devem ser confundidos entre si:
 
-* ``api``          — dados frescos;
-* ``cache``        — Siconfi indisponível, servindo cache com a data da busca;
-* ``indisponivel`` — sem API e sem cache: vazio explicativo.
+* ``origem``     — de onde veio o dado: ``"api"`` (buscado agora), ``"cache"``
+  (servido do cache, dentro ou fora do prazo) ou ``"indisponivel"`` (sem API
+  e sem cache);
+* ``aviso``      — houve degradação? ``None`` quando não (inclusive quando
+  ``origem == "cache"`` mas o cache ainda está dentro do TTL — não é
+  degradação, é o caminho normal de economizar uma chamada à API);
+* ``buscado_em`` — idade do dado mostrado, sempre que houver.
 
-Indisponibilidade de serviço externo não vira 500: a tela precisa continuar
-utilizável, e precisa dizer com clareza o que está mostrando.
+Todas as combinações respondem HTTP 200 — indisponibilidade de serviço
+externo não vira 500: a tela precisa continuar utilizável, e precisa dizer
+com clareza o que está mostrando.
 """
 
 from __future__ import annotations
@@ -68,11 +74,16 @@ def get_entregas(
     ano: int = Query(..., ge=2000, le=2100, description="Exercício de referência"),
     settings: Settings = Depends(get_settings),  # noqa: B008
 ) -> EntregasOut:
-    """Busca o extrato, com cache e degradação explícita."""
+    """Busca o extrato, com cache e degradação explícita.
+
+    ``origem`` descreve apenas a procedência do dado; ``aviso`` é quem diz se
+    houve degradação. Cache dentro do TTL é ``origem="cache"`` sem ``aviso``
+    — é o caminho normal, não um problema.
+    """
     cfg = settings.siconfi
     cache_dir = Path(settings.paths.data_dir) / "cache"
 
-    origem = "api"
+    origem: str
     aviso: str | None = None
     buscado_em: datetime | None = None
 
@@ -80,11 +91,13 @@ def get_entregas(
     if entrada is not None:
         itens = entrada.itens
         buscado_em = entrada.buscado_em
+        origem = "cache"
     else:
         try:
             itens = buscar_extrato(cfg.id_ente, ano)
             buscado_em = datetime.now(UTC)
             gravar_cache(cache_dir, cfg.id_ente, ano, itens, agora=buscado_em)
+            origem = "api"
         except SiconfiIndisponivelError as exc:
             logger.warning("Siconfi indisponível: %s", exc)
             antigo = ler_cache_ignorando_ttl(cache_dir, cfg.id_ente, ano)

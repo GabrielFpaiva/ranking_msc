@@ -360,8 +360,25 @@ class EntregasOut(BaseModel):
 
     ano: int
     id_ente: int
-    origem: str = Field(..., description="api, cache ou indisponivel")
-    buscado_em: datetime | None = None
-    aviso: str | None = None
+    origem: str = Field(
+        ...,
+        description=(
+            "De onde veio o dado — não indica degradação. "
+            "'api': buscado agora no Siconfi. "
+            "'cache': servido do cache, dentro OU fora do TTL — ver 'aviso' "
+            "para saber se houve degradação. "
+            "'indisponivel': sem API e sem cache."
+        ),
+    )
+    buscado_em: datetime | None = Field(
+        None, description="Quando o dado exibido foi obtido — a idade do dado"
+    )
+    aviso: str | None = Field(
+        None,
+        description=(
+            "Não nulo apenas quando houve degradação (Siconfi indisponível). "
+            "Cache dentro do TTL não gera aviso — é o caminho normal."
+        ),
+    )
     resumo: ResumoEntregasOut
     entregas: list[EntregaOut]

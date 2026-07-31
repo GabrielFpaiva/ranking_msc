@@ -11,7 +11,7 @@ Siconfi está fora, e não pode apresentar dado velho como se fosse atual.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -92,6 +92,36 @@ def test_devolve_entregas_e_resumo(
     assert body["aviso"] is None
     assert body["entregas"][0]["status"] == "RETIFICADO"
     assert body["entregas"][0]["dias_apos_fim_periodo"] == 60
+
+
+def test_cache_dentro_do_ttl_devolve_cache_sem_aviso(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    cache_dir: Path,
+) -> None:
+    """Cache dentro do TTL: `origem` é "cache", mas SEM aviso — não é degradação.
+
+    `origem` responde "de onde veio o dado"; `aviso` responde "houve
+    degradação?". Cache válido dentro do TTL é o caminho normal de poupar uma
+    chamada à API — a tela não deve exibir nenhum banner de alerta por isso.
+    """
+    buscado_em = datetime.now(UTC) - timedelta(hours=1)
+    gravar_cache(cache_dir, 2507507, 2025, ITENS, agora=buscado_em)
+
+    def nao_deveria_ser_chamado(*a: object, **k: object) -> list[dict[str, object]]:
+        raise AssertionError(
+            "buscar_extrato não deveria ser chamado com cache válido dentro do TTL"
+        )
+
+    monkeypatch.setattr("app.api.routes.entregas.buscar_extrato", nao_deveria_ser_chamado)
+
+    resp = client.get("/api/entregas?ano=2025")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["origem"] == "cache"
+    assert body["aviso"] is None
+    assert body["resumo"]["retificadas"] == 1
 
 
 def test_api_fora_com_cache_devolve_cache_datado(

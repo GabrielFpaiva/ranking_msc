@@ -29,17 +29,32 @@ def _hermetic_settings(tmp_path_factory: pytest.TempPathFactory) -> Generator[No
     temporário e aponta RANKING_MSC_CONFIG para ela, de modo que load_settings()
     e app.api.deps.get_settings() usem sempre a mesma config em qualquer máquina.
 
-    ``paths.data_dir`` também é redirecionado para um tmp de sessão: sem isso,
-    qualquer rota que escreva sob ``settings.paths.data_dir`` (ex.: o cache do
-    Siconfi em `app/api/routes/entregas.py`) gravaria no `data/` real do
-    repositório, com testes dependendo de ordem de execução.
+    ``paths.data_dir``, ``snapshots_dir``, ``reports_dir`` e ``logs_dir``
+    também são redirecionados para um tmp de sessão: são campos
+    *independentes* em ``PathsSettings`` (não derivados de ``data_dir``), e
+    qualquer rota/CLI que escreva sob eles gravaria no `data/` real do
+    repositório, com testes dependendo de ordem de execução. ``ref_dir`` fica
+    de fora de propósito — aponta para tabelas de referência versionadas
+    (PCASP, domínios) que os testes só leem, nunca escrevem.
     """
     example = _PROJECT_ROOT / "config" / "settings.yaml.example"
     config_path = tmp_path_factory.mktemp("config") / "settings.yaml"
     data_dir = tmp_path_factory.mktemp("data")
-    conteudo = example.read_text(encoding="utf-8").replace(
-        'data_dir: "./data"', f'data_dir: "{data_dir.as_posix()}"'
-    )
+    conteudo = example.read_text(encoding="utf-8")
+    for antigo, novo in (
+        ('data_dir: "./data"', f'data_dir: "{data_dir.as_posix()}"'),
+        (
+            'snapshots_dir: "./data/snapshots"',
+            f'snapshots_dir: "{(data_dir / "snapshots").as_posix()}"',
+        ),
+        (
+            'reports_dir: "./data/reports"',
+            f'reports_dir: "{(data_dir / "reports").as_posix()}"',
+        ),
+        ('logs_dir: "./data/logs"', f'logs_dir: "{(data_dir / "logs").as_posix()}"'),
+    ):
+        assert antigo in conteudo, f"settings.yaml.example mudou — não encontrei {antigo!r}"
+        conteudo = conteudo.replace(antigo, novo)
     config_path.write_text(conteudo, encoding="utf-8")
 
     original = os.environ.get("RANKING_MSC_CONFIG")
