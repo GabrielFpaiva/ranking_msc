@@ -354,3 +354,52 @@ Ajustes:
 - Limite de upload (`client_max_body_size`, default `200m`) e timeouts de
   processamento (`proxy_read_timeout`/`proxy_send_timeout`, default `300s`)
   ficam centralizados em `docker/nginx/nginx.conf`.
+
+## Certificado TLS valido
+
+O self-signed serve para desenvolvimento. Em qualquer ambiente acessado por
+outra pessoa, use certificado emitido por autoridade reconhecida — caso
+contrario o navegador exibe aviso de conexao nao privada.
+
+O nginx le sempre os mesmos dois arquivos:
+
+- `docker/nginx/certs/fullchain.pem`
+- `docker/nginx/certs/privkey.pem`
+
+Qualquer origem de certificado funciona, desde que produza esses dois arquivos.
+
+### Opcao A — certificado institucional (PMJP)
+
+Copie os dois arquivos fornecidos pela TI para `docker/nginx/certs/` e
+recarregue:
+
+```bash
+docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+```
+
+Permissoes: `privkey.pem` em `600`, `fullchain.pem` em `644`.
+
+### Opcao B — Let's Encrypt (gratuito, renovacao automatica)
+
+Requer dominio publico apontando para o servidor e a porta 80 acessivel.
+
+```bash
+sudo apt install certbot
+sudo RANKING_MSC_REPO_DIR=/caminho/do/repo certbot certonly --webroot \
+  -w /caminho/do/repo/docker/nginx/certbot-webroot \
+  -d SEU.DOMINIO \
+  --deploy-hook /caminho/do/repo/scripts/deploy/renew-hook.sh
+```
+
+O `renew-hook.sh` publica os PEMs em `docker/nginx/certs/` e recarrega o nginx.
+A renovacao automatica ja vem no systemd timer instalado com o pacote certbot.
+
+O nginx precisa estar no ar antes da emissao, para servir o desafio na porta 80.
+Na primeira vez: `make gen-cert` (self-signed, so para o nginx subir),
+`make prod-up`, e entao o certbot substitui pelo valido.
+
+Valide a renovacao antes de confiar nela:
+
+```bash
+sudo RANKING_MSC_REPO_DIR=/caminho/do/repo certbot renew --dry-run
+```
