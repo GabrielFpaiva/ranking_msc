@@ -14,6 +14,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from ranking_msc.siconfi.cache import (
     gravar_cache,
     ler_cache,
@@ -86,3 +88,47 @@ def test_cria_diretorio_se_nao_existir(tmp_path: Path) -> None:
     gravar_cache(destino, 2507507, 2025, ITENS, agora=AGORA)
 
     assert ler_cache(destino, 2507507, 2025, ttl_horas=24, agora=AGORA) is not None
+
+
+def test_gravar_cache_atomico(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Escrita com falha não corrompe cache existente.
+
+    Simula falha durante gravação (via monkeypatch em Path.write_text)
+    e verifica que:
+    1. Arquivo final mantém conteúdo original (byte a byte)
+    2. Arquivo .tmp não sobrou
+
+    Propriedade testada: atomicidade via write-tmp-then-replace.
+    """
+    # Grave cache inicial válido
+    gravar_cache(tmp_path, 2507507, 2025, ITENS, agora=AGORA)
+
+    arquivo = tmp_path / "entregas_2507507_2025.json"
+    assert arquivo.exists()
+    conteudo_original = arquivo.read_text(encoding="utf-8")
+
+    # Segunda gravação vai falhar no meio
+    # Monkeypatch Path.write_text para levantar OSError quando escrever no .tmp
+    original_write_text = Path.write_text
+
+    def write_text_que_falha(
+        self: Path, data: str, encoding: str | None = None
+    ) -> None:
+        # Falha apenas ao escrever no arquivo .tmp (não no primeiro uso)
+        if str(self).endswith(".json.tmp"):
+            raise OSError("Simulated disk write failure")
+        original_write_text(self, data, encoding)
+
+    monkeypatch.setattr(Path, "write_text", write_text_que_falha)
+
+    # Tente gravar novamente com dados diferentes — deve falhar
+    with pytest.raises(OSError):
+        gravar_cache(tmp_path, 2507507, 2025, [{"novo": "item"}], agora=AGORA)
+
+    # Verificar propriedades atômicas:
+    # 1. Arquivo final ainda tem conteúdo original (não foi sobrescrito)
+    assert arquivo.read_text(encoding="utf-8") == conteudo_original
+
+    # 2. Arquivo .tmp não sobrou
+    arquivo_tmp = tmp_path / "entregas_2507507_2025.json.tmp"
+    assert not arquivo_tmp.exists()
