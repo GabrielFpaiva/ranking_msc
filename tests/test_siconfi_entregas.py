@@ -10,7 +10,7 @@ Nenhum teste aqui usa mock.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 
 import pytest
 
@@ -63,7 +63,7 @@ class TestParse:
         assert bruta.periodo == 1
         assert bruta.periodicidade == "B"
         assert bruta.status_relatorio == "RE"
-        assert bruta.data_status == datetime(2025, 4, 29, 9, 39, 8, tzinfo=timezone.utc)  # noqa: UP017
+        assert bruta.data_status == datetime(2025, 4, 29, 9, 39, 8)
 
     def test_parse_aceita_status_e_data_nulos(self) -> None:
         """MSC vem sem status; parse não pode quebrar nem inventar valor."""
@@ -129,7 +129,7 @@ class TestClassificar:
         entrega = classificar(bruta, {})
 
         assert entrega.status == "SEM_STATUS"
-        assert entrega.atrasada is not True
+        assert entrega.atrasada is None
 
     def test_calcula_dias_apos_fim_do_periodo(self) -> None:
         """RREO 1º bim/2025: período fecha 28/02, entrega em 29/04 = 60 dias."""
@@ -174,6 +174,20 @@ class TestClassificar:
         assert entrega.fim_periodo is None
         assert entrega.dias_apos_fim_periodo is None
         assert entrega.atrasada is None
+
+    def test_entrega_no_mesmo_dia_do_fim_periodo_da_zero_dias(self) -> None:
+        """Fronteira: entrega no mesmo dia do fim do período ⇒ 0 dias após."""
+        item = dict(ITEM_REAL) | {
+            "periodo": 1,
+            "periodicidade": "M",
+            "exercicio": 2025,
+            "data_status": "2025-01-31T23:30:00Z",
+        }
+        (bruta,) = parse_entregas([item])
+        entrega = classificar(bruta, {})
+
+        assert entrega.fim_periodo == date(2025, 1, 31)
+        assert entrega.dias_apos_fim_periodo == 0
 
 
 class TestResumir:
