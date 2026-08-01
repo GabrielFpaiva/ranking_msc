@@ -52,7 +52,10 @@ sistema de forma autonoma e o projeto possa ser encerrado formalmente.
 - App nao exposto diretamente no host; acesso somente via nginx (HTTP redireciona
   para HTTPS).
 - Substituir o certificado self-signed pelo certificado institucional antes do
-  go-live (ver `doc/guia_operacao.md`, secao "Publicacao com reverse proxy").
+  uso em producao. Procedimento documentado em `doc/guia_operacao.md`, secao
+  "Certificado TLS valido" (opcao A). O nginx le sempre
+  `docker/nginx/certs/{fullchain,privkey}.pem`; basta copiar os arquivos e
+  recarregar.
 - Validacao de runtime ja exercitada localmente em 2026-06-16: `/api/health` 200,
   redirect 308, login JWT e upload `/api/run` OK. Falta exercitar no ambiente alvo.
 
