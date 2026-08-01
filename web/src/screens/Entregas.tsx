@@ -79,27 +79,13 @@ function agruparPorInstituicao(entregas: Entrega[]): { instituicao: string; iten
     });
 }
 
-// Abreviação do status — o resumo no topo já expõe "Retificadas" por extenso
-// como a contagem que a Dimensão I penaliza; repetir a palavra inteira em
-// cada linha da tabela é redundante e faz "retificad..." aparecer múltiplas
-// vezes na tela.
-function statusAbrev(status: Entrega['status']): string {
-  switch (status) {
-    case 'HOMOLOGADO':
-      return 'Homolog.';
-    case 'RETIFICADO':
-      return 'Retif.';
-    default:
-      return '—';
-  }
-}
-
 function TabelaEntregas({ itens }: { itens: Entrega[] }) {
   return (
     <table className="samid-table samid-table-dense">
       <thead>
         <tr>
           <th>Entregável</th>
+          <th>Período</th>
           <th>Status</th>
           <th>Prazo</th>
         </tr>
@@ -108,7 +94,8 @@ function TabelaEntregas({ itens }: { itens: Entrega[] }) {
         {itens.map((e, i) => (
           <tr key={`${e.entregavel}-${e.periodo}-${i}`}>
             <td>{e.entregavel}</td>
-            <td title={e.status}>{statusAbrev(e.status)}</td>
+            <td className="mono">{e.periodo}</td>
+            <td>{e.status}</td>
             <td className="mono">{situacaoPrazo(e)}</td>
           </tr>
         ))}
@@ -196,13 +183,21 @@ export default function Entregas() {
           <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
             <div>
               <div className="samid-eyebrow">Total</div>
-              <div className="mono" style={{ fontSize: 22, fontWeight: 700 }}>
+              <div
+                className="mono"
+                data-testid="resumo-total"
+                style={{ fontSize: 22, fontWeight: 700 }}
+              >
                 {data.resumo.total}
               </div>
             </div>
             <div>
               <div className="samid-eyebrow">Homologadas</div>
-              <div className="mono" style={{ fontSize: 22, fontWeight: 700 }}>
+              <div
+                className="mono"
+                data-testid="resumo-homologadas"
+                style={{ fontSize: 22, fontWeight: 700 }}
+              >
                 {data.resumo.homologadas}
               </div>
             </div>
@@ -210,6 +205,7 @@ export default function Entregas() {
               <div className="samid-eyebrow">Retificadas</div>
               <div
                 className="mono"
+                data-testid="resumo-retificadas"
                 style={{ fontSize: 22, fontWeight: 700, color: 'var(--samid-alerta)' }}
               >
                 {data.resumo.retificadas}
@@ -240,7 +236,7 @@ export default function Entregas() {
             {grupos.map((g) => (
               <details key={g.instituicao} open={isPrefeitura(g.instituicao)} style={{ marginTop: 12 }}>
                 <summary className="samid-card-title" style={{ fontSize: 16, cursor: 'pointer' }}>
-                  {g.instituicao}
+                  {g.instituicao} ({g.itens.length})
                 </summary>
                 <div style={{ overflowX: 'auto', marginTop: 8 }}>
                   <TabelaEntregas itens={g.itens} />
