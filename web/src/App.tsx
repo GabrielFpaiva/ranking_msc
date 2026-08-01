@@ -5,6 +5,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Caixa } from './screens/Caixa';
 import { Comparar } from './screens/Comparar';
+import Entregas from './screens/Entregas';
 import { Execucao } from './screens/Execucao';
 import { Executivo } from './screens/Executivo';
 import { Home } from './screens/Home';
@@ -44,6 +45,7 @@ export function App() {
         <Route path="passivos" element={<Passivos />} />
         <Route path="superavit" element={<Superavit />} />
         <Route path="comparar" element={<Comparar />} />
+        <Route path="entregas" element={<Entregas />} />
         <Route path="*" element={<Navigate to="/inicio" replace />} />
       </Route>
     </Routes>

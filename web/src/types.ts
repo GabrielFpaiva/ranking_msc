@@ -246,3 +246,35 @@ export interface LogPage {
   total: number;
   items: LogEntry[];
 }
+
+// ---------- Entregas / Gestão da Informação (Dimensão I) ----------
+
+export interface Entrega {
+  instituicao: string;
+  entregavel: string;
+  periodo: number;
+  periodicidade: string;
+  status: 'HOMOLOGADO' | 'RETIFICADO' | 'SEM_STATUS';
+  data_status: string | null;
+  fim_periodo: string | null;
+  dias_apos_fim_periodo: number | null;
+  prazo_dias: number | null;
+  /** null = sem base para julgar. Nunca renderizar como "no prazo". */
+  atrasada: boolean | null;
+}
+
+export interface ResumoEntregas {
+  total: number;
+  homologadas: number;
+  retificadas: number;
+}
+
+export interface EntregasResponse {
+  ano: number;
+  id_ente: number;
+  origem: 'api' | 'cache' | 'indisponivel';
+  buscado_em: string | null;
+  aviso: string | null;
+  resumo: ResumoEntregas;
+  entregas: Entrega[];
+}
