@@ -30,7 +30,10 @@ const base: EntregasResponse = {
       fim_periodo: '2025-02-28',
       dias_apos_fim_periodo: 60,
       prazo_dias: 30,
-      atrasada: true,
+      // C1: status RETIFICADO ⇒ atrasada é sempre None. `data_status` de um
+      // registro retificado é a data da RETIFICAÇÃO, não da entrega original
+      // — não há base para julgar atraso. Ver ranking_msc.siconfi.entregas.classificar.
+      atrasada: null,
     },
   ],
 };
@@ -68,10 +71,25 @@ describe('Entregas', () => {
     expect(screen.getByText('atualizado agora')).toBeTruthy();
   });
 
+  it('Task 5: idadeDoDado mostra "atualizado há Xh" quando o dado tem mais de 1h', async () => {
+    // Único ramo de idadeDoDado sem cobertura antes desta correção — é a
+    // barreira que impede dado velho de se passar por atual.
+    const tresHorasDepois = new Date(base.buscado_em as string).getTime() + 3 * 3_600_000;
+    vi.spyOn(Date, 'now').mockReturnValue(tresHorasDepois);
+
+    render(<Entregas />);
+
+    expect(await screen.findByText('atualizado há 3h')).toBeTruthy();
+  });
+
   it('mostra os dias decorridos mesmo sem prazo configurado, sem rótulo de situação', async () => {
+    // status HOMOLOGADO de propósito: para RETIFICADO, situacaoPrazo nunca
+    // mostra "N dias" (mostra a data da retificação) — ver o teste de
+    // discriminação do C1 mais abaixo. Este teste cobre o caminho de
+    // HOMOLOGADO sem prazo configurado.
     const semPrazo = {
       ...base,
-      entregas: [{ ...base.entregas[0], prazo_dias: null, atrasada: null }],
+      entregas: [{ ...base.entregas[0], status: 'HOMOLOGADO' as const, prazo_dias: null, atrasada: null }],
     };
     const { api } = await import('../api/client');
     vi.mocked(api.getEntregas).mockResolvedValueOnce(semPrazo);
@@ -83,6 +101,21 @@ describe('Entregas', () => {
     // especificamente "no prazo" (e "fora do prazo"), que o ternário
     // produziria se a guarda de `atrasada === null` fosse removida.
     expect(screen.queryByText(/no prazo/i)).toBeNull();
+    expect(screen.queryByText(/fora do prazo/i)).toBeNull();
+  });
+
+  it('C1: RETIFICADO mostra "retificado em DD/MM/AAAA", nunca dias-após-período', async () => {
+    // Prova de discriminação: `base.entregas[0]` é RETIFICADO, com
+    // `dias_apos_fim_periodo: 60` e `atrasada: null`. Se situacaoPrazo não
+    // discriminasse por status, mostraria "60 dias" — o mesmo número que
+    // media a data da RETIFICAÇÃO, não da entrega original.
+    render(<Entregas />);
+
+    // A mesma entrega aparece em duas seções ("Entregas com prazo
+    // acompanhado" e "Como estamos") — mesma razão do getAllByText usado
+    // acima para 'RETIFICADO'.
+    expect((await screen.findAllByText('retificado em 29/04/2025')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('60 dias')).toBeNull();
     expect(screen.queryByText(/fora do prazo/i)).toBeNull();
   });
 
@@ -113,5 +146,33 @@ describe('Entregas', () => {
     // Espera o carregamento terminar antes de afirmar ausência do banner.
     await screen.findByTestId('resumo-retificadas');
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('I1: origem=indisponivel esconde o resumo — "Retificadas 0" não pode parecer dado real', async () => {
+    const { api } = await import('../api/client');
+    vi.mocked(api.getEntregas).mockResolvedValueOnce({
+      ...base,
+      origem: 'indisponivel',
+      buscado_em: null,
+      aviso:
+        'Não foi possível consultar o Siconfi e não há dados salvos. ' +
+        'Verifique a conexão do servidor com a internet.',
+      resumo: { total: 0, homologadas: 0, retificadas: 0 },
+      entregas: [],
+    });
+
+    render(<Entregas />);
+
+    // O banner de degradação continua visível — a tela precisa dizer o motivo.
+    expect(await screen.findByRole('status')).toBeTruthy();
+    // O resumo (Total/Homologadas/Retificadas) NÃO pode aparecer: "0" ao lado
+    // de "Não foi possível consultar o Siconfi" lê como nota perfeita, não
+    // como ausência de dado.
+    expect(screen.queryByTestId('resumo-total')).toBeNull();
+    expect(screen.queryByTestId('resumo-homologadas')).toBeNull();
+    expect(screen.queryByTestId('resumo-retificadas')).toBeNull();
+    // As tabelas também continuam escondidas.
+    expect(screen.queryByText('Entregas com prazo acompanhado')).toBeNull();
+    expect(screen.queryByText('Como estamos')).toBeNull();
   });
 });

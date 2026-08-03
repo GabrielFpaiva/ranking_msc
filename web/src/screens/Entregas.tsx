@@ -13,13 +13,43 @@ import type { Entrega, EntregasResponse } from '../types';
 const ANO_ATUAL = new Date().getFullYear();
 const ANOS = Array.from({ length: 5 }, (_, i) => ANO_ATUAL - i);
 
+/** Formata uma data ISO (`YYYY-MM-DD...`) como `DD/MM/AAAA`.
+ *
+ * Faz isso por fatiamento de string, não com `new Date(...).toLocaleDateString`
+ * — o backend guarda `data_status` naive de propósito (ver `_parse_data` em
+ * `siconfi/entregas.py`), e `Date` interpretaria um sufixo `Z` como UTC,
+ * arriscando deslocar o dia por fuso. Ver o mesmo cuidado no domínio Python.
+ */
+function formatarData(iso: string): string {
+  const [ano, mes, dia] = iso.slice(0, 10).split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
+/** Código bruto que a API do Siconfi devolve, para quem quer conferir a
+ * fonte do rótulo por extenso (M1 — mitigação caso a leitura HO/RE esteja
+ * errada). Mapeamento é 1:1 e determinístico a partir de `status`. */
+function codigoBruto(status: Entrega['status']): string | null {
+  if (status === 'HOMOLOGADO') return 'HO';
+  if (status === 'RETIFICADO') return 'RE';
+  return null;
+}
+
 /** Rótulo da situação de prazo.
  *
  * `atrasada === null` significa "sem base para julgar" (prazo não configurado
  * ou período indecifrável) — NUNCA renderizar "no prazo" a partir disso.
  * Mostrar apenas o fato: quantos dias se passaram.
+ *
+ * Para RETIFICADO, `dias_apos_fim_periodo` mede distância até a
+ * RETIFICAÇÃO, não até a entrega original — não é a mesma grandeza que para
+ * HOMOLOGADO. Por isso nunca aparece como "N dias" aqui: mostramos a data da
+ * retificação em vez do contador, para não sugerir que aquele número é o
+ * atraso da entrega original (ver C1 em `siconfi/entregas.py::classificar`).
  */
 function situacaoPrazo(e: Entrega): string {
+  if (e.status === 'RETIFICADO') {
+    return e.data_status ? `retificado em ${formatarData(e.data_status)}` : 'retificado';
+  }
   if (e.dias_apos_fim_periodo === null) return '—';
   const dias = `${e.dias_apos_fim_periodo} dias`;
   if (e.atrasada === null) return dias;
@@ -87,7 +117,8 @@ function TabelaEntregas({ itens }: { itens: Entrega[] }) {
           <th>Entregável</th>
           <th>Período</th>
           <th>Status</th>
-          <th>Prazo</th>
+          <th>Data</th>
+          <th>Dias após o fim do período</th>
         </tr>
       </thead>
       <tbody>
@@ -95,7 +126,8 @@ function TabelaEntregas({ itens }: { itens: Entrega[] }) {
           <tr key={`${e.entregavel}-${e.periodo}-${i}`}>
             <td>{e.entregavel}</td>
             <td className="mono">{e.periodo}</td>
-            <td>{e.status}</td>
+            <td title={codigoBruto(e.status) ?? undefined}>{e.status}</td>
+            <td className="mono">{e.data_status ? formatarData(e.data_status) : '—'}</td>
             <td className="mono">{situacaoPrazo(e)}</td>
           </tr>
         ))}
@@ -133,7 +165,7 @@ export default function Entregas() {
   }, [ano]);
 
   const idade = data ? idadeDoDado(data.buscado_em) : null;
-  const emAberto = data
+  const comPrazoAcompanhado = data
     ? data.entregas.filter((e) => e.prazo_dias !== null && e.fim_periodo !== null)
     : [];
   const grupos = data ? agruparPorInstituicao(data.entregas) : [];
@@ -179,7 +211,7 @@ export default function Entregas() {
           </p>
         )}
 
-        {data && (
+        {data && data.origem !== 'indisponivel' && (
           <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
             <div>
               <div className="samid-eyebrow">Total</div>
@@ -218,15 +250,12 @@ export default function Entregas() {
       {data && data.origem === 'indisponivel' ? null : data ? (
         <>
           <section className="samid-card">
-            <div className="samid-eyebrow">O que vence agora</div>
-            <h2 className="samid-card-title" style={{ marginTop: 4 }}>
-              Entregas com prazo configurado
-            </h2>
-            {emAberto.length === 0 ? (
-              <p className="samid-muted">nenhuma entrega com prazo configurado em aberto</p>
+            <div className="samid-eyebrow">Entregas com prazo acompanhado</div>
+            {comPrazoAcompanhado.length === 0 ? (
+              <p className="samid-muted">nenhuma entrega com prazo configurado neste exercício</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <TabelaEntregas itens={emAberto} />
+                <TabelaEntregas itens={comPrazoAcompanhado} />
               </div>
             )}
           </section>
