@@ -25,15 +25,6 @@ function formatarData(iso: string): string {
   return `${dia}/${mes}/${ano}`;
 }
 
-/** Código bruto que a API do Siconfi devolve, para quem quer conferir a
- * fonte do rótulo por extenso (M1 — mitigação caso a leitura HO/RE esteja
- * errada). Mapeamento é 1:1 e determinístico a partir de `status`. */
-function codigoBruto(status: Entrega['status']): string | null {
-  if (status === 'HOMOLOGADO') return 'HO';
-  if (status === 'RETIFICADO') return 'RE';
-  return null;
-}
-
 /** Rótulo da situação de prazo.
  *
  * `atrasada === null` significa "sem base para julgar" (prazo não configurado
@@ -126,7 +117,7 @@ function TabelaEntregas({ itens }: { itens: Entrega[] }) {
           <tr key={`${e.entregavel}-${e.periodo}-${i}`}>
             <td>{e.entregavel}</td>
             <td className="mono">{e.periodo}</td>
-            <td title={codigoBruto(e.status) ?? undefined}>{e.status}</td>
+            <td>{e.status}</td>
             <td className="mono">{e.data_status ? formatarData(e.data_status) : '—'}</td>
             <td className="mono">{situacaoPrazo(e)}</td>
           </tr>
