@@ -133,6 +133,15 @@ def classificar(bruta: EntregaBruta, prazos: Mapping[str, int]) -> Entrega:
         bruta: entrega como veio da API.
         prazos: mapa ``entregável -> prazo em dias``. Entregável ausente do
             mapa recebe apenas o dado factual, sem veredicto de atraso.
+
+    Note:
+        Quando ``status == "RETIFICADO"``, ``atrasada`` é sempre ``None``,
+        mesmo com prazo configurado. ``data_status`` de um registro
+        retificado é a data da RETIFICAÇÃO, não da entrega original — meses
+        depois do envio real. O extrato da API não traz a data da entrega
+        original, então não há base para julgar atraso nesse caso.
+        ``dias_apos_fim_periodo`` continua exposto como fato (mede a
+        distância até a retificação), só não vira veredicto de atraso.
     """
     status: StatusEntrega = _STATUS.get(bruta.status_relatorio or "", "SEM_STATUS")
     fim = fim_do_periodo(bruta.periodicidade, bruta.periodo, bruta.exercicio)
@@ -143,7 +152,7 @@ def classificar(bruta: EntregaBruta, prazos: Mapping[str, int]) -> Entrega:
 
     prazo = prazos.get(bruta.entregavel)
     atrasada: bool | None = None
-    if prazo is not None and dias is not None:
+    if status != "RETIFICADO" and prazo is not None and dias is not None:
         atrasada = dias > prazo
 
     return Entrega(

@@ -78,7 +78,14 @@ ITENS: list[dict[str, object]] = [
 def test_devolve_entregas_e_resumo(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Caminho feliz: API responde, dados vêm frescos e sem aviso."""
+    """Caminho feliz: API responde, dados vêm frescos e sem aviso.
+
+    ITENS[0] é status "RE" (retificado) com 60 dias até a retificação e
+    prazo de 30 dias configurado no settings.yaml.example para este
+    entregável. `dias_apos_fim_periodo` continua exposto como fato, mas
+    `atrasada` deve ser None — data de retificação não é data de entrega,
+    não há base para julgar atraso. Ver ranking_msc.siconfi.entregas.classificar.
+    """
     monkeypatch.setattr(
         "app.api.routes.entregas.buscar_extrato", lambda *a, **k: ITENS
     )
@@ -92,6 +99,7 @@ def test_devolve_entregas_e_resumo(
     assert body["aviso"] is None
     assert body["entregas"][0]["status"] == "RETIFICADO"
     assert body["entregas"][0]["dias_apos_fim_periodo"] == 60
+    assert body["entregas"][0]["atrasada"] is None
 
 
 def test_cache_dentro_do_ttl_devolve_cache_sem_aviso(

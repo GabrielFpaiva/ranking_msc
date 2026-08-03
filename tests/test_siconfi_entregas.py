@@ -148,17 +148,44 @@ class TestClassificar:
         assert entrega.atrasada is None
         assert entrega.dias_apos_fim_periodo == 60  # o fato continua lá
 
-    def test_com_prazo_configurado_julga_atraso(self) -> None:
-        """RREO: prazo de 30 dias, entrega em 60 ⇒ atrasada."""
-        (bruta,) = parse_entregas([ITEM_REAL])
+    def test_com_prazo_configurado_e_status_homologado_julga_atraso(self) -> None:
+        """RREO homologado: prazo de 30 dias, entrega em 60 ⇒ atrasada.
+
+        Usa um item HO (não RE) de propósito: só para HOMOLOGADO a
+        `data_status` é a data da entrega — é o único caso em que faz
+        sentido julgar atraso a partir dela.
+        """
+        item = dict(ITEM_REAL) | {"status_relatorio": "HO"}
+        (bruta,) = parse_entregas([item])
         prazos = {"Relatório Resumido de Execução Orçamentária": 30}
         entrega = classificar(bruta, prazos)
 
         assert entrega.prazo_dias == 30
         assert entrega.atrasada is True
 
+    def test_retificado_nunca_julga_atraso_mesmo_com_prazo_e_muitos_dias(self) -> None:
+        """RE: `data_status` é a data da RETIFICAÇÃO, não da entrega original.
+
+        ITEM_REAL tem `status_relatorio == "RE"`. Mesmo com prazo configurado
+        e 60 dias decorridos até a retificação, `atrasada` deve ficar `None`
+        — a data de entrega original não vem no extrato, não há base para
+        julgar. Antes da correção, este teste afirmava `atrasada is True`
+        (leitura errada: tratava data de retificação como data de entrega).
+        """
+        (bruta,) = parse_entregas([ITEM_REAL])
+        prazos = {"Relatório Resumido de Execução Orçamentária": 30}
+        entrega = classificar(bruta, prazos)
+
+        assert entrega.prazo_dias == 30
+        assert entrega.dias_apos_fim_periodo == 60  # o fato continua lá
+        assert entrega.atrasada is None
+
     def test_dentro_do_prazo_nao_e_atraso(self) -> None:
-        item = dict(ITEM_REAL) | {"data_status": "2025-03-10T00:00:00Z"}
+        """Caminho de julgamento com HO: dentro do prazo ⇒ não é atraso."""
+        item = dict(ITEM_REAL) | {
+            "status_relatorio": "HO",
+            "data_status": "2025-03-10T00:00:00Z",
+        }
         (bruta,) = parse_entregas([item])
         entrega = classificar(bruta, {"Relatório Resumido de Execução Orçamentária": 30})
 

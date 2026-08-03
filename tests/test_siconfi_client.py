@@ -100,7 +100,7 @@ def test_corpo_nao_json_vira_excecao_do_dominio() -> None:
 
 
 def test_limit_invalido_vira_excecao_do_dominio() -> None:
-    """Resposta com limit=null ou string causa TypeError — deve virar SiconfiIndisponivelError."""
+    """Resposta com limit=null causa TypeError — deve virar SiconfiIndisponivelError."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
