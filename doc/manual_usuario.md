@@ -158,6 +158,40 @@ Use para verificar:
 
 E necessario ter snapshots processados para as competencias escolhidas.
 
+### Entregas
+
+Mostra o extrato de entregas ao Siconfi (Dimensao I do Ranking) para o
+exercicio selecionado: quais relatorios foram enviados, quando, e se houve
+retificacao.
+
+Selecione o **exercicio** no topo da tela. A tela mostra:
+
+- resumo do exercicio: total de entregas, quantas homologadas e quantas
+  retificadas;
+- "O que vence agora": entregas com prazo configurado ainda em aberto;
+- "Como estamos": tabela por instituicao (Prefeitura e Camara), com status,
+  periodo e dias decorridos apos o fim do periodo de cada entrega.
+
+**Retificado** significa que o ente reenviou o relatorio depois do envio
+original, substituindo os dados homologados anteriormente. Cada retificacao
+conta no resumo e e um dos fatores que a Dimensao I do Ranking penaliza -
+quanto mais retificacoes, pior a nota dessa dimensao. Um relatorio aparece
+como `HOMOLOGADO` quando foi aceito sem retificacao posterior.
+
+**Por que alguns entregaveis nao mostram situacao de prazo:** a coluna de
+prazo mostra os dias decorridos desde o fim do periodo para toda entrega, mas
+so emite um veredicto ("no prazo" / "fora do prazo") para os entregaveis que
+tem prazo configurado no sistema. DCA, MSC Agregada e MSC Encerramento
+aparecem **sem** esse veredicto de proposito: ainda nao conseguimos
+fundamentar o prazo desses tres entregaveis em norma especifica, e preferimos
+mostrar so o dado factual (dias decorridos) a arriscar um julgamento errado.
+Isso nao e falta de dado nem erro da tela - e uma escolha deliberada, ate que
+a contabilidade confirme os prazos aplicaveis.
+
+Quando o Siconfi nao responde, a tela mostra um aviso no topo e continua
+funcionando com o ultimo dado salvo em cache (quando existir). Um horario do
+tipo "atualizado ha Xh" indica a idade do dado exibido.
+
 ---
 
 ## Exportacoes

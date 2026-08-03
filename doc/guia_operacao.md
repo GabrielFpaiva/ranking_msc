@@ -78,6 +78,58 @@ Nao e preciso reiniciar a API depois de criar/alterar usuarios: o servidor
 detecta mudancas no `settings.yaml` (mtime) e recarrega a configuracao na
 requisicao seguinte.
 
+### Bloco `siconfi`
+
+Configura a consulta ao extrato de entregas do Siconfi, usada pela tela
+**Entregas** (Dimensao I do Ranking):
+
+```yaml
+siconfi:
+  id_ente: 2507507              # codigo IBGE do ente (Joao Pessoa - PB)
+  cache_ttl_horas: 24
+  prazos_dias:
+    "Relatório Resumido de Execução Orçamentária": 30
+    "Relatório de Gestão Fiscal": 30
+```
+
+- `id_ente`: codigo IBGE do ente consultado na API do Tesouro. Nao alterar sem
+  confirmar o codigo correto do municipio.
+- `cache_ttl_horas`: por quantas horas uma resposta da API fica valida em
+  cache antes de a tela buscar de novo. Enquanto o cache estiver dentro do
+  TTL, a tela serve do cache sem chamar a API — isso e o caminho normal, nao
+  degradacao.
+- `prazos_dias`: mapa `nome do entregavel -> prazo em dias apos o fim do
+  periodo`. **Entregavel ausente deste mapa aparece na tela sem veredicto de
+  atraso** — so o dado factual (dias decorridos desde o fim do periodo), sem
+  o rotulo "no prazo"/"fora do prazo". Essa e uma decisao consciente do
+  projeto: DCA, MSC Agregada e MSC Encerramento ficam de fora de proposito,
+  porque ainda nao ha fundamentacao normativa confirmada para os prazos
+  desses tres entregaveis. Nao adicione esses entregaveis ao mapa sem
+  confirmar o prazo com a contabilidade.
+
+  Os dois prazos ja configurados por padrao tem fundamento em norma: RREO
+  (Relatorio Resumido de Execucao Orcamentaria) e RGF (Relatorio de Gestao
+  Fiscal), 30 dias cada, conforme LRF (Lei de Responsabilidade Fiscal,
+  LC 101/2000) arts. 52 e 55 par. 2.
+
+### Teste de conectividade com o Siconfi
+
+O servidor da prefeitura pode nao ter saida liberada para a internet. Antes
+de depender da tela **Entregas** em producao, valide a conectividade direto
+do servidor:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" \
+  "https://apidatalake.tesouro.gov.br/ords/siconfi/tt/entes?id_ente=2507507"
+```
+
+- `200`: a consulta funciona, a tela busca dados atuais da API.
+- Qualquer outro resultado (timeout, erro de DNS, codigo diferente de `200`):
+  indica bloqueio de firewall/proxy. A tela continua funcionando em modo
+  cache (ultimo dado salvo), mas nao atualiza ate a saida para a internet ser
+  liberada. Nesse cenario, verifique liberacao de saida para
+  `apidatalake.tesouro.gov.br` (HTTPS/443) com o time de rede da prefeitura.
+
 ---
 
 ## Subir em desenvolvimento
