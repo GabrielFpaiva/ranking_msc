@@ -6,7 +6,7 @@
 // A tela mostra status e período por extenso — a colisão de texto se resolve
 // no teste, não simplificando a tela.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import Entregas from './Entregas';
@@ -38,9 +38,17 @@ const base: EntregasResponse = {
   ],
 };
 
-vi.mock('../api/client', () => ({
-  api: { getEntregas: vi.fn(() => Promise.resolve(base)) },
-}));
+// Preserva os demais exports do módulo — a tela importa `ApiError` e usa
+// `err instanceof ApiError` no catch. Um mock que só devolve `api` deixaria
+// `ApiError` undefined, e o `instanceof` lançaria TypeError no caminho de
+// erro. Mesmo padrão de `Pendencias.test.tsx`.
+vi.mock('../api/client', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../api/client')>();
+  return {
+    ...mod,
+    api: { ...mod.api, getEntregas: vi.fn(() => Promise.resolve(base)) },
+  };
+});
 
 describe('Entregas', () => {
   // Fixa `Date.now()` no instante de `base.buscado_em` para que `idadeDoDado`
@@ -174,5 +182,23 @@ describe('Entregas', () => {
     // As tabelas também continuam escondidas.
     expect(screen.queryByText('Entregas com prazo acompanhado')).toBeNull();
     expect(screen.queryByText('Como estamos')).toBeNull();
+  });
+
+  it('Codex-1/3: falha ao recarregar descarta o resultado anterior', async () => {
+    const { api, ApiError } = await import('../api/client');
+    // Primeira carga: sucesso, com 1 retificada.
+    render(<Entregas />);
+    expect(await screen.findByTestId('resumo-retificadas')).toBeTruthy();
+
+    // Segunda carga falha. Exercita tambem `err instanceof ApiError` no catch:
+    // com o mock antigo (so `api`), ApiError seria undefined e isto lancaria
+    // TypeError em vez de renderizar a mensagem de erro.
+    vi.mocked(api.getEntregas).mockRejectedValueOnce(new ApiError(500, 'boom'));
+    fireEvent.change(screen.getByLabelText(/exerc/i), { target: { value: '2024' } });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('resumo-retificadas')).toBeNull();
+    });
+    expect(screen.queryByTestId('resumo-total')).toBeNull();
   });
 });

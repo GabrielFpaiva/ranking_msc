@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -56,34 +58,36 @@ def gravar_cache(
 ) -> None:
     """Grava os itens com carimbo de data/hora.
 
-    Usa escrita atômica (tmp + replace) para evitar corrupção em caso de
-    falha ou leitura concorrente durante a escrita.
+    Usa escrita atômica (temporário + ``replace``) para que uma leitura
+    concorrente nunca veja conteúdo parcial.
+
+    O temporário é **único por escrita** (``mkstemp``), não um nome fixo. Com
+    nome fixo, duas requisições concorrentes para o mesmo ``(ente, exercício)``
+    disputam o mesmo arquivo: uma apaga ou substitui o temporário da outra
+    antes do ``replace``, e o ``FileNotFoundError`` resultante escaparia como
+    HTTP 500 em ``/api/entregas`` — que não tem lock, ao contrário do caminho
+    de snapshot (``/api/run`` serializa com ``acquire_execution_lock``).
+    O temporário fica no diretório de destino para o ``replace`` continuar
+    atômico (mesmo filesystem).
     """
     caminho = _caminho(cache_dir, id_ente, exercicio)
-    caminho_tmp = caminho.with_suffix(".json.tmp")
     caminho.parent.mkdir(parents=True, exist_ok=True)
     momento = agora or datetime.now(UTC)
 
+    descritor, nome_tmp = tempfile.mkstemp(
+        dir=caminho.parent, prefix=f"{caminho.stem}.", suffix=".tmp"
+    )
+    caminho_tmp = Path(nome_tmp)
     try:
-        # Limpar arquivo tmp anterior se existir
-        if caminho_tmp.exists():
-            caminho_tmp.unlink()
-
-        # Escrever no arquivo temporário
-        caminho_tmp.write_text(
-            json.dumps(
+        with os.fdopen(descritor, "w", encoding="utf-8") as arquivo:
+            json.dump(
                 {"itens": itens, "buscado_em": momento.isoformat()},
+                arquivo,
                 ensure_ascii=False,
-            ),
-            encoding="utf-8",
-        )
-
-        # Renomear de forma atômica (replace no mesmo filesystem)
+            )
         caminho_tmp.replace(caminho)
     except OSError:
-        # Limpar tmp em caso de falha
-        if caminho_tmp.exists():
-            caminho_tmp.unlink()
+        caminho_tmp.unlink(missing_ok=True)
         raise
 
 

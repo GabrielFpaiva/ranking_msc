@@ -144,6 +144,11 @@ export default function Entregas() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
+          // Descartar o resultado anterior. Sem isto, uma falha ao trocar de
+          // exercício deixaria o seletor no ano novo e a tabela/resumo no ano
+          // antigo — contagens de retificação de 2025 apresentadas como se
+          // fossem de 2026.
+          setData(null);
           setError(err instanceof ApiError ? err.userMessage : 'Erro ao carregar entregas.');
         }
       })
