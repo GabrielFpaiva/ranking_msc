@@ -13,7 +13,8 @@ Hierarquia:
     ├── ReportError          — falha ao gerar relatório Excel
     ├── RuleExecutionError   — erro durante execução de uma regra
     ├── ConcurrencyError     — conflito de concorrência entre usuários
-    └── BenchmarkError       — falha no módulo de benchmark
+    ├── BenchmarkError       — falha no módulo de benchmark
+    └── SiconfiIndisponivelError — falha ao consultar API do Siconfi
 
 Regra geral: cada módulo levanta a exceção mais específica possível,
 sempre incluindo mensagem descritiva em português para o log.
@@ -67,3 +68,7 @@ class ConcurrencyError(RankingMSCError):
 
 class BenchmarkError(RankingMSCError):
     """Falha no módulo de benchmark (gerador, profiler ou reporter)."""
+
+
+class SiconfiIndisponivelError(RankingMSCError):
+    """A API do Siconfi não pôde ser consultada (rede, timeout ou erro HTTP)."""

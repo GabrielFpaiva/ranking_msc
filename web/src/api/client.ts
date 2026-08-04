@@ -8,6 +8,7 @@ import type {
   Competencia,
   ContaDetail,
   ContaList,
+  EntregasResponse,
   Heatmap,
   LogPage,
   PendenciasPage,
@@ -230,6 +231,9 @@ export const api = {
 
   compare: (siconfi: string, a: string, b: string): Promise<Compare> =>
     fetchAuth(`${BASE}/compare${qs({ siconfi, a, b })}`).then((r) => jsonOrThrow<Compare>(r)),
+
+  getEntregas: (ano: number): Promise<EntregasResponse> =>
+    fetchAuth(`${BASE}/entregas${qs({ ano })}`).then((r) => jsonOrThrow<EntregasResponse>(r)),
 
   log: (params: {
     execucao_id?: string;

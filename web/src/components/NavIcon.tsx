@@ -13,6 +13,7 @@ export type IconName =
   | 'superavit'
   | 'executivo'
   | 'comparar'
+  | 'entregas'
   | 'regras'
   | 'execucao'
   | 'sair';
@@ -32,6 +33,8 @@ const PATHS: Record<IconName, string> = {
   executivo: 'M9 4h6v3H9zM7 5H5v16h14V5h-2',
   // comparar (duas setas)
   comparar: 'M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4',
+  // calendário com check (entregas)
+  entregas: 'M5 4h14v16H5zM5 9h14M8 2v4M16 2v4M8.5 14l2 2 4-4',
   // livro (regras)
   regras: 'M5 4a2 2 0 0 1 2-2h11v18H7a2 2 0 0 0-2 2zM9 2v18',
   // pulso / atividade (execução)

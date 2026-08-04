@@ -158,6 +158,57 @@ Use para verificar:
 
 E necessario ter snapshots processados para as competencias escolhidas.
 
+### Entregas
+
+Mostra o extrato de entregas ao Siconfi (Dimensao I do Ranking) para o
+exercicio selecionado: quais relatorios foram enviados, quando, e se houve
+retificacao.
+
+Selecione o **exercicio** no topo da tela. A tela mostra:
+
+- resumo do exercicio: total de entregas, quantas homologadas e quantas
+  retificadas (o resumo so aparece quando ha dado para mostrar - ver abaixo
+  o que acontece quando o Siconfi esta indisponivel e nao ha cache);
+- "Entregas com prazo acompanhado": entregas cujo entregavel tem prazo
+  configurado no sistema. O extrato do Siconfi so contem o que ja foi
+  entregue - esta secao nao lista pendencia futura, mostra a situacao de
+  prazo do que ja foi enviado;
+- "Como estamos": tabela por instituicao (Prefeitura e Camara), com status,
+  periodo, data e dias decorridos apos o fim do periodo de cada entrega.
+
+**Retificado** significa que o ente reenviou o relatorio depois do envio
+original, substituindo os dados homologados anteriormente. Cada retificacao
+conta no resumo e e um dos fatores que a Dimensao I do Ranking penaliza -
+quanto mais retificacoes, pior a nota dessa dimensao. Um relatorio aparece
+como `HOMOLOGADO` quando foi aceito sem retificacao posterior.
+
+**Por que um relatorio RETIFICADO nao mostra dias-apos-o-prazo:** a data que
+o Siconfi devolve para um relatorio retificado (`data_status`) e a data da
+RETIFICACAO, nao da entrega original - que pode ter sido feita meses antes e
+nao vem no extrato da API. Por isso, para RETIFICADO, a coluna de prazo
+mostra "retificado em DD/MM/AAAA" em vez de dias decorridos: mostrar dias
+contados a partir dessa data daria a entender, errado, que a entrega
+original atrasou. Para conferir a data e o codigo bruto (`HO`/`RE`) que a
+API devolveu, veja a coluna **Data** e passe o mouse sobre o status na
+tabela.
+
+**Por que alguns entregaveis nao mostram situacao de prazo:** a coluna de
+dias mostra os dias decorridos desde o fim do periodo para toda entrega
+HOMOLOGADA, mas so emite um veredicto ("no prazo" / "fora do prazo") para os
+entregaveis que tem prazo configurado no sistema. DCA, MSC Agregada e MSC
+Encerramento aparecem **sem** esse veredicto de proposito: ainda nao
+conseguimos fundamentar o prazo desses tres entregaveis em norma especifica,
+e preferimos mostrar so o dado factual (dias decorridos) a arriscar um
+julgamento errado. Isso nao e falta de dado nem erro da tela - e uma escolha
+deliberada, ate que a contabilidade confirme os prazos aplicaveis.
+
+Quando o Siconfi nao responde, a tela mostra um aviso no topo e continua
+funcionando com o ultimo dado salvo em cache (quando existir). Um horario do
+tipo "atualizado ha Xh" indica a idade do dado exibido. Quando nao ha Siconfi
+nem cache disponivel, a tela mostra so o aviso explicando a indisponibilidade
+- sem resumo nem tabelas, para nao dar a entender que "0 retificacoes" e um
+resultado real.
+
 ---
 
 ## Exportacoes

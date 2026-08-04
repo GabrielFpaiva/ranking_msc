@@ -103,12 +103,24 @@ class SecuritySettings:
 
 
 @dataclass(frozen=True)
+class SiconfiSettings:
+    """Consulta ao extrato de entregas do Siconfi (Dimensão I do Ranking)."""
+
+    id_ente: int = 2507507  # João Pessoa - PB
+    cache_ttl_horas: float = 24.0
+    # Prazo em dias após o fim do período, por entregável. Entregável AUSENTE
+    # deste mapa não recebe veredicto de atraso — só o dado factual.
+    prazos_dias: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class Settings:
     """Configuração consolidada do projeto."""
     app: AppSettings = field(default_factory=AppSettings)
     paths: PathsSettings = field(default_factory=PathsSettings)
     rules: RulesSettings = field(default_factory=RulesSettings)
     security: SecuritySettings = field(default_factory=SecuritySettings)
+    siconfi: SiconfiSettings = field(default_factory=SiconfiSettings)
 
 
 # ---------------------------------------------------------------------------
@@ -239,4 +251,5 @@ def load_settings(path: Path | str | None = None) -> Settings:
         paths=_parse_section(raw.get("paths", {}), PathsSettings, "paths"),
         rules=_parse_section(raw.get("rules", {}), RulesSettings, "rules"),
         security=security,
+        siconfi=_parse_section(raw.get("siconfi", {}), SiconfiSettings, "siconfi"),
     )

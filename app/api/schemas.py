@@ -11,6 +11,7 @@ completo de pendências fica em rotas paginadas, não em respostas inline.
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -320,3 +321,64 @@ class LogEntryOut(BaseModel):
 class LogPageOut(BaseModel):
     total: int
     items: list[LogEntryOut]
+
+
+# ---------------------------------------------------------------------------
+# Gestão da Informação — entregas ao Siconfi (F7)
+# ---------------------------------------------------------------------------
+
+
+class EntregaOut(BaseModel):
+    """Uma entrega ao Siconfi, classificada."""
+
+    instituicao: str
+    entregavel: str
+    periodo: int
+    periodicidade: str
+    status: str = Field(..., description="HOMOLOGADO, RETIFICADO ou SEM_STATUS")
+    data_status: datetime | None = None
+    fim_periodo: date | None = None
+    dias_apos_fim_periodo: int | None = None
+    prazo_dias: int | None = Field(
+        None, description="Prazo configurado; ausente quando não há base normativa"
+    )
+    atrasada: bool | None = Field(
+        None, description="null quando não há base para julgar — nunca inferir False"
+    )
+
+
+class ResumoEntregasOut(BaseModel):
+    """Contagens do exercício."""
+
+    total: int
+    homologadas: int
+    retificadas: int
+
+
+class EntregasOut(BaseModel):
+    """Resposta de GET /api/entregas."""
+
+    ano: int
+    id_ente: int
+    origem: str = Field(
+        ...,
+        description=(
+            "De onde veio o dado — não indica degradação. "
+            "'api': buscado agora no Siconfi. "
+            "'cache': servido do cache, dentro OU fora do TTL — ver 'aviso' "
+            "para saber se houve degradação. "
+            "'indisponivel': sem API e sem cache."
+        ),
+    )
+    buscado_em: datetime | None = Field(
+        None, description="Quando o dado exibido foi obtido — a idade do dado"
+    )
+    aviso: str | None = Field(
+        None,
+        description=(
+            "Não nulo apenas quando houve degradação (Siconfi indisponível). "
+            "Cache dentro do TTL não gera aviso — é o caminho normal."
+        ),
+    )
+    resumo: ResumoEntregasOut
+    entregas: list[EntregaOut]
