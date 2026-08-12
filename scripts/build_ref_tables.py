@@ -5,7 +5,7 @@ fonte das tabelas ND e NR. Rodar este script sempre que a STN publicar uma vers�
 nova, junto com a atualização de ``ANO_TABELAS_REF`` em ``io/ref_loader.py``.
 
 Uso:
-    python scripts/gen_tabelas_ref.py [--workbook CAMINHO] [--ref-dir CAMINHO]
+    python scripts/build_ref_tables.py [--workbook CAMINHO] [--ref-dir CAMINHO]
 """
 
 from __future__ import annotations
