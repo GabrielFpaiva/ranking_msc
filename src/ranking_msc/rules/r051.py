@@ -1,29 +1,31 @@
 """
-Regra R051 — VPA − VPD = Resultado do Exercício.
+Regra R051 — VPA − VPD = Resultado do Exercício (encerramento).
 
 Dimensão: Interconta
 Severidade padrão: ALERTA
 
 Lógica:
-    O resultado operacional (VPA − VPD) deve ser consistente com a
-    variação do grupo Resultados Acumulados (PCASP 2.1.4, prefixo "214").
+    No encerramento do exercício (mês 13), o resultado operacional (VPA − VPD)
+    deve corresponder à variação do grupo Resultados Acumulados (PCASP 2.3.7),
+    contra o qual as contas de resultado são zeradas. Nas demais competências a
+    regra não se aplica e não gera pendência.
 
     vpa_liq   = SUM(mov_C - mov_D)  para contas onde conta_contabil[0] == "4"
     vpd_liq   = SUM(mov_D - mov_C)  para contas onde conta_contabil[0] == "3"
     resultado = vpa_liq - vpd_liq
 
     delta_pl  = SUM(SF_C - SF_D) - SUM(SI_C - SI_D)
-                para contas onde conta_contabil[:3] == "214"
+                para contas onde conta_contabil[:3] == "237"
 
     SE abs(resultado - delta_pl) > tolerancia → ALERTA
 
 Limitação conhecida:
-    Ajustes diretos no PL que não transitam por classes 3/4 (doações,
-    correções monetárias) podem gerar falso ALERTA. Isso é esperado —
-    por isso a severidade é ALERTA e não ERRO.
+    Ajustes diretos no PL que não transitam por classes 3/4 (doações, correções
+    monetárias) podem gerar falso ALERTA. Por isso a severidade é ALERTA, não ERRO.
 
 Referência:
-    Portaria STN 642/2026 — Regras Gerais MSC, R051
+    doc/calibracao_regras_respostas_rodrigo.md, pergunta 2;
+    ref/IPC_Encerramento_STN.pdf, p. 9.
 """
 
 from __future__ import annotations
@@ -33,7 +35,12 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ranking_msc.rules.base import TOLERANCIA_CENTAVO, Rule, register_rule
+from ranking_msc.rules.base import (
+    TOLERANCIA_CENTAVO,
+    Rule,
+    competencia_de_encerramento,
+    register_rule,
+)
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -43,14 +50,14 @@ logger = logging.getLogger("ranking_msc")
 
 @register_rule
 class R051(Rule):
-    """Verifica consistência entre VPA-VPD e variação dos Resultados Acumulados (2.1.4)."""
+    """Verifica consistência entre VPA-VPD e variação dos Resultados Acumulados (2.3.7)."""
 
     rule_id = "R051"
     rule_name = "VPA - VPD = Resultado"
     dimensao = "Interconta"
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
-        """Compara resultado operacional com variação do grupo 2.1.4 (Resultados Acumulados).
+        """Compara resultado operacional com variação do grupo 2.3.7 (Resultados Acumulados).
 
         Args:
             df: DataFrame normalizado com colunas conta_contabil, movimento_debito,
@@ -59,12 +66,21 @@ class R051(Rule):
             context: metadados da execução.
 
         Returns:
-            DataFrame de pendências — vazio se consistente ou sem dados 214;
-            uma linha se divergência detectada.
+            DataFrame de pendências — vazio se consistente, sem dados 237 ou fora
+            do encerramento; uma linha se divergência detectada no encerramento.
         """
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
         if df.empty:
+            return self.build_issues([])
+
+        if not competencia_de_encerramento(context.competencia):
+            logger.info(
+                "R051: competência %s não é de encerramento — confronto VPA-VPD "
+                "não se aplica.",
+                context.competencia,
+                extra=_extra,
+            )
             return self.build_issues([])
 
         cols_valor = [
@@ -76,11 +92,11 @@ class R051(Rule):
         for col in cols_valor:
             work[col] = pd.to_numeric(work[col], errors="coerce").fillna(0.0)
 
-        grupo214 = work[work["conta_contabil"].str[:3] == "214"]
+        grupo237 = work[work["conta_contabil"].str[:3] == "237"]
 
-        if grupo214.empty:
+        if grupo237.empty:
             logger.info(
-                "R051: nenhuma conta do grupo 2.1.4 encontrada — validação ignorada. "
+                "R051: nenhuma conta do grupo 2.3.7 encontrada — validação ignorada. "
                 "competência=%s",
                 context.competencia,
                 extra=_extra,
@@ -94,8 +110,8 @@ class R051(Rule):
         vpd_liq = (classe3["movimento_debito"] - classe3["movimento_credito"]).sum()
         resultado = vpa_liq - vpd_liq
 
-        pl_sf = (grupo214["saldo_final_credito"] - grupo214["saldo_final_debito"]).sum()
-        pl_si = (grupo214["saldo_inicial_credito"] - grupo214["saldo_inicial_debito"]).sum()
+        pl_sf = (grupo237["saldo_final_credito"] - grupo237["saldo_final_debito"]).sum()
+        pl_si = (grupo237["saldo_inicial_credito"] - grupo237["saldo_inicial_debito"]).sum()
         delta_pl = pl_sf - pl_si
 
         diferenca = abs(resultado - delta_pl)
@@ -104,7 +120,7 @@ class R051(Rule):
             return self.build_issues([])
 
         logger.warning(
-            "R051: VPA-VPD (%.2f) ≠ delta PL 2.1.4 (%.2f), diferença=%.2f. competência=%s",
+            "R051: VPA-VPD (%.2f) ≠ delta PL 2.3.7 (%.2f), diferença=%.2f. competência=%s",
             resultado,
             delta_pl,
             diferenca,
@@ -116,11 +132,11 @@ class R051(Rule):
             "severidade": "ALERTA",
             "conta_contabil": "",
             "descricao": (
-                f"Resultado operacional inconsistente com Resultados Acumulados (2.1.4): "
-                f"VPA-VPD={resultado:.2f}, ΔPL(2.1.4)={delta_pl:.2f}, "
+                f"Resultado do exercício inconsistente com Resultados Acumulados (2.3.7): "
+                f"VPA-VPD={resultado:.2f}, ΔPL(2.3.7)={delta_pl:.2f}, "
                 f"diferença={diferenca:.2f}."
             ),
             "valor_esperado": f"VPA-VPD={resultado:.2f}",
-            "valor_encontrado": f"delta_PL(2.1.4)={delta_pl:.2f}",
+            "valor_encontrado": f"delta_PL(2.3.7)={delta_pl:.2f}",
             "competencia": context.competencia,
         }])

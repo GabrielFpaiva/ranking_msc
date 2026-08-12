@@ -142,6 +142,23 @@ class Rule(ABC):
 TOLERANCIA_CENTAVO: float = 0.01
 """Tolerância monetária padrão (R$ 0,01) usada em comparações de saldo."""
 
+# Mês 13 é o período de encerramento do exercício no leiaute MSC: é nele que as
+# contas de resultado são zeradas contra Resultados Acumulados.
+MES_ENCERRAMENTO: str = "13"
+
+
+def competencia_de_encerramento(competencia: str) -> bool:
+    """Indica se a competência é a de encerramento do exercício.
+
+    Args:
+        competencia: período no formato "YYYY-MM".
+
+    Returns:
+        True quando o mês é 13.
+    """
+    return competencia.strip().endswith(f"-{MES_ENCERRAMENTO}")
+
+
 # ---------------------------------------------------------------------------
 # Helper compartilhado para validação de IC vazia
 # ---------------------------------------------------------------------------

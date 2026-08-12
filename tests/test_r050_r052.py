@@ -2,15 +2,18 @@
 
 Dimensão: Interconta
 - R050: Ativo (classe 1) = Passivo + PL (classe 2)
-- R051: VPA (classe 4) - VPD (classe 3) = Resultado (delta grupo 2.1.4)
+- R051: VPA (classe 4) - VPD (classe 3) = Resultado (delta grupo 2.3.7, no encerramento)
 - R052: Controles devedores (classe 7) = Controles credores (classe 8)
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pandas as pd
 
 from ranking_msc.engine.executor import EngineContext
+from ranking_msc.rules.base import competencia_de_encerramento
 from ranking_msc.rules.r050 import R050
 from ranking_msc.rules.r051 import R051
 from ranking_msc.rules.r052 import R052
@@ -108,17 +111,17 @@ def _df_r051(
     vpa_mov_d: float = 0.0,
     vpd_mov_d: float = 200.0,
     vpd_mov_c: float = 0.0,
-    pl214_sf_c: float = 300.0,
-    pl214_sf_d: float = 0.0,
-    pl214_si_c: float = 0.0,
-    pl214_si_d: float = 0.0,
-    include_214: bool = True,
+    pl237_sf_c: float = 300.0,
+    pl237_sf_d: float = 0.0,
+    pl237_si_c: float = 0.0,
+    pl237_si_d: float = 0.0,
+    include_237: bool = True,
 ) -> pd.DataFrame:
     """Cria DataFrame mínimo para testes de R051.
 
-    Por padrão: VPA=500, VPD=200, resultado=300, delta_PL(214)=300 → consistente.
+    Por padrão: VPA=500, VPD=200, resultado=300, delta_PL(237)=300 → consistente.
     Conta 4 (VPA): créditos aumentam VPA. Conta 3 (VPD): débitos aumentam VPD.
-    Conta 214 (Resultados Acumulados): credora — SF_C - SF_D indica variação positiva.
+    Conta 237 (Resultados Acumulados): credora — SF_C - SF_D indica variação positiva.
     """
     rows = [
         {
@@ -140,49 +143,62 @@ def _df_r051(
             "saldo_final_credito": 0.0,
         },
     ]
-    if include_214:
+    if include_237:
         rows.append({
-            "conta_contabil": "214110100",
+            "conta_contabil": "237110100",
             "movimento_debito": 0.0,
             "movimento_credito": 0.0,
-            "saldo_inicial_debito": pl214_si_d,
-            "saldo_inicial_credito": pl214_si_c,
-            "saldo_final_debito": pl214_sf_d,
-            "saldo_final_credito": pl214_sf_c,
+            "saldo_inicial_debito": pl237_si_d,
+            "saldo_inicial_credito": pl237_si_c,
+            "saldo_final_debito": pl237_sf_d,
+            "saldo_final_credito": pl237_sf_c,
         })
     return pd.DataFrame(rows)
+
+
+def _ctx_encerramento(engine_context: EngineContext) -> EngineContext:
+    """Contexto na competência de encerramento (mês 13)."""
+    return replace(engine_context, competencia="2025-13")
+
+
+def test_competencia_de_encerramento() -> None:
+    """Mês 13 é encerramento; os demais meses não são."""
+    assert competencia_de_encerramento("2025-13") is True
+    assert competencia_de_encerramento(" 2025-13 ") is True
+    assert competencia_de_encerramento("2025-12") is False
+    assert competencia_de_encerramento("") is False
 
 
 class TestR051:
     """Testes da regra R051 — VPA - VPD = Resultado."""
 
     def test_r051_consistente_sem_pendencia(self, engine_context: EngineContext) -> None:
-        """VPA-VPD == delta_PL(2.1.4) → sem pendência."""
+        """VPA-VPD == delta_PL(2.3.7) → sem pendência."""
         # VPA_liq=500, VPD_liq=200, resultado=300, delta_PL=300-0=300
         df = _df_r051(
             vpa_mov_c=500.0, vpd_mov_d=200.0,
-            pl214_sf_c=300.0, pl214_si_c=0.0,
+            pl237_sf_c=300.0, pl237_si_c=0.0,
         )
-        result = R051().execute(df, engine_context)
+        result = R051().execute(df, _ctx_encerramento(engine_context))
         assert len(result) == 0
 
     def test_r051_divergencia_gera_alerta(self, engine_context: EngineContext) -> None:
-        """VPA-VPD != delta_PL(2.1.4) → 1 pendência ALERTA."""
+        """VPA-VPD != delta_PL(2.3.7) → 1 pendência ALERTA."""
         # resultado=300, delta_PL=250 → divergência de 50
         df = _df_r051(
             vpa_mov_c=500.0, vpd_mov_d=200.0,
-            pl214_sf_c=250.0, pl214_si_c=0.0,
+            pl237_sf_c=250.0, pl237_si_c=0.0,
         )
-        result = R051().execute(df, engine_context)
+        result = R051().execute(df, _ctx_encerramento(engine_context))
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
         assert result.iloc[0]["regra_id"] == "R051"
         assert result.iloc[0]["conta_contabil"] == ""
 
-    def test_r051_sem_contas_214_sem_pendencia(self, engine_context: EngineContext) -> None:
-        """Sem contas 214 no DF → sem pendência (validação ignorada)."""
-        df = _df_r051(include_214=False)
-        result = R051().execute(df, engine_context)
+    def test_r051_sem_contas_237_sem_pendencia(self, engine_context: EngineContext) -> None:
+        """Sem contas 237 no DF → sem pendência (validação ignorada)."""
+        df = _df_r051(include_237=False)
+        result = R051().execute(df, _ctx_encerramento(engine_context))
         assert len(result) == 0
 
     def test_r051_df_vazio_sem_pendencia(self, engine_context: EngineContext) -> None:
@@ -193,16 +209,34 @@ class TestR051:
 
     def test_r051_deficit_divergencia_gera_alerta(self, engine_context: EngineContext) -> None:
         """Déficit (VPD > VPA): resultado=-100, delta_PL=-80 → divergência de 20."""
-        # VPA_liq=100, VPD_liq=200, resultado=-100, delta_PL(214): SF_C-SF_D=80 → delta=-80
+        # VPA_liq=100, VPD_liq=200, resultado=-100, delta_PL(237): SF_C-SF_D=80 → delta=-80
         # Divergência = abs(-100 - (-80)) = 20 → ALERTA
         df = _df_r051(
             vpa_mov_c=100.0, vpd_mov_d=200.0,
-            pl214_sf_c=0.0, pl214_sf_d=80.0,
-            pl214_si_c=0.0, pl214_si_d=0.0,
+            pl237_sf_c=0.0, pl237_sf_d=80.0,
+            pl237_si_c=0.0, pl237_si_d=0.0,
         )
-        result = R051().execute(df, engine_context)
+        result = R051().execute(df, _ctx_encerramento(engine_context))
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
+
+    def test_r051_fora_do_encerramento_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """O confronto VPA-VPD só acontece no encerramento do exercício."""
+        df = _df_r051(vpa_mov_c=500.0, vpd_mov_d=200.0, pl237_sf_c=250.0)
+        result = R051().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_r051_no_encerramento_compara_237(
+        self, engine_context: EngineContext
+    ) -> None:
+        """No mês 13, divergência contra o grupo 2.3.7 gera ALERTA."""
+        df = _df_r051(vpa_mov_c=500.0, vpd_mov_d=200.0, pl237_sf_c=250.0)
+        result = R051().execute(df, _ctx_encerramento(engine_context))
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert "2.3.7" in str(result.iloc[0]["descricao"])
 
 
 # ---------------------------------------------------------------------------
