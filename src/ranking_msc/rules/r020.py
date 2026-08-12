@@ -17,6 +17,8 @@ Lógica:
 
     Contas sem ID_IC no PCASP ou com ID_IC=0 sem nenhuma IC → sem pendência.
 
+    FR não é exigido em conta cujas linhas informam exclusivamente FP=2 (Permanente).
+
 Referência:
     Leiaute MSC 2026 — campo ID_IC; Portaria STN 642/2026
 """
@@ -45,6 +47,11 @@ IC_COLS: tuple[str, ...] = ("po", "fp", "dc", "fs", "fr", "co", "nr", "nd", "ai"
 # CO (Código de Acompanhamento da Execução Orçamentária) complementa a Fonte de
 # Recursos apenas quando aplicável.
 IC_CONDICIONAIS: frozenset[str] = frozenset({"CO"})
+
+# Atributo do Superávit Financeiro (IC "FP"): 1 = Financeiro, 2 = Permanente.
+# Conta cujo movimento é exclusivamente Permanente não carrega Fonte de Recursos
+# (resposta da contabilidade em 11/08/2026 — doc/calibracao_regras_respostas_rodrigo.md).
+FP_PERMANENTE: str = "2"
 
 
 @register_rule
@@ -98,6 +105,19 @@ class R020(Rule):
         # União por conta: IC informado se aparece em ao menos uma linha da conta.
         ic_por_conta = mask_df.groupby("conta_contabil", as_index=False).any()
 
+        # Contas cujas linhas informam FP exclusivamente Permanente. Campo vazio
+        # (conjunto de IC sem FP) não é atributo P e não dispensa nada.
+        contas_so_permanentes: set[str] = set()
+        if "fp" in df.columns:
+            fp_por_linha = pd.DataFrame({
+                "conta_contabil": df["conta_contabil"].astype(str).values,
+                "nao_permanente": (
+                    df["fp"].astype(str).str.strip() != FP_PERMANENTE
+                ).values,
+            })
+            agregado = fp_por_linha.groupby("conta_contabil")["nao_permanente"].any()
+            contas_so_permanentes = set(agregado[~agregado].index)
+
         # Merge com PCASP para obter id_ic
         merged = ic_por_conta.merge(pcasp_map, on="conta_contabil", how="inner")
 
@@ -119,14 +139,19 @@ class R020(Rule):
                     if bool(merged.at[idx, col_upper])
                 }
 
+                conta = str(merged.at[idx, "conta_contabil"])
+
                 # ICs condicionais (ex.: CO) não são exigidos quando ausentes.
-                faltantes = sorted((ic_esperado - ic_informado) - IC_CONDICIONAIS)
+                # FR também é dispensado em conta com atributo Permanente (FP=2).
+                dispensadas = set(IC_CONDICIONAIS)
+                if conta in contas_so_permanentes:
+                    dispensadas.add("FR")
+
+                faltantes = sorted((ic_esperado - ic_informado) - dispensadas)
                 extras = sorted(ic_informado - ic_esperado)
 
                 if not faltantes and not extras:
                     continue
-
-                conta = str(merged.at[idx, "conta_contabil"])
 
                 partes: list[str] = []
                 if faltantes:

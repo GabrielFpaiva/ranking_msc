@@ -300,6 +300,57 @@ class TestR020:
         # Sem id_ic_map → conta não encontrada → skip
         assert len(result) == 0
 
+    def test_fp_permanente_dispensa_fr(
+        self,
+        engine_context: object,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """ID_IC=4 com FP=2 (Permanente) e sem FR → sem pendência."""
+        pcasp = _pcasp_stub([("113119900", "4")])
+        monkeypatch.setattr("ranking_msc.rules.r020.load_pcasp", lambda *a, **kw: pcasp)
+
+        df = _df_com_ics(conta_contabil="113119900", po="10131", fp="2")
+        result = R020().execute(df, engine_context)
+
+        assert len(result) == 0
+
+    def test_fp_financeiro_sem_fr_continua_erro(
+        self,
+        engine_context: object,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """ID_IC=4 com FP=1 (Financeiro) e sem FR → ERRO citando FR."""
+        pcasp = _pcasp_stub([("113119900", "4")])
+        monkeypatch.setattr("ranking_msc.rules.r020.load_pcasp", lambda *a, **kw: pcasp)
+
+        df = _df_com_ics(conta_contabil="113119900", po="10131", fp="1")
+        result = R020().execute(df, engine_context)
+
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ERRO"
+        assert "FR" in str(result.iloc[0]["descricao"])
+
+    def test_conta_com_fp_misto_sem_fr_continua_erro(
+        self,
+        engine_context: object,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Conta com uma linha FP=1 e outra FP=2, sem FR → a dispensa não se aplica."""
+        pcasp = _pcasp_stub([("113119900", "4")])
+        monkeypatch.setattr("ranking_msc.rules.r020.load_pcasp", lambda *a, **kw: pcasp)
+
+        df = pd.concat(
+            [
+                _df_com_ics(conta_contabil="113119900", po="10131", fp="2"),
+                _df_com_ics(conta_contabil="113119900", po="10131", fp="1"),
+            ],
+            ignore_index=True,
+        )
+        result = R020().execute(df, engine_context)
+
+        assert len(result) == 1
+        assert "FR" in str(result.iloc[0]["descricao"])
+
     def test_multiplas_contas_cada_uma_avaliada_independentemente(
         self,
         engine_context: object,
