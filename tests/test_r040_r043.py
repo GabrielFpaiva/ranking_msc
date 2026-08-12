@@ -80,9 +80,13 @@ class TestR040:
         )
         result = R040().execute(df, engine_context)
         assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["severidade"] == "INFO"
         assert result.iloc[0]["regra_id"] == "R040"
         assert result.iloc[0]["conta_contabil"] == "1.1.1.1.1.01.00"
+
+    def test_r040_fora_da_pontuacao(self) -> None:
+        """Conta nova ou zerada pode não ter saldo inicial — não penaliza o score."""
+        assert R040.is_scoring is False
 
     def test_conta_resultado_ignorada(self, engine_context: EngineContext) -> None:
         """Conta de resultado (classe 3) zerada → R040 não reporta."""
@@ -200,9 +204,13 @@ class TestR041:
         )
         result = R041().execute(df, engine_context)
         assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["severidade"] == "INFO"
         assert result.iloc[0]["regra_id"] == "R041"
         assert result.iloc[0]["conta_contabil"] == "1.1.1.1.1.01.00"
+
+    def test_r041_fora_da_pontuacao(self) -> None:
+        """Conta nova ou zerada pode não ter saldo final — não penaliza o score."""
+        assert R041.is_scoring is False
 
     def test_conta_resultado_ignorada(self, engine_context: EngineContext) -> None:
         """Conta de resultado (classe 4) zerada → R041 não reporta."""

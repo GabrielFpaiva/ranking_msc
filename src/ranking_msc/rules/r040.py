@@ -1,24 +1,21 @@
 """Regra R040 — Contas patrimoniais têm saldo inicial.
 
 Dimensão: Completude
-Severidade padrão: ALERTA
+Severidade padrão: INFO — fora da pontuação (is_scoring=False)
 
 Lógica:
-    Para cada conta patrimonial (primeiro dígito em {1, 2, 5, 6}),
-    verifica se existe ao menos uma linha beginning_balance no CSV original.
-    A verificação é baseada em presença de entradas (COUNT > 0), não em
-    valor não-zero: saldo zero legítimo não deve gerar ALERTA.
-
-    SE _has_saldo_inicial == False (nenhuma entrada beginning_balance) → ALERTA
+    Marca conta patrimonial (primeiro dígito em {1, 2, 5, 6}) sem nenhuma linha
+    beginning_balance no CSV original. Conta aberta no meio do período ou conta
+    zerada pode legitimamente não ter a entrada, então o sinal é informativo.
 
 Referência:
-    Catálogo de Regras MSC — R040 (Completude)
+    doc/calibracao_regras_respostas_rodrigo.md, pergunta 9.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import pandas as pd
 
@@ -39,14 +36,17 @@ class R040(Rule):
     rule_id = "R040"
     rule_name = "Contas patrimoniais têm saldo inicial"
     dimensao = "Completude"
+    is_scoring: ClassVar[bool] = False
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
         """Detecta contas patrimoniais sem nenhuma entrada de saldo inicial.
 
         Agrega por conta_contabil antes de validar: uma conta pode estar
-        representada em múltiplas linhas (ICs diferentes). Reporta ALERTA
+        representada em múltiplas linhas (ICs diferentes). Reporta INFO
         apenas se nenhuma linha beginning_balance existia no CSV original
         (indicado por _has_saldo_inicial=False em todas as linhas da conta).
+        Conta aberta no meio do período ou conta zerada pode legitimamente
+        não ter a entrada — o sinal é informativo, fora da pontuação.
 
         Args:
             df: DataFrame normalizado com colunas ``conta_contabil`` e
@@ -77,8 +77,8 @@ class R040(Rule):
         if violacoes.empty:
             return self.build_issues([])
 
-        logger.warning(
-            "R040: %d conta(s) patrimonial(is) sem saldo inicial. competência=%s",
+        logger.info(
+            "R040: %d conta(s) patrimonial(is) sem saldo inicial (informativo). competência=%s",
             len(violacoes),
             context.competencia,
             extra=_extra,
@@ -86,11 +86,12 @@ class R040(Rule):
 
         conta_s = violacoes["conta_contabil"].astype(str)
         issues_df = pd.DataFrame({
-            "severidade": "ALERTA",
+            "severidade": "INFO",
             "conta_contabil": conta_s.values,
             "descricao": (
                 "Conta patrimonial '" + conta_s
-                + "' não possui nenhuma entrada de saldo inicial (beginning_balance ausente)."
+                + "' não possui nenhuma entrada de saldo inicial (beginning_balance ausente) —"
+                " sinal informativo, pode ser conta nova ou zerada."
             ).values,
             "valor_esperado": "COUNT(beginning_balance) > 0",
             "valor_encontrado": "0",
