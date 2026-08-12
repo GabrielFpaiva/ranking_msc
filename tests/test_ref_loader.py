@@ -31,6 +31,8 @@ from ranking_msc.io.ref_loader import (
 )
 from ranking_msc.transform.ic_normalize import normalize_ic
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 
 @pytest.fixture(autouse=True)
 def _clear_ref_loader_cache() -> None:
@@ -739,3 +741,16 @@ class TestClearAllCaches:
         clear_all_caches()
         refreshed = load_pcasp(ref_dir=ref_dir)
         assert len(refreshed) == 2
+
+
+def test_tabela_nd_contem_codigos_do_workbook_oficial() -> None:
+    """Os códigos que só existiam no workbook da STN entraram na tabela ND."""
+    df = load_tabela_nd(str(_PROJECT_ROOT / "ref"))
+    assert len(df) == 1235
+    assert "31309900" in set(df["codigo"])
+
+
+def test_tabela_nr_contem_codigos_do_workbook_oficial() -> None:
+    """A tabela NR tem os 5452 códigos do workbook da STN."""
+    df = load_tabela_nr(str(_PROJECT_ROOT / "ref"))
+    assert len(df) == 5452
