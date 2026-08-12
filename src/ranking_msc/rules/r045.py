@@ -29,29 +29,35 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("ranking_msc")
 
-# Níveis de agregação que não podem ser enviados. "Superior 4º Nível - Elemento"
-# fica de fora: o leiaute admite o envio no elemento com subelemento 00
-# (resposta da contabilidade em 11/08/2026).
-_NIVEIS_NAO_ENVIAVEIS: tuple[str, ...] = ("Superior 1º", "Superior 2º", "Superior 3º")
+# Único nível "Superior" liberado: o leiaute admite o envio do elemento com
+# subelemento 00 (resposta da contabilidade em 11/08/2026). Qualquer outro
+# nível "Superior" — inclusive um que ainda não exista na tabela ND hoje —
+# continua sendo agregação acima de elemento e, portanto, pendência.
+_NIVEL_ELEMENTO_LIBERADO = "Superior 4º Nível - Elemento"
 
 
 @register_rule
 class R045(Rule):
-    """Valida se a ND informada é de último nível (não sintética/superior)."""
+    """Valida se a ND informada não está em nível de agregação acima de elemento."""
 
     rule_id = "R045"
     rule_name = "ND deve ser de último nível"
     dimensao = "IC"
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
-        """Verifica se cada ND informada tem nivel == 'Último' na tabela ND.
+        """Verifica se a ND informada está em nível de agregação acima de elemento.
+
+        Níveis "Superior" na tabela ND são agregação e não devem aparecer em
+        execução — exceto `_NIVEL_ELEMENTO_LIBERADO`, cujo envio no subelemento
+        00 é válido para o Siconfi.
 
         Args:
             df: DataFrame normalizado com colunas ``nd`` e ``conta_contabil``.
             context: metadados da execução.
 
         Returns:
-            DataFrame de pendências — uma linha por ND de nível superior encontrada.
+            DataFrame de pendências — uma linha por ND em nível de agregação
+            acima de elemento encontrada.
         """
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
@@ -59,11 +65,12 @@ class R045(Rule):
             return self.build_issues([])
 
         tabela = load_tabela_nd(context.settings.paths.ref_dir)
-        nivel_superior: set[str] = set(
-            tabela.loc[
-                tabela["nivel"].str.strip().str.startswith(_NIVEIS_NAO_ENVIAVEIS),
-                "codigo",
-            ]
+        nivel_col = tabela["nivel"].str.strip()
+        mask_acima_elemento = nivel_col.str.startswith("Superior") & (
+            nivel_col != _NIVEL_ELEMENTO_LIBERADO
+        )
+        nds_acima_elemento: set[str] = set(
+            tabela.loc[mask_acima_elemento, "codigo"]
             .astype(str)
             .str.strip()
             .str.zfill(8)
@@ -78,8 +85,8 @@ class R045(Rule):
         df_unica = df_com_nd.drop_duplicates(subset=["conta_contabil", "nd"]).copy()
         df_unica["nd_val"] = df_unica["nd"].astype(str).str.strip().str.zfill(8)
 
-        mask_superior = df_unica["nd_val"].isin(nivel_superior)
-        df_viol = df_unica[mask_superior]
+        mask_pendencia = df_unica["nd_val"].isin(nds_acima_elemento)
+        df_viol = df_unica[mask_pendencia]
 
         if df_viol.empty:
             return self.build_issues([])
@@ -94,13 +101,14 @@ class R045(Rule):
                 "ND '" + nd_s + "' está em nível de agregação acima de elemento "
                 "para conta '" + conta_s + "': usar ND passível de envio."
             ).values,
-            "valor_esperado": "ND de último nível",
+            "valor_esperado": "ND passível de envio (nível elemento ou inferior)",
             "valor_encontrado": nd_s.values,
             "competencia": context.competencia,
         })
 
         logger.warning(
-            "R045: %d pendência(s) de ND de nível superior. competência=%s",
+            "R045: %d pendência(s) de ND em nível de agregação acima de elemento. "
+            "competência=%s",
             len(issues_df),
             context.competencia,
             extra=_extra,

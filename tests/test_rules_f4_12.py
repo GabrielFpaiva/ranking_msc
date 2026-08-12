@@ -208,13 +208,14 @@ class TestR044:
 
 def _tabela_nd_mock() -> pd.DataFrame:
     return pd.DataFrame({
-        "codigo": ["30000000", "31000000", "31200000", "31300000", "33504300"],
+        "codigo": ["30000000", "31000000", "31200000", "31300000", "33504300", "33504399"],
         "nivel": [
             "Superior 1º Nível - Classe",
             "Superior 2º Nível - Grupo",
             "Último 3º Nível - Modalidade",
             "Superior 3º Nível - Modalidade",
             "Superior 4º Nível - Elemento",
+            "Superior 5º Nível - Subelemento",
         ],
         "nome": [
             "DESPESAS CORRENTES",
@@ -222,6 +223,7 @@ def _tabela_nd_mock() -> pd.DataFrame:
             "TRANSF. À UNIÃO",
             "TRANSF. A ESTADOS",
             "SUBVENÇÕES SOCIAIS",
+            "SUBELEMENTO DESCONHECIDO",
         ],
     })
 
@@ -267,6 +269,14 @@ class TestR045:
         with patch("ranking_msc.rules.r045.load_tabela_nd", return_value=_tabela_nd_mock()):
             result = R045().execute(df, engine_context)
         assert len(result) == 1
+
+    def test_nd_superior_desconhecido_gera_alerta(self, engine_context):
+        """Nível 'Superior' fora da lista de conhecidos cai do lado seguro (pendência)."""
+        df = pd.DataFrame({"conta_contabil": ["633350439"], "nd": ["33504399"]})
+        with patch("ranking_msc.rules.r045.load_tabela_nd", return_value=_tabela_nd_mock()):
+            result = R045().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
         assert result.iloc[0]["severidade"] == "ALERTA"
 
 
