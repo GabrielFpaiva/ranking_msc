@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from unittest.mock import patch
 
 import pandas as pd
@@ -47,9 +48,10 @@ class TestR026:
         assert "dígitos" in result.iloc[0]["descricao"]
 
     def test_nr_inexistente_gera_alerta(self, engine_context):
-        """NR com 8 dígitos mas ausente da tabela → pendência ALERTA."""
+        """NR com 8 dígitos mas ausente da tabela, em competência vigente → ALERTA."""
+        ctx = replace(engine_context, competencia="2026-01")
         with patch(_PATCH, return_value=_TABELA_NR_MOCK):
-            result = R026().execute(_df("99999999"), engine_context)
+            result = R026().execute(_df("99999999"), ctx)
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
         assert result.iloc[0]["regra_id"] == "R026"
@@ -82,3 +84,27 @@ class TestR026:
         with patch(_PATCH, return_value=_TABELA_NR_MOCK):
             result = R026().execute(df, engine_context)
         assert len(result) == 1
+
+    def test_nr_desconhecida_em_competencia_anterior_e_info(self, engine_context):
+        """NR fora da tabela numa competência de 2025 → INFO, não ALERTA."""
+        ctx = replace(engine_context, competencia="2025-12")
+        with patch(_PATCH, return_value=_TABELA_NR_MOCK):
+            result = R026().execute(_df("13210101"), ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "INFO"
+
+    def test_nr_desconhecida_na_competencia_vigente_e_alerta(self, engine_context):
+        """NR fora da tabela numa competência de 2026 → ALERTA."""
+        ctx = replace(engine_context, competencia="2026-01")
+        with patch(_PATCH, return_value=_TABELA_NR_MOCK):
+            result = R026().execute(_df("13210101"), ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
+
+    def test_nr_malformada_continua_erro_em_competencia_anterior(self, engine_context):
+        """Comprimento e formato não dependem da versão da tabela."""
+        ctx = replace(engine_context, competencia="2025-12")
+        with patch(_PATCH, return_value=_TABELA_NR_MOCK):
+            result = R026().execute(_df("123"), ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ERRO"

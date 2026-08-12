@@ -98,6 +98,12 @@ IC_DIGITOS: dict[str, int] = {
 FP_DOMAIN: frozenset[str] = frozenset({"1", "2"})
 DC_DOMAIN: frozenset[str] = frozenset({"1"})
 
+# Ano de vigência das tabelas de domínio versionadas em ref/. A STN altera essas
+# tabelas pontualmente (acrescenta e exclui itens), então validar competência de
+# ano anterior contra a tabela atual produz falso positivo. Atualizar junto com a
+# regeneração das tabelas (scripts/build_ref_tables.py).
+ANO_TABELAS_REF: int = 2026
+
 # ---------------------------------------------------------------------------
 # Nomes de arquivo e colunas obrigatórias
 # ---------------------------------------------------------------------------

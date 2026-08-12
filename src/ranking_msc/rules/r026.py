@@ -1,15 +1,19 @@
 """Regra R026 — NR válida: 8 dígitos e existente na tabela NR.
 
 Categoria: IC
-Severidade padrão: ERRO (formato) | ALERTA (código ausente na tabela)
+Severidade padrão: ERRO (formato) | ALERTA ou INFO (código ausente na tabela)
 
 Lógica:
     Quando a coluna `nr` está informada, o valor é validado em três níveis:
       1. Comprimento: deve ter exatamente 8 caracteres (verificado no valor bruto).
       2. Formato: deve conter apenas dígitos (0–9) — valores como "12AB5678" são ERRO.
       3. Existência: deve existir na tabela NR 2026.
-    Checks de comprimento e formato geram ERRO; ausência na tabela gera ALERTA.
+    Checks de comprimento e formato geram ERRO; ausência na tabela gera ALERTA ou INFO.
     Após ERRO de comprimento ou formato, o check de existência não é executado.
+
+    O check de existência sai como INFO quando o ano da competência é anterior a
+    ANO_TABELAS_REF: a STN altera a tabela pontualmente e não temos as versões
+    históricas. Ver doc/calibracao_regras_respostas_rodrigo.md, pergunta 7.
 
 Referência:
     Leiaute MSC 2026 — campo NR; ref/regras_catalogo.md seção R026
@@ -22,7 +26,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ranking_msc.io.ref_loader import load_tabela_nr
+from ranking_msc.io.ref_loader import ANO_TABELAS_REF, load_tabela_nr
 from ranking_msc.rules.base import Rule, ic_mask_informada, register_rule
 
 if TYPE_CHECKING:
@@ -78,6 +82,15 @@ class R026(Rule):
         mask_digit = (~mask_len) & (~df_unica["nr_raw"].str.isdigit())
         mask_tabela = (~mask_len) & (~mask_digit) & (~df_unica["nr_val"].isin(codigos_validos))
 
+        # A STN altera a tabela NR pontualmente. Código ausente numa competência
+        # anterior ao ano das tabelas de ref/ pode ter sido válido à época, e não
+        # temos a tabela histórica para conferir — então o sinal é informativo.
+        ano_competencia = context.competencia[:4]
+        competencia_anterior = (
+            ano_competencia.isdigit() and int(ano_competencia) < ANO_TABELAS_REF
+        )
+        severidade_tabela = "INFO" if competencia_anterior else "ALERTA"
+
         dfs_issues = []
 
         if mask_len.any():
@@ -110,13 +123,19 @@ class R026(Rule):
 
         if mask_tabela.any():
             viol = df_unica[mask_tabela]
+            sufixo_descricao = (
+                " A tabela NR não é histórica: o código pode ter sido válido em"
+                " versão anterior, vigente na competência informada."
+                if severidade_tabela == "INFO"
+                else ""
+            )
             dfs_issues.append(pd.DataFrame({
-                "severidade": "ALERTA",
+                "severidade": severidade_tabela,
                 "conta_contabil": viol["conta_contabil"].astype(str),
                 "descricao": (
                     "NR '" + viol["nr_val"]
-                    + "' não encontrada na tabela NR 2026 para conta '"
-                    + viol["conta_contabil"].astype(str) + "'."
+                    + f"' não encontrada na tabela NR {ANO_TABELAS_REF} para conta '"
+                    + viol["conta_contabil"].astype(str) + "'." + sufixo_descricao
                 ),
                 "valor_esperado": "código em tabela_nr.csv",
                 "valor_encontrado": viol["nr_val"],
