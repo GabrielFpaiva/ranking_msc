@@ -4,9 +4,11 @@ Dimensão: IC
 Severidade padrão: ALERTA
 
 Lógica:
-    NDs informadas devem ser de último nível (coluna `nivel` NÃO inicia com
-    "Superior" na tabela ND 2026). NDs de nível Superior existem apenas para
-    agrupamento ("De-Para") e não devem aparecer em registros de execução.
+    NDs informadas devem ser passíveis de envio. Níveis de agregação acima de
+    elemento (Classe, Grupo e Modalidade marcados como "Superior" na tabela ND
+    2026) existem apenas para "De-Para" e não devem aparecer na execução. O
+    elemento com subelemento 00 é envio válido, mesmo marcado como
+    "Superior 4º Nível - Elemento".
 
 Referência:
     Leiaute MSC 2026 — campo ND; ref/regras_catalogo.md R045
@@ -26,6 +28,11 @@ if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
 
 logger = logging.getLogger("ranking_msc")
+
+# Níveis de agregação que não podem ser enviados. "Superior 4º Nível - Elemento"
+# fica de fora: o leiaute admite o envio no elemento com subelemento 00
+# (resposta da contabilidade em 11/08/2026).
+_NIVEIS_NAO_ENVIAVEIS: tuple[str, ...] = ("Superior 1º", "Superior 2º", "Superior 3º")
 
 
 @register_rule
@@ -54,7 +61,7 @@ class R045(Rule):
         tabela = load_tabela_nd(context.settings.paths.ref_dir)
         nivel_superior: set[str] = set(
             tabela.loc[
-                tabela["nivel"].str.strip().str.startswith("Superior"),
+                tabela["nivel"].str.strip().str.startswith(_NIVEIS_NAO_ENVIAVEIS),
                 "codigo",
             ]
             .astype(str)
@@ -84,8 +91,8 @@ class R045(Rule):
             "severidade": "ALERTA",
             "conta_contabil": conta_s.values,
             "descricao": (
-                "ND '" + nd_s + "' é de nível Superior (sintética) para conta '"
-                + conta_s + "': usar apenas NDs de último nível em execução."
+                "ND '" + nd_s + "' está em nível de agregação acima de elemento "
+                "para conta '" + conta_s + "': usar ND passível de envio."
             ).values,
             "valor_esperado": "ND de último nível",
             "valor_encontrado": nd_s.values,

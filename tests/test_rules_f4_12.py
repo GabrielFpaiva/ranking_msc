@@ -208,13 +208,21 @@ class TestR044:
 
 def _tabela_nd_mock() -> pd.DataFrame:
     return pd.DataFrame({
-        "codigo": ["30000000", "31000000", "31200000"],
+        "codigo": ["30000000", "31000000", "31200000", "31300000", "33504300"],
         "nivel": [
             "Superior 1º Nível - Classe",
             "Superior 2º Nível - Grupo",
             "Último 3º Nível - Modalidade",
+            "Superior 3º Nível - Modalidade",
+            "Superior 4º Nível - Elemento",
         ],
-        "nome": ["DESPESAS CORRENTES", "PESSOAL E ENCARGOS", "TRANSF. À UNIÃO"],
+        "nome": [
+            "DESPESAS CORRENTES",
+            "PESSOAL E ENCARGOS",
+            "TRANSF. À UNIÃO",
+            "TRANSF. A ESTADOS",
+            "SUBVENÇÕES SOCIAIS",
+        ],
     })
 
 
@@ -245,6 +253,21 @@ class TestR045:
         df = pd.DataFrame({"conta_contabil": ["631200000"], "nd": ["99999999"]})
         with patch("ranking_msc.rules.r045.load_tabela_nd", return_value=_tabela_nd_mock()):
             assert len(R045().execute(df, engine_context)) == 0
+
+    def test_nd_superior_de_elemento_nao_gera_pendencia(self, engine_context):
+        """ND de elemento com subelemento 00 é envio válido para o Siconfi."""
+        df = pd.DataFrame({"conta_contabil": ["633350430"], "nd": ["33504300"]})
+        with patch("ranking_msc.rules.r045.load_tabela_nd", return_value=_tabela_nd_mock()):
+            result = R045().execute(df, engine_context)
+        assert len(result) == 0
+
+    def test_nd_superior_de_modalidade_gera_alerta(self, engine_context):
+        """ND parada na modalidade continua sendo envio indevido."""
+        df = pd.DataFrame({"conta_contabil": ["631300000"], "nd": ["31300000"]})
+        with patch("ranking_msc.rules.r045.load_tabela_nd", return_value=_tabela_nd_mock()):
+            result = R045().execute(df, engine_context)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
 
 
 # ---------------------------------------------------------------------------
