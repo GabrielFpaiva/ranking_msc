@@ -1,26 +1,23 @@
-"""Regra R064 — CO de despesa deve aparecer apenas em contas de despesa.
+"""Regra R064 — CO x classe da conta (informativo).
 
 Dimensão: IC
-Severidade padrão: ALERTA
+Severidade padrão: INFO — fora da pontuação (is_scoring=False)
 
 Lógica:
-    COs do bloco de Despesa Orçamentária (1001–2999) só devem aparecer em
-    contas das classes patrimoniais (1 e 2) ou orçamentárias de despesa
-    (classes 5 e 6).
-    COs do bloco de Receita Orçamentária (5001–5999) só devem aparecer em
-    contas de Variações Patrimoniais Aumentativas — VPA (classe 4) ou
-    controles de receita (classes 7 e 8).
-
-    A classe contábil é determinada pelo 1º dígito da conta_contabil.
+    Sinaliza CO do bloco de Despesa fora das classes 1, 2, 5 e 6 e CO do bloco de
+    Receita fora das classes 4, 7 e 8. Essa restrição por classe não consta do
+    leiaute: a conta 721900000, por exemplo, tem ID_IC 5 (PO - FR - CO) e carrega
+    CO legitimamente. A conformidade do conjunto de IC de cada conta é verificada
+    pela R020.
 
 Referência:
-    Leiaute MSC 2026 — campo CO; ref/regras_catalogo.md R064
+    doc/calibracao_regras_respostas_rodrigo.md, pergunta 8.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import pandas as pd
 
@@ -37,11 +34,12 @@ _CLASSES_RECEITA: frozenset[str] = frozenset({"4", "7", "8"})
 
 @register_rule
 class R064(Rule):
-    """Valida se o CO é compatível com o tipo de conta (despesa vs receita)."""
+    """Sinaliza CO incompatível com a classe da conta — informativo, fora da pontuação."""
 
     rule_id = "R064"
-    rule_name = "CO de despesa somente em conta de despesa"
+    rule_name = "CO x classe da conta (informativo)"
     dimensao = "IC"
+    is_scoring: ClassVar[bool] = False
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
         """Verifica se cada CO é compatível com a classe da conta contábil.
@@ -92,12 +90,12 @@ class R064(Rule):
             co_s = viol["co_raw"]
             classe_s = viol["classe"]
             dfs_issues.append(pd.DataFrame({
-                "severidade": "ALERTA",
+                "severidade": "INFO",
                 "conta_contabil": conta_s.values,
                 "descricao": (
                     "CO '" + co_s + "' (Despesa) em conta classe '"
                     + classe_s + "' (" + conta_s + ") — CO de despesa esperado"
-                    " em contas das classes 1, 2, 5 ou 6."
+                    " em contas das classes 1, 2, 5 ou 6 (informativo, fora da pontuação)."
                 ).values,
                 "valor_esperado": "conta de classe 1, 2, 5 ou 6",
                 "valor_encontrado": ("classe " + classe_s).values,
@@ -110,12 +108,12 @@ class R064(Rule):
             co_s = viol["co_raw"]
             classe_s = viol["classe"]
             dfs_issues.append(pd.DataFrame({
-                "severidade": "ALERTA",
+                "severidade": "INFO",
                 "conta_contabil": conta_s.values,
                 "descricao": (
                     "CO '" + co_s + "' (Receita) em conta classe '"
                     + classe_s + "' (" + conta_s + ") — CO de receita esperado"
-                    " em contas das classes 4, 7 ou 8."
+                    " em contas das classes 4, 7 ou 8 (informativo, fora da pontuação)."
                 ).values,
                 "valor_esperado": "conta de classe 4, 7 ou 8",
                 "valor_encontrado": ("classe " + classe_s).values,
@@ -127,8 +125,9 @@ class R064(Rule):
 
         issues_df = pd.concat(dfs_issues, ignore_index=True)
 
-        logger.warning(
-            "R064: %d pendência(s) de CO incompatível com classe de conta. competência=%s",
+        logger.info(
+            "R064: %d pendência(s) de CO incompatível com classe de conta (informativo)."
+            " competência=%s",
             len(issues_df),
             context.competencia,
             extra=_extra,

@@ -269,6 +269,7 @@ class TestR045:
         with patch("ranking_msc.rules.r045.load_tabela_nd", return_value=_tabela_nd_mock()):
             result = R045().execute(df, engine_context)
         assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"
 
     def test_nd_superior_desconhecido_gera_alerta(self, engine_context):
         """Nível 'Superior' fora da lista de conhecidos cai do lado seguro (pendência)."""
@@ -276,7 +277,6 @@ class TestR045:
         with patch("ranking_msc.rules.r045.load_tabela_nd", return_value=_tabela_nd_mock()):
             result = R045().execute(df, engine_context)
         assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
         assert result.iloc[0]["severidade"] == "ALERTA"
 
 
@@ -504,11 +504,11 @@ class TestR064:
         assert len(result) == 0
 
     def test_co_despesa_em_classe3_gera_alerta(self, engine_context):
-        """CO de despesa (1500) em conta classe 3 (VPD) → ALERTA."""
+        """CO de despesa (1500) em conta classe 3 (VPD) → INFO."""
         df = pd.DataFrame({"conta_contabil": ["311110200"], "co": ["1500"]})
         result = R064().execute(df, engine_context)
         assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["severidade"] == "INFO"
         assert result.iloc[0]["regra_id"] == "R064"
 
     def test_co_despesa_em_classe5_sem_pendencia(self, engine_context):
@@ -517,11 +517,11 @@ class TestR064:
         assert len(R064().execute(df, engine_context)) == 0
 
     def test_co_despesa_em_classe4_gera_alerta(self, engine_context):
-        """CO de despesa (1500) em conta classe 4 (VPA) → ALERTA."""
+        """CO de despesa (1500) em conta classe 4 (VPA) → INFO."""
         df = pd.DataFrame({"conta_contabil": ["411110200"], "co": ["1500"]})
         result = R064().execute(df, engine_context)
         assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["severidade"] == "INFO"
         assert result.iloc[0]["regra_id"] == "R064"
 
     def test_co_receita_em_classe4_sem_pendencia(self, engine_context):
@@ -530,11 +530,11 @@ class TestR064:
         assert len(R064().execute(df, engine_context)) == 0
 
     def test_co_receita_em_classe3_gera_alerta(self, engine_context):
-        """CO de receita (5001) em conta classe 3 (VPD) → ALERTA."""
+        """CO de receita (5001) em conta classe 3 (VPD) → INFO."""
         df = pd.DataFrame({"conta_contabil": ["311110200"], "co": ["5001"]})
         result = R064().execute(df, engine_context)
         assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["severidade"] == "INFO"
 
     def test_co_fora_dos_blocos_monitorados_nao_gera_pendencia(self, engine_context):
         """CO fora das faixas monitoradas → sem pendências."""
@@ -545,6 +545,10 @@ class TestR064:
         """DataFrame sem coluna 'co' → sem pendências."""
         df = pd.DataFrame({"conta_contabil": ["311110200"]})
         assert len(R064().execute(df, engine_context)) == 0
+
+    def test_r064_fora_da_pontuacao(self):
+        """O leiaute prevê CO em conta de controle (ex.: 721900000, ID_IC 5)."""
+        assert R064.is_scoring is False
 
 
 # ---------------------------------------------------------------------------
