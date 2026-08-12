@@ -294,7 +294,7 @@ class TestR046:
         assert len(result) == 0
 
     def test_nd_generica_gera_alerta(self, engine_context):
-        """ND com 'Genérica' no nome → ALERTA."""
+        """ND com 'Genérica' no nome → INFO."""
         df = pd.DataFrame({"conta_contabil": ["633391000"], "nd": ["33391000"]})
         with patch(
             "ranking_msc.rules.r046.load_tabela_nd",
@@ -302,13 +302,17 @@ class TestR046:
         ):
             result = R046().execute(df, engine_context)
         assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["severidade"] == "INFO"
         assert result.iloc[0]["regra_id"] == "R046"
 
     def test_sem_nd_retorna_vazio(self, engine_context):
         """DataFrame sem coluna 'nd' → sem pendências."""
         df = pd.DataFrame({"conta_contabil": ["633391000"]})
         assert len(R046().execute(df, engine_context)) == 0
+
+    def test_r046_fora_da_pontuacao(self):
+        """A regra não penaliza o score — falso positivo confirmado em 11/08/2026."""
+        assert R046.is_scoring is False
 
 
 # ---------------------------------------------------------------------------

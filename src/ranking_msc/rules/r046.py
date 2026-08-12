@@ -1,21 +1,22 @@
-"""Regra R046 — ND não deve ser genérica.
+"""Regra R046 — ND classificada como genérica (informativo).
 
 Dimensão: IC
-Severidade padrão: ALERTA
+Severidade padrão: INFO — fora da pontuação (is_scoring=False)
 
 Lógica:
-    NDs cujo nome na tabela ND 2026 contém a substring "Genéric" (como
-    "Modalidade Genérica" ou "Elemento Genérico") existem apenas para De-Para
-    e não devem ser usadas em registros de execução orçamentária.
+    Marca as NDs cujo nome na tabela ND contém "Genéric". A verificação nasceu de
+    uma tabela De-Para e não tem respaldo no leiaute: as 77 NDs que ela apontava
+    estão todas classificadas como último nível na tabela oficial da STN, ou seja,
+    todas são de uso válido. Fica como sinal informativo.
 
 Referência:
-    Leiaute MSC 2026 — campo ND; ref/regras_catalogo.md R046
+    doc/calibracao_regras_respostas_rodrigo.md, pergunta 4.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import pandas as pd
 
@@ -30,11 +31,12 @@ logger = logging.getLogger("ranking_msc")
 
 @register_rule
 class R046(Rule):
-    """Valida se a ND informada não é uma categoria genérica."""
+    """Sinaliza ND classificada como genérica — informativo, fora da pontuação."""
 
     rule_id = "R046"
-    rule_name = "ND não deve ser genérica (De-Para)"
+    rule_name = "ND genérica (informativo)"
     dimensao = "IC"
+    is_scoring: ClassVar[bool] = False
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
         """Verifica se cada ND informada não tem 'Genéric' no nome da tabela ND.
@@ -81,19 +83,19 @@ class R046(Rule):
         nd_s = df_viol["nd_val"]
 
         issues_df = pd.DataFrame({
-            "severidade": "ALERTA",
+            "severidade": "INFO",
             "conta_contabil": conta_s.values,
             "descricao": (
-                "ND '" + nd_s + "' é genérica (De-Para) para conta '"
-                + conta_s + "': NDs genéricas não devem ser usadas em execução."
+                "ND '" + nd_s + "' é classificada como genérica (De-Para) para conta '"
+                + conta_s + "' — sinal informativo, uso legítimo confirmado na tabela STN."
             ).values,
-            "valor_esperado": "ND específica de execução",
+            "valor_esperado": "ND de uso legítimo (informativo)",
             "valor_encontrado": nd_s.values,
             "competencia": context.competencia,
         })
 
-        logger.warning(
-            "R046: %d pendência(s) de ND genérica. competência=%s",
+        logger.info(
+            "R046: %d ND(s) genérica(s) sinalizada(s) (informativo). competência=%s",
             len(issues_df),
             context.competencia,
             extra=_extra,
