@@ -1,25 +1,22 @@
-"""Regra R047 — Soma dos subelementos de ND deve igualar o elemento pai.
+"""Regra R047 — Confronto entre elemento de despesa e seus subelementos (informativo).
 
 Dimensão: IC
-Severidade padrão: ALERTA
+Severidade padrão: INFO — fora da pontuação (is_scoring=False)
 
 Lógica:
-    Quando uma ND tem desdobramentos em subelementos (últimos 2 dígitos ≠ "00"),
-    a soma do saldo_final líquido (débito − crédito) dos subelementos deve
-    corresponder ao valor do elemento pai (mesmos 6 primeiros dígitos + "00").
-    O agrupamento é feito sobre TODOS os registros da competência
-    (independente de conta_contabil).
-
-    Tolerância: 0.01 (centavo) para absorver arredondamentos.
+    Compara a soma dos subelementos com o valor do elemento pai (subelemento 00).
+    Não existe relação aritmética exigível entre os dois: parte da despesa pode ser
+    enviada sem detalhamento em subelemento. O confronto continua no relatório como
+    sinal informativo.
 
 Referência:
-    ref/regras_catalogo.md R047; Portaria STN 642/2026
+    doc/calibracao_regras_respostas_rodrigo.md, pergunta 6.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import pandas as pd
 
@@ -35,18 +32,20 @@ _TOLERANCIA: float = 0.01
 
 @register_rule
 class R047(Rule):
-    """Valida se a soma dos subelementos de ND iguala o elemento pai."""
+    """Confronta a soma dos subelementos de ND com o elemento pai — informativo."""
 
     rule_id = "R047"
-    rule_name = "Soma subelementos ND deve igualar elemento pai"
+    rule_name = "Confronto elemento x subelementos (informativo)"
     dimensao = "IC"
+    is_scoring: ClassVar[bool] = False
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
-        """Verifica consistência entre elemento ND e seus subelementos.
+        """Confronta elemento ND e seus subelementos — informativo.
 
         Para cada prefixo de 6 dígitos de ND que possui tanto o elemento pai
         (últimos 2 dígitos == "00") quanto subelementos (últimos 2 dígitos != "00"),
-        compara as somas do saldo_final líquido.
+        compara as somas do saldo_final líquido. Não há relação aritmética
+        exigível entre os dois valores; o confronto é apenas informativo.
 
         Args:
             df: DataFrame normalizado com colunas ``nd``, ``saldo_final_debito``
@@ -54,7 +53,8 @@ class R047(Rule):
             context: metadados da execução.
 
         Returns:
-            DataFrame de pendências — uma linha por prefixo ND com divergência.
+            DataFrame de pendências INFO — uma linha por prefixo ND com
+            diferença entre elemento e subelementos.
         """
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
@@ -109,21 +109,23 @@ class R047(Rule):
         issues = []
         for _, row in divergentes.iterrows():
             issues.append({
-                "severidade": "ALERTA",
+                "severidade": "INFO",
                 "conta_contabil": f"ND:{row['prefixo6']}xx",
                 "descricao": (
                     f"ND prefixo '{row['prefixo6']}': soma dos subelementos "
                     f"({row['valor_subs']:.2f}) difere do elemento pai "
                     f"({row['valor_elemento']:.2f}) — diferença de "
-                    f"{abs(row['valor_elemento'] - row['valor_subs']):.2f}."
+                    f"{abs(row['valor_elemento'] - row['valor_subs']):.2f} "
+                    f"— sinal informativo, sem relação aritmética exigível."
                 ),
                 "valor_esperado": f"{row['valor_elemento']:.2f}",
                 "valor_encontrado": f"{row['valor_subs']:.2f}",
                 "competencia": context.competencia,
             })
 
-        logger.warning(
-            "R047: %d prefixo(s) ND com subelementos divergentes. competência=%s",
+        logger.info(
+            "R047: %d prefixo(s) ND com diferença entre elemento e subelementos "
+            "(informativo). competência=%s",
             len(issues),
             context.competencia,
             extra=_extra,

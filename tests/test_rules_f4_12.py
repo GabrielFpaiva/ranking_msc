@@ -361,15 +361,19 @@ class TestR047:
         assert len(result) == 0
 
     def test_subs_divergem_gera_alerta(self, engine_context):
-        """Subelementos somam valor diferente do elemento pai → ALERTA."""
+        """Subelementos somam valor diferente do elemento pai → INFO."""
         df = self._df_base(
             "33100100", 1000.0,
             ["33100101", "33100102"], [600.0, 300.0],
         )
         result = R047().execute(df, engine_context)
         assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
+        assert result.iloc[0]["severidade"] == "INFO"
         assert result.iloc[0]["regra_id"] == "R047"
+
+    def test_r047_fora_da_pontuacao(self):
+        """Não há relação aritmética exigível entre elemento e subelementos."""
+        assert R047.is_scoring is False
 
     def test_apenas_elemento_sem_subs_sem_pendencia(self, engine_context):
         """Elemento pai sem subelementos → sem pendências (regra não se aplica)."""
