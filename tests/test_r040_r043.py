@@ -3,11 +3,13 @@
 Dimensão: Completude
 - R040: contas patrimoniais devem ter saldo inicial
 - R041: contas patrimoniais devem ter saldo final
-- R042: contas de resultado não devem ter saldo (apenas movimentos)
+- R042: contas de resultado devem zerar no encerramento (mês 13)
 - R043: nenhuma conta deve estar totalmente zerada
 """
 
 from __future__ import annotations
+
+from dataclasses import replace
 
 import pandas as pd
 
@@ -307,151 +309,72 @@ class TestR041:
 
 
 # ---------------------------------------------------------------------------
-# R042 — Contas de resultado sem saldo (apenas movimentos)
+# R042 — Contas de resultado zeradas no encerramento
 # ---------------------------------------------------------------------------
 
 class TestR042:
-    """Testes da regra R042 — contas de resultado sem saldo."""
+    """R042 — contas de resultado zeradas no encerramento."""
 
-    def test_conta_resultado_apenas_movimentos_sem_pendencia(
+    def _df_resultado(
+        self,
+        sf_debito: float = 0.0,
+        sf_credito: float = 0.0,
+    ) -> pd.DataFrame:
+        """DataFrame com uma conta de VPD e uma de VPA, com o saldo final dado."""
+        return pd.DataFrame({
+            "conta_contabil": ["311110100", "411110100"],
+            "_has_saldo_inicial": [True, True],
+            "_has_saldo_final": [True, True],
+            "saldo_inicial_debito": [0.0, 0.0],
+            "saldo_inicial_credito": [0.0, 0.0],
+            "saldo_final_debito": [sf_debito, 0.0],
+            "saldo_final_credito": [0.0, sf_credito],
+        })
+
+    def test_saldo_durante_o_exercicio_nao_gera_pendencia(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta de resultado sem entradas beginning/ending_balance → sem pendência."""
-        df = _make_df(
-            conta_contabil="3.1.1.1.1.01.00",
-            movimento_debito=1000.0,
-            movimento_credito=800.0,
-            _has_saldo_inicial=False,
-            _has_saldo_final=False,
-        )
+        """Conta de resultado acumula saldo durante o ano — não é pendência."""
+        df = self._df_resultado(sf_debito=1000.0, sf_credito=2000.0)
         result = R042().execute(df, engine_context)
         assert len(result) == 0
 
-    def test_conta_resultado_com_si_gera_alerta(
+    def test_saldo_nao_zerado_no_encerramento_gera_alerta(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta de resultado com entrada beginning_balance presente → ALERTA."""
-        df = _make_df(
-            conta_contabil="3.1.1.1.1.01.00",
-            saldo_inicial_debito=500.0,
-            movimento_debito=1000.0,
-            movimento_credito=800.0,
-            _has_saldo_inicial=True,
-        )
-        result = R042().execute(df, engine_context)
-        assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
-        assert result.iloc[0]["regra_id"] == "R042"
-        assert result.iloc[0]["valor_encontrado"] == "saldo inicial"
+        """No mês 13, conta de resultado com saldo final != 0 → ALERTA."""
+        ctx = replace(engine_context, competencia="2025-13")
+        df = self._df_resultado(sf_debito=1000.0, sf_credito=2000.0)
+        result = R042().execute(df, ctx)
+        assert len(result) == 2
+        assert set(result["severidade"]) == {"ALERTA"}
+        assert set(result["conta_contabil"]) == {"311110100", "411110100"}
 
-    def test_conta_resultado_com_sf_gera_alerta(
+    def test_saldo_zerado_no_encerramento_sem_pendencia(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta de resultado com entrada ending_balance presente → ALERTA."""
-        df = _make_df(
-            conta_contabil="4.1.1.1.1.01.00",
-            movimento_debito=800.0,
-            movimento_credito=1000.0,
-            saldo_final_credito=200.0,
-            _has_saldo_final=True,
-        )
-        result = R042().execute(df, engine_context)
-        assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
-        assert result.iloc[0]["regra_id"] == "R042"
-
-    def test_conta_resultado_si_zero_mas_presente_gera_alerta(
-        self, engine_context: EngineContext
-    ) -> None:
-        """Conta de resultado com beginning_balance=0 mas entrada presente → ALERTA."""
-        df = _make_df(
-            conta_contabil="3.1.1.1.1.01.00",
-            saldo_inicial_debito=0.0,   # valor zero
-            movimento_debito=500.0,
-            _has_saldo_inicial=True,    # mas a entrada existe no CSV
-        )
-        result = R042().execute(df, engine_context)
-        assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
-        assert result.iloc[0]["regra_id"] == "R042"
-
-    def test_conta_patrimonial_ignorada(self, engine_context: EngineContext) -> None:
-        """Conta patrimonial (classe 1) com saldo → R042 não reporta."""
-        df = _make_df(
-            conta_contabil="1.1.1.1.1.01.00",
-            saldo_inicial_debito=1000.0,
-            saldo_final_debito=1000.0,
-            _has_saldo_inicial=True,
-            _has_saldo_final=True,
-        )
-        result = R042().execute(df, engine_context)
+        """No mês 13, conta de resultado zerada → sem pendência."""
+        ctx = replace(engine_context, competencia="2025-13")
+        df = self._df_resultado()
+        result = R042().execute(df, ctx)
         assert len(result) == 0
 
-    def test_conta_resultado_totalmente_zerada_sem_pendencia(
+    def test_conta_patrimonial_ignorada_no_encerramento(
         self, engine_context: EngineContext
     ) -> None:
-        """Conta de resultado sem nenhuma entrada de saldo → R042 não reporta."""
-        df = _make_df(
-            conta_contabil="3.1.1.1.1.01.00",
-            _has_saldo_inicial=False,
-            _has_saldo_final=False,
-        )
-        result = R042().execute(df, engine_context)
+        """Só classes 3 e 4 entram na verificação."""
+        ctx = replace(engine_context, competencia="2025-13")
+        df = pd.DataFrame({
+            "conta_contabil": ["111110100"],
+            "_has_saldo_inicial": [True],
+            "_has_saldo_final": [True],
+            "saldo_inicial_debito": [0.0],
+            "saldo_inicial_credito": [0.0],
+            "saldo_final_debito": [5000.0],
+            "saldo_final_credito": [0.0],
+        })
+        result = R042().execute(df, ctx)
         assert len(result) == 0
-
-    def test_multiplas_linhas_mesma_conta_agrupa_antes_de_validar(
-        self, engine_context: EngineContext
-    ) -> None:
-        """Uma IC com beginning_balance, outra sem → any(_has_saldo_inicial)=True → ALERTA."""
-        df = pd.DataFrame([
-            {
-                "conta_contabil": "3.1.1.1.1.01.00",
-                "saldo_inicial_debito": 100.0,
-                "saldo_inicial_credito": 0.0,
-                "movimento_debito": 500.0,
-                "movimento_credito": 0.0,
-                "saldo_final_debito": 0.0,
-                "saldo_final_credito": 0.0,
-                "_has_saldo_inicial": True,
-                "_has_saldo_final": False,
-            },
-            {
-                "conta_contabil": "3.1.1.1.1.01.00",
-                "saldo_inicial_debito": 0.0,
-                "saldo_inicial_credito": 0.0,
-                "movimento_debito": 0.0,
-                "movimento_credito": 500.0,
-                "saldo_final_debito": 0.0,
-                "saldo_final_credito": 0.0,
-                "_has_saldo_inicial": False,
-                "_has_saldo_final": False,
-            },
-        ])
-        result = R042().execute(df, engine_context)
-        assert len(result) == 1
-
-    def test_df_vazio_retorna_sem_pendencia(self, engine_context: EngineContext) -> None:
-        """DataFrame vazio → sem pendência."""
-        df = pd.DataFrame(
-            columns=[
-                "conta_contabil", "_has_saldo_inicial", "_has_saldo_final",
-                "saldo_inicial_debito", "saldo_inicial_credito",
-                "saldo_final_debito", "saldo_final_credito",
-            ]
-        )
-        result = R042().execute(df, engine_context)
-        assert len(result) == 0
-
-    def test_df_sem_colunas_saldo_nao_crasha(self, engine_context: EngineContext) -> None:
-        """DataFrame sem colunas de saldo (apenas presença) → R042 não crasha."""
-        df = pd.DataFrame([{
-            "conta_contabil": "3.1.1.1.1.01.00",
-            "_has_saldo_inicial": True,
-            "_has_saldo_final": False,
-        }])
-        result = R042().execute(df, engine_context)
-        assert len(result) == 1
-        assert result.iloc[0]["severidade"] == "ALERTA"
 
 
 # ---------------------------------------------------------------------------
