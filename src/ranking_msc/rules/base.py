@@ -150,13 +150,17 @@ MES_ENCERRAMENTO: str = "13"
 def competencia_de_encerramento(competencia: str) -> bool:
     """Indica se a competência é a de encerramento do exercício.
 
+    Compara a posição do mês em "YYYY-MM" em vez de casar o sufixo da string:
+    um sufixo "-13" também apareceria em competências malformadas produzidas por
+    quem não passou pelo reader (ex.: "2025-12-13").
+
     Args:
         competencia: período no formato "YYYY-MM".
 
     Returns:
         True quando o mês é 13.
     """
-    return competencia.strip().endswith(f"-{MES_ENCERRAMENTO}")
+    return competencia.strip()[5:] == MES_ENCERRAMENTO
 
 
 # ---------------------------------------------------------------------------

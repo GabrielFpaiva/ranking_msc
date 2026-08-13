@@ -108,3 +108,15 @@ class TestR026:
             result = R026().execute(_df("123"), ctx)
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ERRO"
+
+    def test_competencia_corrompida_nao_rebaixa_para_info(self, engine_context):
+        """Competência ilegível ("0000-00", substituição do reader) mantém ALERTA.
+
+        Sem piso de plausibilidade, o ano "0000" satisfaria "anterior às tabelas de
+        referência" e amoleceria silenciosamente a checagem.
+        """
+        ctx = replace(engine_context, competencia="0000-00")
+        with patch(_PATCH, return_value=_TABELA_NR_MOCK):
+            result = R026().execute(_df("13210101"), ctx)
+        assert len(result) == 1
+        assert result.iloc[0]["severidade"] == "ALERTA"

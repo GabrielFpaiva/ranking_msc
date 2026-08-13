@@ -34,6 +34,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("ranking_msc")
 
+# Piso de plausibilidade para o ano da competência. O reader substitui competência
+# ilegível por "0000-00" (io/reader_msc.py); sem este piso, "0000" passaria por
+# "competência anterior às tabelas de referência" e rebaixaria a checagem para INFO.
+_ANO_MINIMO_PLAUSIVEL: int = 2000
+
 
 @register_rule
 class R026(Rule):
@@ -87,7 +92,8 @@ class R026(Rule):
         # temos a tabela histórica para conferir — então o sinal é informativo.
         ano_competencia = context.competencia[:4]
         competencia_anterior = (
-            ano_competencia.isdigit() and int(ano_competencia) < ANO_TABELAS_REF
+            ano_competencia.isdigit()
+            and _ANO_MINIMO_PLAUSIVEL <= int(ano_competencia) < ANO_TABELAS_REF
         )
         severidade_tabela = "INFO" if competencia_anterior else "ALERTA"
 
