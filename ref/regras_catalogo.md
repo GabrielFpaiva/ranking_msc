@@ -21,15 +21,15 @@
 | FP | R022 | 1 | 0 | 0 | — (domínio fixo: 1 ou 2) |
 | DC | R023, R063 | 2 | 0 | 0 | Leiaute MSC (105 contas ID_IC=8) |
 | FR | R024, R048 | 1 | 1 | 0 | Aba FR 2026 (194 códigos-raiz) |
-| CO | R025, R064 | 1 | 1 | 0 | Aba CO 2026 (50 códigos) |
+| CO | R025, R064 | 1 | 0 | 1 | Aba CO 2026 (50 códigos) |
 | NR | R026, R044 | 1 | 1 | 0 | Aba NR 2026 (4504 valorizáveis) |
-| ND | R027, R045–R047 | 1 | 3 | 0 | Aba ND 2026 (1073 último nível) |
+| ND | R027, R045–R047 | 1 | 1 | 2 | Aba ND 2026 (1073 último nível) |
 | FS | R028, R065 | 1 | 0 | 1 | Aba FS (Portaria MOG 42/99) |
 | AI | R029 | 0 | 1 | 0 | — |
 | Fechamento | R030–R032, R035–R037 | 4 | 2 | 0 | PCASP (NAT_SALDO) |
 | Interconta | R050–R053 | 1 | 3 | 0 | — |
 | Superávit | R060–R062 | 0 | 3 | 0 | PCASP (IND_SF) |
-| Completude | R040–R043, R066–R068, R074 | 0 | 6 | 2 | — |
+| Completude | R040–R043, R066–R068, R074 | 0 | 5 | 3 | — |
 | Temporal | R054–R055, R069 | 0 | 3 | 0 | — |
 | Duplicidade | R070 | 1 | 0 | 0 | — |
 | Formato | R080–R081 | 2 | 0 | 0 | Informações Complementares |
