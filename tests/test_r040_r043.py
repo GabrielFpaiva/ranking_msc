@@ -3,7 +3,7 @@
 Dimensão: Completude
 - R040: contas patrimoniais devem ter saldo inicial
 - R041: contas patrimoniais devem ter saldo final
-- R042: contas de resultado devem zerar no encerramento (mês 13)
+- R042: contas de resultado devem zerar no encerramento (mês 13) — INFO, R069 pontua
 - R043: nenhuma conta deve estar totalmente zerada
 """
 
@@ -18,6 +18,7 @@ from ranking_msc.rules.r040 import R040
 from ranking_msc.rules.r041 import R041
 from ranking_msc.rules.r042 import R042
 from ranking_msc.rules.r043 import R043
+from ranking_msc.rules.r069 import R069
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -339,16 +340,21 @@ class TestR042:
         result = R042().execute(df, engine_context)
         assert len(result) == 0
 
-    def test_saldo_nao_zerado_no_encerramento_gera_alerta(
+    def test_saldo_nao_zerado_no_encerramento_gera_info(
         self, engine_context: EngineContext
     ) -> None:
-        """No mês 13, conta de resultado com saldo final != 0 → ALERTA."""
+        """No mês 13, conta de resultado com saldo final != 0 → INFO (R069 pontua)."""
         ctx = replace(engine_context, competencia="2025-13")
         df = self._df_resultado(sf_debito=1000.0, sf_credito=2000.0)
         result = R042().execute(df, ctx)
         assert len(result) == 2
-        assert set(result["severidade"]) == {"ALERTA"}
+        assert set(result["severidade"]) == {"INFO"}
         assert set(result["conta_contabil"]) == {"311110100", "411110100"}
+
+    def test_r042_fora_da_pontuacao(self) -> None:
+        """R042 não pontua — a condição é pontuada por R069 (evita dupla penalização)."""
+        assert R042.is_scoring is False
+        assert R069.is_scoring is True
 
     def test_saldo_zerado_no_encerramento_sem_pendencia(
         self, engine_context: EngineContext
@@ -373,6 +379,26 @@ class TestR042:
             "saldo_final_debito": [5000.0],
             "saldo_final_credito": [0.0],
         })
+        result = R042().execute(df, ctx)
+        assert len(result) == 0
+
+    def test_df_vazio_no_encerramento_sem_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """DataFrame vazio no mês 13 → guarda de robustez, sem pendência."""
+        ctx = replace(engine_context, competencia="2025-13")
+        df = pd.DataFrame(
+            columns=["conta_contabil", "saldo_final_debito", "saldo_final_credito"]
+        )
+        result = R042().execute(df, ctx)
+        assert len(result) == 0
+
+    def test_df_sem_colunas_de_saldo_final_sem_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """DataFrame sem as colunas de saldo final → tratado como zero, sem pendência."""
+        ctx = replace(engine_context, competencia="2025-13")
+        df = pd.DataFrame({"conta_contabil": ["311110100", "411110100"]})
         result = R042().execute(df, ctx)
         assert len(result) == 0
 

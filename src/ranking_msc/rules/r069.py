@@ -9,6 +9,11 @@ Lógica:
     resultado (classes 3 e 4) devem ter saldo final igual a zero, indicando
     que o encerramento foi realizado corretamente.
 
+Pontuação:
+    Esta é a regra que pontua a condição. R042 detecta o mesmo defeito na
+    dimensão Completude, mas em INFO e fora da pontuação (``is_scoring=False``),
+    para que um único defeito não penalize duas dimensões.
+
 Referência:
     MCASP / Nota Técnica de Encerramento — o resultado do exercício deve
     ser transferido ao patrimônio líquido, zerando classes 3 e 4.
@@ -21,7 +26,12 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from ranking_msc.rules.base import TOLERANCIA_CENTAVO, Rule, register_rule
+from ranking_msc.rules.base import (
+    TOLERANCIA_CENTAVO,
+    Rule,
+    competencia_de_encerramento,
+    register_rule,
+)
 
 if TYPE_CHECKING:
     from ranking_msc.engine.executor import EngineContext
@@ -52,8 +62,7 @@ class R069(Rule):
         """
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
-        mes = context.competencia[5:]
-        if mes != "13":
+        if not competencia_de_encerramento(context.competencia):
             return self.build_issues([])
 
         if df.empty:

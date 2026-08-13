@@ -1,7 +1,7 @@
 """Regra R042 — Contas de resultado zeradas no encerramento.
 
 Dimensão: Completude
-Severidade padrão: ALERTA
+Severidade padrão: INFO — fora da pontuação (is_scoring=False)
 
 Lógica:
     Contas de resultado (primeiro dígito em {3, 4}) acumulam saldo ao longo do
@@ -10,7 +10,15 @@ Lógica:
     normal e não gera pendência.
 
     Na competência de encerramento (mês 13):
-        SE abs(saldo_final_debito - saldo_final_credito) > tolerância → ALERTA
+        SE abs(saldo_final_debito - saldo_final_credito) > tolerância → INFO
+
+Pontuação:
+    R069 ("Resultado zerado no encerramento", dimensão Temporal) já verificava
+    exatamente esta condição — classes 3 e 4 com saldo final não-zero no mês 13 —
+    e continua sendo a dona da pontuação. R042 mantém a detecção como sinal
+    informativo, mas sai da nota (``is_scoring = False``) para que um único
+    defeito não gere duas pendências pontuadas em duas dimensões distintas
+    (Completude e Temporal).
 
 Referência:
     doc/calibracao_regras_respostas_rodrigo.md, pergunta 10;
@@ -20,7 +28,7 @@ Referência:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import pandas as pd
 
@@ -48,6 +56,7 @@ class R042(Rule):
     rule_id = "R042"
     rule_name = "Contas de resultado zeradas no encerramento"
     dimensao = "Completude"
+    is_scoring: ClassVar[bool] = False  # condição pontuada por R069 — evita dupla penalização
 
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
         """Detecta conta de resultado com saldo final diferente de zero no mês 13.
@@ -97,8 +106,9 @@ class R042(Rule):
         if violacoes.empty:
             return self.build_issues([])
 
-        logger.warning(
-            "R042: %d conta(s) de resultado sem zerar no encerramento. competência=%s",
+        logger.info(
+            "R042: %d conta(s) de resultado sem zerar no encerramento "
+            "(informativo; a condição é pontuada por R069). competência=%s",
             len(violacoes),
             context.competencia,
             extra=_extra,
@@ -108,11 +118,12 @@ class R042(Rule):
         saldo_s = violacoes["saldo_liquido"].map(lambda x: f"{x:.2f}")
 
         issues_df = pd.DataFrame({
-            "severidade": "ALERTA",
+            "severidade": "INFO",
             "conta_contabil": conta_s.values,
             "descricao": (
                 "Conta de resultado '" + conta_s + "' não zerou no encerramento: "
-                "saldo final líquido de " + saldo_s + "."
+                "saldo final líquido de " + saldo_s + " — sinal informativo, "
+                "a condição é pontuada por R069."
             ).values,
             "valor_esperado": "0.00",
             "valor_encontrado": saldo_s.values,
