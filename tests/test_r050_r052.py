@@ -107,37 +107,39 @@ class TestR050:
 # ---------------------------------------------------------------------------
 
 def _df_r051(
-    vpa_mov_c: float = 500.0,
-    vpa_mov_d: float = 0.0,
-    vpd_mov_d: float = 200.0,
-    vpd_mov_c: float = 0.0,
-    pl237_sf_c: float = 300.0,
-    pl237_sf_d: float = 0.0,
-    pl237_si_c: float = 0.0,
-    pl237_si_d: float = 0.0,
+    vpa: float = 500.0,
+    vpd: float = 200.0,
+    transferido_237: float = 300.0,
+    si_237_c: float = 10_000.0,
     include_237: bool = True,
 ) -> pd.DataFrame:
-    """Cria DataFrame mínimo para testes de R051.
+    """Cria DataFrame mínimo para testes de R051 na **forma real de encerramento**.
 
-    Por padrão: VPA=500, VPD=200, resultado=300, delta_PL(237)=300 → consistente.
-    Conta 4 (VPA): créditos aumentam VPA. Conta 3 (VPD): débitos aumentam VPD.
-    Conta 237 (Resultados Acumulados): credora — SF_C - SF_D indica variação positiva.
+    No mês 13 as classes 3 e 4 chegam com o acumulado do exercício no saldo
+    inicial, os movimentos são os lançamentos que as zeram e o saldo final é zero:
+
+    - conta 4 (VPA, credora): SI_C = vpa, mov_D = vpa (baixa), SF = 0
+    - conta 3 (VPD, devedora): SI_D = vpd, mov_C = vpd (baixa), SF = 0
+    - conta 237 (Resultados Acumulados, credora): recebe ``transferido_237``,
+      logo SF_C = SI_C + transferido_237.
+
+    Por padrão: VPA=500, VPD=200, resultado=300, transferido=300 → consistente.
     """
     rows = [
         {
             "conta_contabil": "411110100",
-            "movimento_debito": vpa_mov_d,
-            "movimento_credito": vpa_mov_c,
+            "movimento_debito": vpa,
+            "movimento_credito": 0.0,
             "saldo_inicial_debito": 0.0,
-            "saldo_inicial_credito": 0.0,
+            "saldo_inicial_credito": vpa,
             "saldo_final_debito": 0.0,
             "saldo_final_credito": 0.0,
         },
         {
             "conta_contabil": "311110100",
-            "movimento_debito": vpd_mov_d,
-            "movimento_credito": vpd_mov_c,
-            "saldo_inicial_debito": 0.0,
+            "movimento_debito": 0.0,
+            "movimento_credito": vpd,
+            "saldo_inicial_debito": vpd,
             "saldo_inicial_credito": 0.0,
             "saldo_final_debito": 0.0,
             "saldo_final_credito": 0.0,
@@ -147,11 +149,11 @@ def _df_r051(
         rows.append({
             "conta_contabil": "237110100",
             "movimento_debito": 0.0,
-            "movimento_credito": 0.0,
-            "saldo_inicial_debito": pl237_si_d,
-            "saldo_inicial_credito": pl237_si_c,
-            "saldo_final_debito": pl237_sf_d,
-            "saldo_final_credito": pl237_sf_c,
+            "movimento_credito": transferido_237,
+            "saldo_inicial_debito": 0.0,
+            "saldo_inicial_credito": si_237_c,
+            "saldo_final_debito": 0.0,
+            "saldo_final_credito": si_237_c + transferido_237,
         })
     return pd.DataFrame(rows)
 
@@ -167,28 +169,25 @@ def test_competencia_de_encerramento() -> None:
     assert competencia_de_encerramento(" 2025-13 ") is True
     assert competencia_de_encerramento("2025-12") is False
     assert competencia_de_encerramento("") is False
+    # Compara a posição do mês, não o sufixo: uma data completa terminada em "-13"
+    # não é competência de encerramento.
+    assert competencia_de_encerramento("2025-12-13") is False
 
 
 class TestR051:
     """Testes da regra R051 — VPA - VPD = Resultado."""
 
     def test_r051_consistente_sem_pendencia(self, engine_context: EngineContext) -> None:
-        """VPA-VPD == delta_PL(2.3.7) → sem pendência."""
-        # VPA_liq=500, VPD_liq=200, resultado=300, delta_PL=300-0=300
-        df = _df_r051(
-            vpa_mov_c=500.0, vpd_mov_d=200.0,
-            pl237_sf_c=300.0, pl237_si_c=0.0,
-        )
+        """Encerramento correto (VPA-VPD == transferido a 2.3.7) → sem pendência."""
+        # VPA=500, VPD=200, resultado=300, transferido a 237 = 300
+        df = _df_r051(vpa=500.0, vpd=200.0, transferido_237=300.0)
         result = R051().execute(df, _ctx_encerramento(engine_context))
         assert len(result) == 0
 
     def test_r051_divergencia_gera_alerta(self, engine_context: EngineContext) -> None:
         """VPA-VPD != delta_PL(2.3.7) → 1 pendência ALERTA."""
-        # resultado=300, delta_PL=250 → divergência de 50
-        df = _df_r051(
-            vpa_mov_c=500.0, vpd_mov_d=200.0,
-            pl237_sf_c=250.0, pl237_si_c=0.0,
-        )
+        # resultado=300, transferido=250 → divergência de 50
+        df = _df_r051(vpa=500.0, vpd=200.0, transferido_237=250.0)
         result = R051().execute(df, _ctx_encerramento(engine_context))
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
@@ -207,15 +206,18 @@ class TestR051:
         result = R051().execute(df, engine_context)
         assert len(result) == 0
 
+    def test_r051_deficit_consistente_sem_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Déficit (VPD > VPA) transferido corretamente → sem pendência."""
+        # VPA=100, VPD=200, resultado=-100, transferido a 237 = -100
+        df = _df_r051(vpa=100.0, vpd=200.0, transferido_237=-100.0)
+        result = R051().execute(df, _ctx_encerramento(engine_context))
+        assert len(result) == 0
+
     def test_r051_deficit_divergencia_gera_alerta(self, engine_context: EngineContext) -> None:
         """Déficit (VPD > VPA): resultado=-100, delta_PL=-80 → divergência de 20."""
-        # VPA_liq=100, VPD_liq=200, resultado=-100, delta_PL(237): SF_C-SF_D=80 → delta=-80
-        # Divergência = abs(-100 - (-80)) = 20 → ALERTA
-        df = _df_r051(
-            vpa_mov_c=100.0, vpd_mov_d=200.0,
-            pl237_sf_c=0.0, pl237_sf_d=80.0,
-            pl237_si_c=0.0, pl237_si_d=0.0,
-        )
+        df = _df_r051(vpa=100.0, vpd=200.0, transferido_237=-80.0)
         result = R051().execute(df, _ctx_encerramento(engine_context))
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
@@ -224,7 +226,7 @@ class TestR051:
         self, engine_context: EngineContext
     ) -> None:
         """O confronto VPA-VPD só acontece no encerramento do exercício."""
-        df = _df_r051(vpa_mov_c=500.0, vpd_mov_d=200.0, pl237_sf_c=250.0)
+        df = _df_r051(vpa=500.0, vpd=200.0, transferido_237=250.0)
         result = R051().execute(df, engine_context)
         assert len(result) == 0
 
@@ -232,11 +234,65 @@ class TestR051:
         self, engine_context: EngineContext
     ) -> None:
         """No mês 13, divergência contra o grupo 2.3.7 gera ALERTA."""
-        df = _df_r051(vpa_mov_c=500.0, vpd_mov_d=200.0, pl237_sf_c=250.0)
+        df = _df_r051(vpa=500.0, vpd=200.0, transferido_237=250.0)
         result = R051().execute(df, _ctx_encerramento(engine_context))
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
         assert "2.3.7" in str(result.iloc[0]["descricao"])
+
+    def test_r051_encerramento_real_de_jp_nao_gera_pendencia(
+        self, engine_context: EngineContext
+    ) -> None:
+        """Regressão: forma real de encerramento (JP 2025-13) não pode gerar ALERTA.
+
+        Agregados medidos em ``ref/amostras/2507507EX-2025-13-001.csv``: classes 3
+        e 4 chegam com o acumulado do exercício no saldo inicial, os movimentos as
+        zeram e o saldo final é zero; exatamente R$ 272.177.481,51 (superávit)
+        entram no grupo 2.3.7. O arquivo encerra corretamente.
+
+        Com a fórmula do exercício corrente (mov_C - mov_D na classe 4) o
+        ``resultado`` sai com o sinal trocado e a regra acusa uma diferença de
+        2 × 272.177.481,51 = 544.354.963,02 — falso ALERTA garantido.
+        """
+        vpa = 17_319_103_824.61
+        vpd = 17_046_926_343.10
+        superavit = vpa - vpd  # 272.177.481,51
+        df = pd.DataFrame([
+            {
+                "conta_contabil": "411110100",
+                "movimento_debito": 17_320_156_256.35,
+                "movimento_credito": 1_052_431.74,
+                "saldo_inicial_debito": 1_052_431.74,
+                "saldo_inicial_credito": 17_320_156_256.35,
+                "saldo_final_debito": 0.0,
+                "saldo_final_credito": 0.0,
+            },
+            {
+                "conta_contabil": "311110100",
+                "movimento_debito": 0.0,
+                "movimento_credito": 17_046_926_343.10,
+                "saldo_inicial_debito": 17_046_926_343.10,
+                "saldo_inicial_credito": 0.0,
+                "saldo_final_debito": 0.0,
+                "saldo_final_credito": 0.0,
+            },
+            {
+                "conta_contabil": "237110100",
+                "movimento_debito": 17_047_978_774.84,
+                "movimento_credito": 17_320_156_256.35,
+                "saldo_inicial_debito": 11_948_452_112.36,
+                "saldo_inicial_credito": 15_167_602_140.13,
+                "saldo_final_debito": 15_213_289_529.02,
+                "saldo_final_credito": 18_704_617_038.30,
+            },
+        ])
+        assert round(superavit, 2) == 272_177_481.51
+
+        result = R051().execute(df, _ctx_encerramento(engine_context))
+        assert len(result) == 0, (
+            f"encerramento correto não pode gerar pendência: "
+            f"{result.to_dict('records')}"
+        )
 
 
 # ---------------------------------------------------------------------------

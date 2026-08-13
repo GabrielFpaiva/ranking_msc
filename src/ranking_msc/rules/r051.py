@@ -10,14 +10,33 @@ Lógica:
     contra o qual as contas de resultado são zeradas. Nas demais competências a
     regra não se aplica e não gera pendência.
 
-    vpa_liq   = SUM(mov_C - mov_D)  para contas onde conta_contabil[0] == "4"
-    vpd_liq   = SUM(mov_D - mov_C)  para contas onde conta_contabil[0] == "3"
+    vpa_liq   = SUM(mov_D - mov_C)  para contas onde conta_contabil[0] == "4"
+    vpd_liq   = SUM(mov_C - mov_D)  para contas onde conta_contabil[0] == "3"
     resultado = vpa_liq - vpd_liq
 
     delta_pl  = SUM(SF_C - SF_D) - SUM(SI_C - SI_D)
                 para contas onde conta_contabil[:3] == "237"
 
     SE abs(resultado - delta_pl) > tolerancia → ALERTA
+
+ATENÇÃO ao sinal dos movimentos (armadilha desta regra):
+    Durante o exercício (meses 1..12) o movimento de uma conta de VPA (classe 4,
+    natureza credora) é *a crédito* e o de uma conta de VPD (classe 3, natureza
+    devedora) é *a débito* — a VPA líquida seria SUM(mov_C - mov_D).
+
+    No mês 13, porém, os únicos movimentos das classes 3 e 4 são os **lançamentos
+    de encerramento**, que zeram essas contas: a VPA acumulada é baixada *a débito*
+    e a VPD acumulada é baixada *a crédito*. Os sinais, portanto, se invertem em
+    relação ao exercício corrente, e é por isso que aqui vpa_liq usa
+    ``mov_D - mov_C`` e vpd_liq usa ``mov_C - mov_D``. Assim ``resultado`` volta a
+    ser o resultado do exercício com o sinal econômico usual (positivo = superávit),
+    diretamente comparável com ``delta_pl``, que é positivo quando o superávit foi
+    incorporado a 2.3.7.
+
+    Usar a fórmula do exercício corrente aqui produziria ``resultado`` com o sinal
+    trocado e uma diferença de exatamente ``2 × |resultado|`` em *todo* arquivo
+    corretamente encerrado — falso ALERTA garantido. Equivalentemente: no
+    encerramento, os movimentos de zeramento e a variação de 2.3.7 se anulam.
 
 Limitação conhecida:
     Ajustes diretos no PL que não transitam por classes 3/4 (doações, correções
@@ -106,8 +125,11 @@ class R051(Rule):
         classe3 = work[work["conta_contabil"].str[:1] == "3"]
         classe4 = work[work["conta_contabil"].str[:1] == "4"]
 
-        vpa_liq = (classe4["movimento_credito"] - classe4["movimento_debito"]).sum()
-        vpd_liq = (classe3["movimento_debito"] - classe3["movimento_credito"]).sum()
+        # Sinais invertidos em relação ao exercício corrente: no mês 13 os
+        # movimentos das classes 3 e 4 são os lançamentos de zeramento (VPA baixada
+        # a débito, VPD baixada a crédito). Ver nota no docstring do módulo.
+        vpa_liq = (classe4["movimento_debito"] - classe4["movimento_credito"]).sum()
+        vpd_liq = (classe3["movimento_credito"] - classe3["movimento_debito"]).sum()
         resultado = vpa_liq - vpd_liq
 
         pl_sf = (grupo237["saldo_final_credito"] - grupo237["saldo_final_debito"]).sum()
