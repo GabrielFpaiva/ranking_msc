@@ -117,3 +117,16 @@ final não zerou. É o procedimento do IPC de Encerramento, p. 9.
 
 A pergunta final ("alguma verificação que deveríamos estar fazendo e não mencionamos?") veio
 sem resposta.
+
+## Efeito na pontuação
+
+Pontuação do motor nas amostras de João Pessoa, antes e depois da calibração:
+
+| Competência | Antes | Depois |
+|---|---|---|
+| 2025-12 | 83,86 (C) | 93,75 (B) |
+| 2025-13 | 82,47 (C) | 89,72 (B) |
+| 2026-01 | 82,47 (C) | 91,25 (B) |
+
+A nota mede conformidade da MSC pelas regras do motor; não é comparável com o
+percentual oficial do Ranking Siconfi, que agrega quatro dimensões.

@@ -23,7 +23,7 @@
 | FR | R024, R048 | 1 | 1 | 0 | Aba FR 2026 (194 códigos-raiz) |
 | CO | R025, R064 | 1 | 1 | 0 | Aba CO 2026 (50 códigos) |
 | NR | R026, R044 | 1 | 1 | 0 | Aba NR 2026 (4504 valorizáveis) |
-| ND | R027, R045–R047 | 1 | 3 | 0 | Aba ND 2026 (1072 último nível) |
+| ND | R027, R045–R047 | 1 | 3 | 0 | Aba ND 2026 (1073 último nível) |
 | FS | R028, R065 | 1 | 0 | 1 | Aba FS (Portaria MOG 42/99) |
 | AI | R029 | 0 | 1 | 0 | — |
 | Fechamento | R030–R032, R035–R037 | 4 | 2 | 0 | PCASP (NAT_SALDO) |
@@ -60,8 +60,8 @@ O `ref_loader` deve expor estas tabelas (carregadas do xlsx STN 2026):
 | `tabela_po` | PO | Código (5 dig) | 92 | R021, R039 |
 | `tabela_fr` | FR 2026 | Código (3 dig raiz) | 194 | R024, R048 |
 | `tabela_co` | CO 2026 | Código (4 dig) | 50 | R025, R064 |
-| `tabela_nr` | NR 2026 | NR (8 dig) | 5450 (4504 valorizáveis) | R026, R044 |
-| `tabela_nd` | ND 2026 | Codigo (8 dig) | 1235 (1072 último) | R027, R045–R047 |
+| `tabela_nr` | NR 2026 | NR (8 dig) | 5452 (4504 valorizáveis) | R026, R044 |
+| `tabela_nd` | ND 2026 | Codigo (8 dig) | 1235 (1073 último) | R027, R045–R047 |
 | `tabela_fs` | FS | Função (2d) + Subfunção (3d) | ~120 | R028, R065 |
 | `ic_map` | Conjunto de IC | ID_IC → lista de tipos | 9 entradas | R020, R038 |
 
@@ -271,16 +271,18 @@ IC_DIGITOS: dict[str, int] = {
 
 #### R020 — Conjunto de IC correto para a conta
 - **Severidade:** ERRO | **Prioridade:** P1
-- **Lógica:** Cada conta tem um ID_IC no PCASP que define QUAL conjunto de ICs é obrigatório. Ex: ID_IC=4 → PO,FP,FR,CO.
+- **Lógica:** Cada conta tem um ID_IC no PCASP que define QUAL conjunto de ICs é obrigatório. Ex: ID_IC=4 → PO,FP,FR,CO. FR não é exigido em conta cujas linhas informam exclusivamente FP=2 (Permanente) — o restante do conjunto continua obrigatório.
 - **Pseudocódigo:**
   ```
   ic_esperado = IC_MAP[pcasp[CONTA].ID_IC]
   ic_informado = [TIPO_n para n em 1..6 se notna(TIPO_n)]
+  SE conta tem todas as linhas com FP=2 (Permanente): ic_esperado -= {FR}
   SE set(ic_informado) != set(ic_esperado) → ERRO(conta, esperado, informado)
   ```
-- **Entrada:** TIPO1–TIPO6 + PCASP.ID_IC
+- **Entrada:** TIPO1–TIPO6 + PCASP.ID_IC + FP
 - **Tabela:** Conjunto de IC + PcaspEstendido2026
 - **Depende:** R010
+- **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
 #### R033 — IC e TIPO sempre em pares
 - **Severidade:** ERRO | **Prioridade:** P1
@@ -451,33 +453,39 @@ IC_DIGITOS: dict[str, int] = {
 - **Depende:** R020
 
 #### R064 — CO de despesa associado a conta de despesa
-- **Severidade:** ALERTA | **Prioridade:** P3
-- **Lógica:** COs do bloco "Despesa Orçamentária" (1001-2xxx) só devem aparecer em contas de despesa. COs do bloco "Receita" (5001) só em contas de receita.
+- **Severidade:** INFO (fora da pontuação) | **Prioridade:** P3
+- **Lógica:** Essa restrição por classe não consta do leiaute: a conta 721900000, por exemplo, tem ID_IC=5 (PO-FR-CO) e carrega CO legitimamente fora das classes abaixo. A conformidade do conjunto de IC de cada conta é verificada pela R020; aqui fica como sinal informativo, não pontua (`is_scoring=False`).
 - **Pseudocódigo:**
   ```
   co_despesa = {1001..2999}
   co_receita = {5001..5999}
-  SE CO IN co_despesa AND conta.classe NOT IN {5, 6, 1, 2} → ALERTA
+  SE CO IN co_despesa AND conta.classe NOT IN {1, 2, 5, 6} → INFO
+  SE CO IN co_receita AND conta.classe NOT IN {4, 7, 8} → INFO
   ```
 - **Entrada:** CO + classe da conta
 - **Depende:** R025
+- **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
 ---
 
 ### CATEGORIA: NR (Natureza da Receita)
 
 #### R026 — NR válida — 8 dígitos + tabela
-- **Severidade:** ERRO | **Prioridade:** P2
-- **Lógica:** A natureza da receita deve ter 8 dígitos e pertencer à tabela NR. Aplica-se a contas com ID_IC=6.
+- **Severidade:** ERRO (formato) / ALERTA ou INFO (fora da tabela) | **Prioridade:** P2
+- **Lógica:** A natureza da receita deve ter 8 dígitos numéricos — comprimento ou formato incorretos são ERRO. Código ausente na tabela NR é ALERTA; se o ano da competência é anterior a ANO_TABELAS_REF vira INFO, porque a STN altera a tabela pontualmente e o motor não tem as versões históricas para conferir se o código era válido à época. Aplica-se a contas com ID_IC=6.
 - **Pseudocódigo:**
   ```
   SE TIPO_n == "NR":
     SE len(IC_n) != 8 → ERRO("NR formato")
-    SE IC_n NOT IN tabela_NR → ALERTA("NR desconhecida")
+    SENÃO SE not IC_n.isdigit() → ERRO("NR formato")
+    SENÃO SE IC_n NOT IN tabela_NR:
+      SE ano(competencia) < ANO_TABELAS_REF → INFO("NR fora da tabela")
+      SENÃO → ALERTA("NR desconhecida")
   ```
 - **Entrada:** IC onde TIPO=NR
-- **Tabela:** Aba NR 2026 (5450 códigos, 4504 valorizáveis)
+- **Tabela:** Aba NR 2026 (5452 códigos, 4504 valorizáveis)
 - **Depende:** R020
+- **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
 #### R044 — NR deve ser valorizável (último nível)
 - **Severidade:** ALERTA | **Prioridade:** P2
@@ -503,41 +511,46 @@ IC_DIGITOS: dict[str, int] = {
     SE IC_n NOT IN tabela_ND → ALERTA("ND desconhecida")
   ```
 - **Entrada:** IC onde TIPO=ND
-- **Tabela:** Aba ND 2026 (1235 códigos, 1072 último nível)
+- **Tabela:** Aba ND 2026 (1235 códigos, 1073 último nível)
 - **Depende:** R020
 
 #### R045 — ND deve ser de último nível
 - **Severidade:** ALERTA | **Prioridade:** P2
-- **Lógica:** ND informada deve ser de último nível (não Superior). NDs de nível Superior existem apenas para "De-Para".
+- **Lógica:** ND informada deve ser de último nível (não Superior). NDs de nível Superior existem apenas para "De-Para" — exceto "Superior 4º Nível - Elemento": o elemento com subelemento 00 é envio válido para o Siconfi, mesmo classificado como "Superior" na tabela ND.
 - **Pseudocódigo:**
   ```
-  SE tabela_nd[ND].Nivel.startswith("Superior") → ALERTA("ND sintética")
+  SE tabela_nd[ND].Nivel.startswith("Superior")
+     AND tabela_nd[ND].Nivel != "Superior 4º Nível - Elemento"
+     → ALERTA("ND sintética")
   ```
 - **Entrada:** IC tipo ND + tabela ND 2026 (coluna Nível)
 - **Depende:** R027
+- **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
 #### R046 — ND "Genérica" não deve ser usada na execução
-- **Severidade:** ALERTA | **Prioridade:** P3
-- **Lógica:** NDs com título "Modalidade Genérica" ou "Elemento Genérico" existem apenas para De-Para.
+- **Severidade:** INFO (fora da pontuação) | **Prioridade:** P3
+- **Lógica:** A checagem nasceu de uma tabela De-Para sem respaldo no leiaute: as NDs com título "Genéric" no nome estão todas classificadas como último nível na tabela oficial da STN — uso legítimo confirmado. Fica como sinal informativo, não pontua (`is_scoring=False`).
 - **Pseudocódigo:**
   ```
-  SE "Genéric" in tabela_nd[ND].Nome → ALERTA("ND genérica em execução")
+  SE "Genéric" in tabela_nd[ND].Nome → INFO("ND genérica — uso legítimo confirmado")
   ```
 - **Entrada:** IC tipo ND + tabela ND 2026 (coluna Nome)
 - **Depende:** R027
+- **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
 #### R047 — Soma subelementos = elemento de despesa
-- **Severidade:** ALERTA | **Prioridade:** P3
-- **Lógica:** Quando uma ND tem desdobramentos em subelementos, a totalidade dos registros desdobrados deve corresponder ao valor do elemento de despesa pai.
+- **Severidade:** INFO (fora da pontuação) | **Prioridade:** P3
+- **Lógica:** Não existe relação aritmética exigível entre elemento e subelementos: parte da despesa pode ser enviada sem detalhamento em subelemento. O confronto continua no relatório como sinal informativo, não pontua (`is_scoring=False`).
 - **Pseudocódigo:**
   ```
   PARA CADA elemento_nd (6 primeiros dígitos):
     valor_subs = SUM(registros com ND[:6] == elemento AND len(ND completa) > 6)
     valor_elem = SUM(registros com ND == elemento + "00")
-    SE abs(valor_elem - valor_subs) > tolerancia → ALERTA
+    SE abs(valor_elem - valor_subs) > tolerancia → INFO
   ```
 - **Entrada:** Registros ND agrupados por prefixo
 - **Depende:** R027
+- **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
 ---
 
@@ -688,15 +701,18 @@ IC_DIGITOS: dict[str, int] = {
 
 #### R051 — VPA - VPD = Resultado
 - **Severidade:** ALERTA | **Prioridade:** P2
-- **Lógica:** Soma de VPA (classe 4) deve ser consistente com VPD (classe 3) + resultado.
+- **Lógica:** No encerramento do exercício (mês 13), o resultado operacional (VPA classe 4 − VPD classe 3) deve corresponder à variação do grupo Resultados Acumulados (PCASP 2.3.7), contra o qual as contas de resultado são zeradas. Nas demais competências a regra não se aplica e não gera pendência.
 - **Pseudocódigo:**
   ```
-  vpa = SUM(movimentos classe 4)
-  vpd = SUM(movimentos classe 3)
-  resultado = vpa - vpd
-  # Verificar consistência com conta de resultado no PL
+  SE competencia é encerramento (mês 13):
+    vpa_liq = SUM(mov_C - mov_D) para classe 4
+    vpd_liq = SUM(mov_D - mov_C) para classe 3
+    resultado = vpa_liq - vpd_liq
+    delta_pl = SUM(SF_C - SF_D) - SUM(SI_C - SI_D) para contas do grupo 2.3.7
+    SE abs(resultado - delta_pl) > tolerancia → ALERTA
   ```
 - **Depende:** R031
+- **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
 #### R052 — Controles devedores = Controles credores (7/8)
 - **Severidade:** ALERTA | **Prioridade:** P3
@@ -759,34 +775,38 @@ IC_DIGITOS: dict[str, int] = {
 ### CATEGORIA: Completude
 
 #### R040 — Contas patrimoniais têm saldo inicial
-- **Severidade:** ALERTA | **Prioridade:** P2
-- **Lógica:** Contas patrimoniais (classes 1, 2, 5, 6) devem ter pelo menos um beginning_balance.
+- **Severidade:** INFO (fora da pontuação) | **Prioridade:** P2
+- **Lógica:** Contas patrimoniais (classes 1, 2, 5, 6) devem ter pelo menos um beginning_balance. Conta aberta no meio do período ou conta zerada pode legitimamente não ter a entrada — sinal informativo, não pontua (`is_scoring=False`).
 - **Pseudocódigo:**
   ```
   PARA CADA conta patrimonial (classe IN {1,2,5,6}):
-    SE COUNT(Tipo_valor="beginning_balance") == 0 → ALERTA
+    SE COUNT(Tipo_valor="beginning_balance") == 0 → INFO
   ```
 - **Depende:** R010
+- **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
 #### R041 — Contas patrimoniais têm saldo final
-- **Severidade:** ALERTA | **Prioridade:** P2
-- **Lógica:** Contas patrimoniais devem ter pelo menos um ending_balance.
+- **Severidade:** INFO (fora da pontuação) | **Prioridade:** P2
+- **Lógica:** Contas patrimoniais devem ter pelo menos um ending_balance. Conta aberta no meio do período ou conta zerada pode legitimamente não ter a entrada — sinal informativo, não pontua (`is_scoring=False`).
 - **Pseudocódigo:**
   ```
   PARA CADA conta patrimonial:
-    SE COUNT(Tipo_valor="ending_balance") == 0 → ALERTA
+    SE COUNT(Tipo_valor="ending_balance") == 0 → INFO
   ```
 - **Depende:** R010
+- **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
-#### R042 — Contas de resultado sem saldo (apenas movimentos)
+#### R042 — Contas de resultado zeradas no encerramento
 - **Severidade:** ALERTA | **Prioridade:** P3
-- **Lógica:** Contas de resultado (classes 3, 4) normalmente não devem ter beginning_balance nem ending_balance, apenas period_change.
+- **Lógica:** Contas de resultado (classes 3, 4) acumulam saldo ao longo do exercício e são zeradas no encerramento, em confronto com Resultados Acumulados. Durante o exercício, saldo em conta de resultado é normal e não gera pendência; a checagem só ocorre na competência de encerramento (mês 13).
 - **Pseudocódigo:**
   ```
-  PARA CADA conta resultado (classe IN {3,4}):
-    SE EXISTS(Tipo_valor IN {"beginning_balance", "ending_balance"}) → ALERTA
+  SE competencia é encerramento (mês 13):
+    PARA CADA conta resultado (classe IN {3,4}):
+      SE abs(SF_D - SF_C) > tolerancia → ALERTA
   ```
 - **Depende:** R010
+- **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
 #### R043 — Valor zerado sem movimentos
 - **Severidade:** INFO | **Prioridade:** P3

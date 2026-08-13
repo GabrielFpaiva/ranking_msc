@@ -221,6 +221,8 @@ Regras INFO-only têm `w_r = 0` **sempre** — inclusive quando passam sem issue
 
 Identificação: a classe da regra declara `is_scoring: ClassVar[bool] = False`. O score engine deve filtrar `[r for r in rules if r.is_scoring]` antes de calcular P_d. Regras sem esse atributo têm `is_scoring = True` por padrão (compatível com o ABC existente).
 
+Regras fora da pontuação hoje: R048, R065, R071, R072 e R073 (desde a introdução do atributo). Na calibração de 11/08/2026, a contabilidade confirmou que R040, R041, R046, R047 e R064 também não devem afetar a nota — checagens informativas cuja violação não indica não conformidade — e as cinco saíram da pontuação junto com elas. Ver `doc/calibracao_regras_respostas_rodrigo.md`.
+
 ### 8.2 Dimensão Temporal indisponível
 
 Quando o snapshot do mês anterior não está disponível (primeira competência do ano ou arquivo ausente):
