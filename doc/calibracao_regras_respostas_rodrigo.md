@@ -110,8 +110,14 @@ está no leiaute, e a R020 já cobre a conformidade do conjunto de IC de cada co
 **Resposta:** "Podem sim — acumulam durante o exercício e zeram no encerramento."
 
 **Mudança:** em vez de desligar a regra, ela passa a verificar o que a resposta afirma: nada
-durante o exercício, e ALERTA no encerramento (mês 13) para conta de classe 3 ou 4 cujo saldo
+durante o exercício, e pendência no encerramento (mês 13) para conta de classe 3 ou 4 cujo saldo
 final não zerou. É o procedimento do IPC de Encerramento, p. 9.
+
+A severidade é **INFO** e a regra fica **fora da pontuação** (`is_scoring = False`): R069
+("Resultado zerado no encerramento", dimensão Temporal) já verificava exatamente essa condição e
+continua sendo a dona da pontuação. Sem isso, um único defeito geraria duas pendências pontuadas e
+penalizaria duas dimensões — Completude e Temporal. A detecção de R042 permanece, só não entra na
+nota.
 
 ## Fechamento
 
@@ -125,8 +131,12 @@ Pontuação do motor nas amostras de João Pessoa, antes e depois da calibraçã
 | Competência | Antes | Depois |
 |---|---|---|
 | 2025-12 | 83,86 (C) | 93,75 (B) |
-| 2025-13 | 82,47 (C) | 89,72 (B) |
+| 2025-13 | 82,47 (C) | 92,50 (B) |
 | 2026-01 | 82,47 (C) | 91,25 (B) |
+
+Medição de 13/08/2026, após a correção de sinal em R051 no encerramento e a saída de R042 da
+pontuação — 67 regras pontuáveis nas três competências. A coluna "Antes" é a medição original
+contra `main`, não foi refeita.
 
 A nota mede conformidade da MSC pelas regras do motor; não é comparável com o
 percentual oficial do Ranking Siconfi, que agrega quatro dimensões.

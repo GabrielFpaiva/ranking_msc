@@ -223,6 +223,8 @@ Identificação: a classe da regra declara `is_scoring: ClassVar[bool] = False`.
 
 Regras fora da pontuação hoje: R048, R065, R071, R072 e R073 (desde a introdução do atributo). Na calibração de 11/08/2026, a contabilidade confirmou que R040, R041, R046, R047 e R064 também não devem afetar a nota — checagens informativas cuja violação não indica não conformidade — e as cinco saíram da pontuação junto com elas. Ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
+R042 também está fora da pontuação, por motivo diferente: ela verifica a mesma condição de R069 (classes 3 e 4 com saldo final não-zero no mês 13). R069 é a dona da pontuação; R042 permanece como INFO para não penalizar duas dimensões (Completude e Temporal) pelo mesmo defeito — mesmo critério já aplicado a R048 em relação a R024.
+
 ### 8.2 Dimensão Temporal indisponível
 
 Quando o snapshot do mês anterior não está disponível (primeira competência do ano ou arquivo ausente):

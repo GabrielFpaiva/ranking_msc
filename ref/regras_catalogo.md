@@ -29,7 +29,7 @@
 | Fechamento | R030–R032, R035–R037 | 4 | 2 | 0 | PCASP (NAT_SALDO) |
 | Interconta | R050–R053 | 1 | 3 | 0 | — |
 | Superávit | R060–R062 | 0 | 3 | 0 | PCASP (IND_SF) |
-| Completude | R040–R043, R066–R068, R074 | 0 | 5 | 3 | — |
+| Completude | R040–R043, R066–R068, R074 | 0 | 4 | 4 | — |
 | Temporal | R054–R055, R069 | 0 | 3 | 0 | — |
 | Duplicidade | R070 | 1 | 0 | 0 | — |
 | Formato | R080–R081 | 2 | 0 | 0 | Informações Complementares |
@@ -705,8 +705,11 @@ IC_DIGITOS: dict[str, int] = {
 - **Pseudocódigo:**
   ```
   SE competencia é encerramento (mês 13):
-    vpa_liq = SUM(mov_C - mov_D) para classe 4
-    vpd_liq = SUM(mov_D - mov_C) para classe 3
+    # sinais invertidos em relação ao exercício corrente: no mês 13 os movimentos
+    # das classes 3 e 4 são os lançamentos que as zeram (VPA baixada a débito,
+    # VPD baixada a crédito)
+    vpa_liq = SUM(mov_D - mov_C) para classe 4
+    vpd_liq = SUM(mov_C - mov_D) para classe 3
     resultado = vpa_liq - vpd_liq
     delta_pl = SUM(SF_C - SF_D) - SUM(SI_C - SI_D) para contas do grupo 2.3.7
     SE abs(resultado - delta_pl) > tolerancia → ALERTA
@@ -797,13 +800,14 @@ IC_DIGITOS: dict[str, int] = {
 - **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
 
 #### R042 — Contas de resultado zeradas no encerramento
-- **Severidade:** ALERTA | **Prioridade:** P3
+- **Severidade:** INFO | **Prioridade:** P3 | **Fora da pontuação** (`is_scoring = False`)
 - **Lógica:** Contas de resultado (classes 3, 4) acumulam saldo ao longo do exercício e são zeradas no encerramento, em confronto com Resultados Acumulados. Durante o exercício, saldo em conta de resultado é normal e não gera pendência; a checagem só ocorre na competência de encerramento (mês 13).
+- **Pontuação:** quem pontua esta condição é **R069** (dimensão Temporal), que verifica exatamente o mesmo — classes 3 e 4 com saldo final não-zero no mês 13. R042 mantém a detecção como sinal informativo e fica fora da nota, para que um único defeito não penalize duas dimensões (Completude e Temporal).
 - **Pseudocódigo:**
   ```
   SE competencia é encerramento (mês 13):
     PARA CADA conta resultado (classe IN {3,4}):
-      SE abs(SF_D - SF_C) > tolerancia → ALERTA
+      SE abs(SF_D - SF_C) > tolerancia → INFO
   ```
 - **Depende:** R010
 - **Calibração 11/08/2026:** ver `doc/calibracao_regras_respostas_rodrigo.md`.
@@ -892,6 +896,7 @@ IC_DIGITOS: dict[str, int] = {
     PARA CADA conta classe {3,4}:
       SE ending_balance != 0 → ALERTA("resultado não encerrado")
   ```
+- **Pontuação:** esta é a regra que pontua a condição. R042 (Completude) detecta o mesmo defeito, mas em INFO e fora da pontuação.
 - **Depende:** R041
 
 ---
