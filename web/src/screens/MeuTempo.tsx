@@ -22,7 +22,7 @@
 import { useEffect, useState } from 'react';
 
 import { ApiError, api } from '../api/client';
-import { ROUTE_TITLES } from '../components/TopBar';
+import { ROUTE_TITLES } from '../routeTitles';
 import {
   agruparEmSemanas,
   descricaoJanela,

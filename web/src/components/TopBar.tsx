@@ -3,24 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { ApiError, api } from '../api/client';
+import { ROUTE_TITLES } from '../routeTitles';
 import { useMCRA } from '../store/useMCRA';
 import type { Competencia } from '../types';
-
-// Exportado: `MeuTempo` reaproveita os títulos por extenso das rotas para
-// rotular "Por tela" — evita duplicar o mesmo mapa rota → nome amigável.
-export const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
-  '/inicio': { breadcrumb: 'Análise', title: 'Início' },
-  '/pendencias': { breadcrumb: 'Análise', title: 'Pendências' },
-  '/caixa': { breadcrumb: 'Contas', title: 'Caixa' },
-  '/passivos': { breadcrumb: 'Contas', title: 'Passivos' },
-  '/superavit': { breadcrumb: 'Contas', title: 'Superávit' },
-  '/executivo': { breadcrumb: 'Visões', title: 'Visão Executiva' },
-  '/comparar': { breadcrumb: 'Visões', title: 'Comparar Competências' },
-  '/entregas': { breadcrumb: 'Visões', title: 'Entregas' },
-  '/regras': { breadcrumb: 'Referência', title: 'Regras' },
-  '/execucao': { breadcrumb: 'Referência', title: 'Execução' },
-  '/uso': { breadcrumb: 'Minha conta', title: 'Meu tempo de uso' },
-};
 
 interface TopBarProps {
   /** Abre/fecha o menu de navegação no breakpoint mobile. */
