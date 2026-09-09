@@ -453,6 +453,36 @@ a:focus-visible { outline-offset: 2px; }
 .samid-login-submit:disabled { cursor: not-allowed; opacity: 0.7; }
 .samid-login-submit:not(:disabled):hover { background: var(--jp-red-dk); }
 
+/* ===== Tempo de uso — bloco da sidebar ===== */
+.uso-mini {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 12px; margin-bottom: 10px;
+  background: var(--bg-canvas); border: 1px solid var(--border-default);
+  border-radius: 10px; text-decoration: none;
+  font-family: var(--font-display);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.uso-mini:hover { border-color: var(--jp-red); background: #fff; }
+.uso-mini.active { border-color: var(--jp-red); background: var(--jp-red-lt); }
+.uso-mini.active .uso-mini-val,
+.uso-mini.active .uso-mini-lbl,
+.uso-mini.active .uso-mini-arrow { color: var(--jp-red); }
+.uso-mini-clock {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--jp-red); flex-shrink: 0;
+}
+.uso-mini-txt { flex: 1; min-width: 0; }
+.uso-mini-val {
+  display: block; font-family: var(--font-mono); font-size: 19px;
+  font-weight: 600; color: var(--fg-1); line-height: 1.05;
+}
+.uso-mini-lbl {
+  display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--fg-3); margin-top: 2px;
+}
+.uso-mini-arrow { color: var(--fg-3); font-size: 16px; line-height: 1; flex-shrink: 0; }
+.uso-mini:hover .uso-mini-arrow { color: var(--jp-red); }
+
 /* ===== Responsividade ===== */
 
 /* Notebook médio: sidebar colapsa para ícones, conteúdo ganha espaço */

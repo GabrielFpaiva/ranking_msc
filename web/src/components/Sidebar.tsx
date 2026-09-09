@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { authStore } from '../store/auth';
 import { NavIcon } from './NavIcon';
 import type { IconName } from './NavIcon';
+import { UsoMini } from './UsoMini';
 
 interface NavGroup {
   label: string;
@@ -98,6 +99,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       </nav>
 
       <div className="samid-sidebar-footer">
+        <UsoMini />
         <div className="samid-user">
           <div className="samid-user-avatar">{userInitials(user)}</div>
           <div>
