@@ -158,6 +158,10 @@ def get_uso_historico(
         if dia in por_dia:
             por_dia[dia].aberto_s += tempo.aberto_s
             por_dia[dia].ativo_s += tempo.ativo_s
+            # `agregado` já é chaveado por (dia, rota) — nunca duas entradas
+            # para o mesmo par —, então atribuir direto basta; não há soma
+            # de duplicata a fazer aqui.
+            por_dia[dia].por_rota[rota] = tempo.aberto_s
         if inicio <= dia <= fim:
             atual = por_rota.setdefault(rota, UsoRotaOut(rota=rota, aberto_s=0, ativo_s=0))
             atual.aberto_s += tempo.aberto_s
@@ -205,7 +209,12 @@ def get_uso_anual(
         )
 
     meses = [
-        UsoMesOut(mes=ano_mes, aberto_s=tempo.aberto_s, ativo_s=tempo.ativo_s)
+        UsoMesOut(
+            mes=ano_mes,
+            aberto_s=tempo.aberto_s,
+            ativo_s=tempo.ativo_s,
+            por_rota=tempo.por_rota,
+        )
         for ano_mes, tempo in agregado_do_ano(absolute_uso_dir(), ano, usuario)
     ]
 

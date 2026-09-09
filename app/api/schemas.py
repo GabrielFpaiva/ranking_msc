@@ -423,6 +423,10 @@ class UsoDiaOut(BaseModel):
     dia: str = Field(..., description="YYYY-MM-DD")
     aberto_s: int
     ativo_s: int
+    por_rota: dict[str, int] = Field(
+        default_factory=dict,
+        description="rota → segundos de aba aberta naquele dia",
+    )
 
 
 class UsoRotaOut(BaseModel):
@@ -439,6 +443,10 @@ class UsoMesOut(BaseModel):
     mes: str = Field(..., description="YYYY-MM")
     aberto_s: int
     ativo_s: int
+    por_rota: dict[str, int] = Field(
+        default_factory=dict,
+        description="rota → segundos de aba aberta naquele mês",
+    )
 
 
 class UsoAnualOut(BaseModel):

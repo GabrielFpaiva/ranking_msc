@@ -711,3 +711,37 @@ class TestAgregadoDoAno:
 
         assert primeiro["2025-07"].aberto_s == 100
         assert segundo["2025-07"].aberto_s == 100
+
+    def test_por_rota_traz_segundos_de_cada_rota_do_mes(self, tmp_path: Path) -> None:
+        """Duas rotas no mesmo mês aparecem as duas em `por_rota`, com segundos exatos."""
+        from app.api.uso_store import agregado_do_ano
+
+        self._gravar(tmp_path, "2025-03-10", "/caixa", 100, 80)
+        self._gravar(tmp_path, "2025-03-15", "/pendencias", 50, 40)
+
+        resultado = dict(agregado_do_ano(tmp_path, 2025, "gabriel"))
+
+        assert resultado["2025-03"].por_rota == {"/caixa": 100, "/pendencias": 50}
+
+    def test_soma_de_por_rota_bate_com_aberto_s_do_mes(self, tmp_path: Path) -> None:
+        """A soma dos valores de `por_rota` é sempre o `aberto_s` do mês."""
+        from app.api.uso_store import agregado_do_ano
+
+        self._gravar(tmp_path, "2025-03-10", "/caixa", 100, 80)
+        self._gravar(tmp_path, "2025-03-12", "/caixa", 40, 30)
+        self._gravar(tmp_path, "2025-03-15", "/pendencias", 50, 40)
+
+        resultado = dict(agregado_do_ano(tmp_path, 2025, "gabriel"))
+
+        mes = resultado["2025-03"]
+        assert sum(mes.por_rota.values()) == mes.aberto_s
+
+    def test_mes_sem_uso_tem_por_rota_vazio(self, tmp_path: Path) -> None:
+        """Mês sem nenhum registro devolve `por_rota` vazio, não ausente."""
+        from app.api.uso_store import agregado_do_ano
+
+        self._gravar(tmp_path, "2025-03-10", "/caixa", 100, 80)
+
+        resultado = dict(agregado_do_ano(tmp_path, 2025, "gabriel"))
+
+        assert resultado["2025-01"].por_rota == {}

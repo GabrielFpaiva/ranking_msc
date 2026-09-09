@@ -159,6 +159,36 @@ class TestUsoHistorico:
         resposta = client.get("/api/uso/historico?escala=dia&ref=09/09/2026")
         assert resposta.status_code == 422
 
+    def test_por_rota_traz_as_duas_rotas_do_dia_com_segundos_exatos(self) -> None:
+        """Um dia com duas rotas reporta as duas em `por_rota`, sem colapsar no total."""
+        self._gravar("2026-09-09", "/caixa", 600, 500)
+        self._gravar("2026-09-09", "/pendencias", 300, 200)
+
+        corpo = client.get("/api/uso/historico?escala=dia&ref=2026-09-09").json()
+        dia_09 = next(item for item in corpo["dias"] if item["dia"] == "2026-09-09")
+
+        assert dia_09["por_rota"] == {"/caixa": 600, "/pendencias": 300}
+
+    def test_soma_de_por_rota_bate_com_aberto_s_do_dia(self) -> None:
+        """A soma dos valores de `por_rota` é sempre o `aberto_s` daquele dia."""
+        self._gravar("2026-09-09", "/caixa", 600, 500)
+        self._gravar("2026-09-09", "/pendencias", 300, 200)
+        self._gravar("2026-09-09", "/regras", 100, 90)
+
+        corpo = client.get("/api/uso/historico?escala=dia&ref=2026-09-09").json()
+        dia_09 = next(item for item in corpo["dias"] if item["dia"] == "2026-09-09")
+
+        assert sum(dia_09["por_rota"].values()) == dia_09["aberto_s"]
+
+    def test_dia_sem_uso_tem_por_rota_vazio(self) -> None:
+        """Dia zero-preenchido do calendário mensal vem com `por_rota` vazio."""
+        self._gravar("2026-09-09", "/caixa", 600, 500)
+
+        corpo = client.get("/api/uso/historico?escala=dia&ref=2026-09-09").json()
+        dia_10 = next(item for item in corpo["dias"] if item["dia"] == "2026-09-10")
+
+        assert dia_10["por_rota"] == {}
+
     def test_ref_e_normalizada_na_resposta(self) -> None:
         """`ref=20260909` (ISO básico) não pode voltar diferente de `inicio`/`fim`.
 
@@ -360,3 +390,33 @@ class TestUsoAnual:
         assert [item["mes"] for item in corpo["meses"]] == [
             f"2025-{mes:02d}" for mes in range(1, 13)
         ]
+
+    def test_por_rota_traz_as_duas_rotas_do_mes_com_segundos_exatos(self) -> None:
+        """Um mês com duas rotas reporta as duas em `por_rota`, sem colapsar no total."""
+        self._gravar("2025-03-10", "/caixa", 100, 80)
+        self._gravar("2025-03-15", "/pendencias", 50, 40)
+
+        corpo = client.get("/api/uso/anual?ano=2025").json()
+        por_mes = {item["mes"]: item for item in corpo["meses"]}
+
+        assert por_mes["2025-03"]["por_rota"] == {"/caixa": 100, "/pendencias": 50}
+
+    def test_soma_de_por_rota_bate_com_aberto_s_do_mes(self) -> None:
+        """A soma dos valores de `por_rota` é sempre o `aberto_s` daquele mês."""
+        self._gravar("2025-03-10", "/caixa", 100, 80)
+        self._gravar("2025-03-12", "/caixa", 40, 30)
+        self._gravar("2025-03-15", "/pendencias", 50, 40)
+
+        corpo = client.get("/api/uso/anual?ano=2025").json()
+        por_mes = {item["mes"]: item for item in corpo["meses"]}
+
+        assert sum(por_mes["2025-03"]["por_rota"].values()) == por_mes["2025-03"]["aberto_s"]
+
+    def test_mes_sem_uso_tem_por_rota_vazio(self) -> None:
+        """Mês sem nenhum registro devolve `por_rota` vazio."""
+        self._gravar("2025-03-10", "/caixa", 100, 80)
+
+        corpo = client.get("/api/uso/anual?ano=2025").json()
+        por_mes = {item["mes"]: item for item in corpo["meses"]}
+
+        assert por_mes["2025-01"]["por_rota"] == {}

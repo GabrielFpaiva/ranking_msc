@@ -27,7 +27,7 @@ import json
 import logging
 import threading
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -92,6 +92,23 @@ class TempoUso:
 
     aberto_s: int = 0
     ativo_s: int = 0
+
+
+@dataclass
+class TotalComRotas:
+    """Total de um período (aqui, um mês) mais o detalhamento por rota.
+
+    Usada só por ``agregado_do_ano``: os campos ``aberto_s``/``ativo_s`` têm o
+    mesmo nome e sentido de ``TempoUso`` de propósito — o restante do módulo
+    (e os testes existentes de ``agregado_do_ano``) trata o retorno como se
+    fosse um ``TempoUso`` comum, sem precisar saber desta classe. ``por_rota``
+    é o campo novo: segundos de aba aberta naquele mês, por rota — sustenta o
+    gráfico anual empilhado por tela (ver F6-01).
+    """
+
+    aberto_s: int = 0
+    ativo_s: int = 0
+    por_rota: dict[str, int] = field(default_factory=dict)
 
 
 class Acumulador:
@@ -581,7 +598,7 @@ def agregado_do_periodo(
     return agregado, inicio, fim
 
 
-def agregado_do_ano(uso_dir: Path, ano: int, usuario: str) -> list[tuple[str, TempoUso]]:
+def agregado_do_ano(uso_dir: Path, ano: int, usuario: str) -> list[tuple[str, TotalComRotas]]:
     """Totais mensais de ``ano`` para um usuário — doze meses, sempre completos.
 
     Sustenta ``GET /api/uso/anual``: doze chamadas a ``/api/uso/historico``
@@ -589,9 +606,9 @@ def agregado_do_ano(uso_dir: Path, ano: int, usuario: str) -> list[tuple[str, Te
     monta o ano inteiro numa única passada, reaproveitando ``agregado_do_mes``
     para que meses fechados venham do cache.
 
-    Cada mês vira um ``TempoUso`` **novo** — nunca o dicionário devolvido por
-    ``agregado_do_mes`` para um mês fechado, que é compartilhado com
-    ``_CACHE_MES`` por referência. Somar direto num ``TempoUso`` do cache
+    Cada mês vira um ``TotalComRotas`` **novo** — nunca o dicionário devolvido
+    por ``agregado_do_mes`` para um mês fechado, que é compartilhado com
+    ``_CACHE_MES`` por referência. Somar direto num objeto do cache
     corromperia o total do mês para toda chamada futura, silenciosamente.
 
     Args:
@@ -600,15 +617,17 @@ def agregado_do_ano(uso_dir: Path, ano: int, usuario: str) -> list[tuple[str, Te
         usuario: username do JWT.
 
     Returns:
-        Lista de doze pares ``(YYYY-MM, TempoUso)``, de janeiro a dezembro,
-        nesta ordem. Meses sem registro vêm com ``TempoUso()`` zerado.
+        Lista de doze pares ``(YYYY-MM, TotalComRotas)``, de janeiro a
+        dezembro, nesta ordem. Meses sem registro vêm zerados, com
+        ``por_rota`` vazio.
     """
-    resultado: list[tuple[str, TempoUso]] = []
+    resultado: list[tuple[str, TotalComRotas]] = []
     for mes in range(1, 13):
         ano_mes = f"{ano:04d}-{mes:02d}"
-        total = TempoUso()
-        for tempo in agregado_do_mes(uso_dir, ano_mes, usuario).values():
+        total = TotalComRotas()
+        for (_dia, rota), tempo in agregado_do_mes(uso_dir, ano_mes, usuario).items():
             total.aberto_s += tempo.aberto_s
             total.ativo_s += tempo.ativo_s
+            total.por_rota[rota] = total.por_rota.get(rota, 0) + tempo.aberto_s
         resultado.append((ano_mes, total))
     return resultado
