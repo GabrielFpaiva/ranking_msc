@@ -635,3 +635,79 @@ class TestAgregadoDoPeriodo:
         assert agregado is not cache_direto
         del agregado[("2026-08-14", "/caixa")]
         assert ("2026-08-14", "/caixa") in cache_direto
+
+
+class TestAgregadoDoAno:
+    def _gravar(self, uso_dir: Path, dia: str, rota: str, aberto_s: int, ativo_s: int) -> None:
+        """Grava direto no store, como se um flush já tivesse acontecido."""
+        from app.api.uso_store import Acumulador, escrever_flush
+
+        acc = Acumulador()
+        acc.registrar("gabriel", rota, aberto_s, ativo_s, dia=dia)
+        escrever_flush(uso_dir, acc.drenar())
+
+    def test_ano_sem_dado_devolve_doze_meses_zerados_em_ordem(self, tmp_path: Path) -> None:
+        """Ano sem nenhum registro ainda devolve os doze meses, todos a zero."""
+        from app.api.uso_store import agregado_do_ano
+
+        resultado = agregado_do_ano(tmp_path, 2025, "gabriel")
+
+        assert [ano_mes for ano_mes, _ in resultado] == [f"2025-{mes:02d}" for mes in range(1, 13)]
+        assert all(tempo.aberto_s == 0 and tempo.ativo_s == 0 for _, tempo in resultado)
+
+    def test_dados_em_dois_meses_aparecem_com_totais_exatos(self, tmp_path: Path) -> None:
+        """Dois meses com dado somam certo; os outros dez continuam a zero."""
+        from app.api.uso_store import agregado_do_ano
+
+        self._gravar(tmp_path, "2025-03-10", "/caixa", 100, 80)
+        self._gravar(tmp_path, "2025-03-15", "/pendencias", 50, 40)
+        self._gravar(tmp_path, "2025-11-01", "/caixa", 200, 150)
+
+        resultado = dict(agregado_do_ano(tmp_path, 2025, "gabriel"))
+
+        assert resultado["2025-03"].aberto_s == 150
+        assert resultado["2025-03"].ativo_s == 120
+        assert resultado["2025-11"].aberto_s == 200
+        assert resultado["2025-11"].ativo_s == 150
+        assert resultado["2025-01"].aberto_s == 0
+        assert resultado["2025-06"].aberto_s == 0
+
+    def test_dado_de_outro_ano_nao_vaza(self, tmp_path: Path) -> None:
+        """Registro de 2024 não aparece ao consultar 2025."""
+        from app.api.uso_store import agregado_do_ano
+
+        self._gravar(tmp_path, "2024-12-31", "/caixa", 999, 999)
+
+        resultado = dict(agregado_do_ano(tmp_path, 2025, "gabriel"))
+
+        assert all(tempo.aberto_s == 0 and tempo.ativo_s == 0 for tempo in resultado.values())
+
+    def test_dado_de_outro_usuario_nao_vaza(self, tmp_path: Path) -> None:
+        """Registro de outro usuário não entra no agregado de gabriel."""
+        from app.api.uso_store import Acumulador, agregado_do_ano, escrever_flush
+
+        acc = Acumulador()
+        acc.registrar("maria", "/caixa", 500, 400, dia="2025-05-05")
+        escrever_flush(tmp_path, acc.drenar())
+
+        resultado = dict(agregado_do_ano(tmp_path, 2025, "gabriel"))
+
+        assert all(tempo.aberto_s == 0 and tempo.ativo_s == 0 for tempo in resultado.values())
+
+    def test_nao_mutila_o_cache_de_mes_fechado(self, tmp_path: Path) -> None:
+        """Chamar duas vezes não dobra o total nem corrompe o cache de meses fechados.
+
+        `agregado_do_mes` devolve, para mês fechado, o dict por referência
+        guardado em `_CACHE_MES`. `agregado_do_ano` precisa somar em objetos
+        `TempoUso` novos — se somasse direto nos objetos do cache, a segunda
+        chamada devolveria o dobro do total real.
+        """
+        from app.api.uso_store import agregado_do_ano
+
+        self._gravar(tmp_path, "2025-07-04", "/caixa", 100, 80)
+
+        primeiro = dict(agregado_do_ano(tmp_path, 2025, "gabriel"))
+        segundo = dict(agregado_do_ano(tmp_path, 2025, "gabriel"))
+
+        assert primeiro["2025-07"].aberto_s == 100
+        assert segundo["2025-07"].aberto_s == 100

@@ -579,3 +579,36 @@ def agregado_do_periodo(
         agregado.update(agregado_do_mes(uso_dir, ano_mes_fim, usuario))
 
     return agregado, inicio, fim
+
+
+def agregado_do_ano(uso_dir: Path, ano: int, usuario: str) -> list[tuple[str, TempoUso]]:
+    """Totais mensais de ``ano`` para um usuário — doze meses, sempre completos.
+
+    Sustenta ``GET /api/uso/anual``: doze chamadas a ``/api/uso/historico``
+    seriam doze idas ao servidor para desenhar um gráfico só; esta função
+    monta o ano inteiro numa única passada, reaproveitando ``agregado_do_mes``
+    para que meses fechados venham do cache.
+
+    Cada mês vira um ``TempoUso`` **novo** — nunca o dicionário devolvido por
+    ``agregado_do_mes`` para um mês fechado, que é compartilhado com
+    ``_CACHE_MES`` por referência. Somar direto num ``TempoUso`` do cache
+    corromperia o total do mês para toda chamada futura, silenciosamente.
+
+    Args:
+        uso_dir: diretório de tempo de uso.
+        ano: ano consultado (``YYYY``).
+        usuario: username do JWT.
+
+    Returns:
+        Lista de doze pares ``(YYYY-MM, TempoUso)``, de janeiro a dezembro,
+        nesta ordem. Meses sem registro vêm com ``TempoUso()`` zerado.
+    """
+    resultado: list[tuple[str, TempoUso]] = []
+    for mes in range(1, 13):
+        ano_mes = f"{ano:04d}-{mes:02d}"
+        total = TempoUso()
+        for tempo in agregado_do_mes(uso_dir, ano_mes, usuario).values():
+            total.aberto_s += tempo.aberto_s
+            total.ativo_s += tempo.ativo_s
+        resultado.append((ano_mes, total))
+    return resultado

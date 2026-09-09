@@ -276,3 +276,87 @@ class TestFlushDoCicloDeVida:
 
         assert ordem.count("dia_local") == 1
         assert ordem.index("dia_local") < ordem.index("drenar")
+
+
+class TestUsoAnual:
+    def _gravar(
+        self, dia: str, rota: str, aberto_s: int, ativo_s: int, usuario: str = "test-user"
+    ) -> None:
+        """Grava direto no store, como se um flush já tivesse acontecido."""
+        from app.api.deps import absolute_uso_dir
+        from app.api.uso_store import Acumulador, escrever_flush
+
+        acc = Acumulador()
+        acc.registrar(usuario, rota, aberto_s, ativo_s, dia=dia)
+        escrever_flush(absolute_uso_dir(), acc.drenar())
+
+    def test_ano_sem_dado_devolve_doze_meses_zerados_em_ordem(self) -> None:
+        """Ano sem nenhum uso ainda devolve os doze meses, todos a zero, em ordem."""
+        resposta = client.get("/api/uso/anual?ano=2025")
+        assert resposta.status_code == 200
+        corpo = resposta.json()
+
+        assert corpo["ano"] == 2025
+        assert corpo["total_aberto_s"] == 0
+        assert corpo["total_ativo_s"] == 0
+        assert [item["mes"] for item in corpo["meses"]] == [
+            f"2025-{mes:02d}" for mes in range(1, 13)
+        ]
+        assert all(item["aberto_s"] == 0 and item["ativo_s"] == 0 for item in corpo["meses"])
+
+    def test_dados_em_dois_meses_aparecem_nos_meses_certos_com_totais_exatos(self) -> None:
+        """Uso em março e novembro aparece só nesses dois meses, com o total certo."""
+        self._gravar("2025-03-10", "/caixa", 100, 80)
+        self._gravar("2025-03-15", "/pendencias", 50, 40)
+        self._gravar("2025-11-01", "/caixa", 200, 150)
+
+        corpo = client.get("/api/uso/anual?ano=2025").json()
+        por_mes = {item["mes"]: item for item in corpo["meses"]}
+
+        assert por_mes["2025-03"]["aberto_s"] == 150
+        assert por_mes["2025-03"]["ativo_s"] == 120
+        assert por_mes["2025-11"]["aberto_s"] == 200
+        assert por_mes["2025-11"]["ativo_s"] == 150
+        assert por_mes["2025-01"]["aberto_s"] == 0
+        assert corpo["total_aberto_s"] == 350
+        assert corpo["total_ativo_s"] == 270
+
+    def test_dado_de_outro_ano_nao_vaza(self) -> None:
+        """Uso registrado em 2024 não aparece ao consultar 2025."""
+        self._gravar("2024-12-31", "/caixa", 999, 999)
+
+        corpo = client.get("/api/uso/anual?ano=2025").json()
+        assert corpo["total_aberto_s"] == 0
+        assert corpo["total_ativo_s"] == 0
+
+    def test_dado_de_outro_usuario_nao_vaza(self) -> None:
+        """Uso de outro usuário não aparece no ano consultado pelo usuário do token."""
+        self._gravar("2025-05-05", "/caixa", 500, 400, usuario="outro-usuario")
+
+        corpo = client.get("/api/uso/anual?ano=2025").json()
+        assert corpo["total_aberto_s"] == 0
+        assert corpo["total_ativo_s"] == 0
+
+    def test_ano_nao_numerico_e_rejeitado(self) -> None:
+        """Query param que não parseia como int vira 422, não 500."""
+        resposta = client.get("/api/uso/anual?ano=abacate")
+        assert resposta.status_code == 422
+
+    def test_ano_absurdo_no_passado_e_rejeitado(self) -> None:
+        """1900 é anterior a qualquer dado real do app."""
+        resposta = client.get("/api/uso/anual?ano=1900")
+        assert resposta.status_code == 422
+
+    def test_ano_absurdo_no_futuro_e_rejeitado(self) -> None:
+        """3000 não tem como ter dado nenhum."""
+        resposta = client.get("/api/uso/anual?ano=3000")
+        assert resposta.status_code == 422
+
+    def test_meses_sao_sempre_01_a_12_em_ordem_independente_de_onde_ha_dado(self) -> None:
+        """Mesmo com dado só em dezembro, a lista continua 01..12 em ordem."""
+        self._gravar("2025-12-25", "/caixa", 10, 5)
+
+        corpo = client.get("/api/uso/anual?ano=2025").json()
+        assert [item["mes"] for item in corpo["meses"]] == [
+            f"2025-{mes:02d}" for mes in range(1, 13)
+        ]

@@ -433,6 +433,23 @@ class UsoRotaOut(BaseModel):
     ativo_s: int
 
 
+class UsoMesOut(BaseModel):
+    """Total de um mês dentro do ano consultado."""
+
+    mes: str = Field(..., description="YYYY-MM")
+    aberto_s: int
+    ativo_s: int
+
+
+class UsoAnualOut(BaseModel):
+    """Resposta de /api/uso/anual — doze meses, sempre completos e em ordem."""
+
+    ano: int
+    total_aberto_s: int
+    total_ativo_s: int
+    meses: list[UsoMesOut]
+
+
 class UsoHistoricoOut(BaseModel):
     """Resposta de /api/uso/historico.
 

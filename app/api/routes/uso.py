@@ -27,14 +27,27 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from app.api.deps import absolute_uso_dir, get_current_user
 from app.api.schemas import (
     HeartbeatIn,
+    UsoAnualOut,
     UsoDiaOut,
     UsoHistoricoOut,
     UsoHojeOut,
+    UsoMesOut,
     UsoRotaOut,
 )
-from app.api.uso_store import ACUMULADOR, ROTAS_VALIDAS, agregado_do_periodo, dia_local, ler_mes
+from app.api.uso_store import (
+    ACUMULADOR,
+    ROTAS_VALIDAS,
+    agregado_do_ano,
+    agregado_do_periodo,
+    dia_local,
+    ler_mes,
+)
 
 router = APIRouter(prefix="/api", tags=["uso"])
+
+# O app não tem dado de uso anterior a 2020 — qualquer ano abaixo disso é
+# certamente engano ou tentativa de abuso, não um período real a consultar.
+ANO_MINIMO = 2020
 
 
 @router.post(
@@ -161,4 +174,44 @@ def get_uso_historico(
         total_ativo_s=total_ativo_s,
         dias=list(por_dia.values()),
         rotas=sorted(por_rota.values(), key=lambda item: item.aberto_s, reverse=True),
+    )
+
+
+@router.get(
+    "/uso/anual",
+    response_model=UsoAnualOut,
+    summary="Totais mensais do ano para o usuário autenticado",
+)
+def get_uso_anual(
+    ano: int = Query(..., description="Ano de referência, formato YYYY"),
+    usuario: str = Depends(get_current_user),  # noqa: B008
+) -> UsoAnualOut:
+    """Monta o payload da visão anual — doze barras, uma por mês.
+
+    Existe como rota própria em vez de reaproveitar ``/api/uso/historico``
+    com uma escala nova porque o formato de resposta é outro: aqui não há
+    ``dias`` nem ``rotas``, só doze totais mensais sempre completos.
+
+    Raises:
+        HTTPException 422: se ``ano`` estiver fora do intervalo plausível —
+            antes de ``ANO_MINIMO`` (o app não tem dado anterior a isso) ou
+            além do ano corrente mais um, folga para fuso/relógio do host.
+    """
+    ano_maximo = date.today().year + 1
+    if not (ANO_MINIMO <= ano <= ano_maximo):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Ano fora do intervalo permitido ({ANO_MINIMO}–{ano_maximo}): {ano!r}.",
+        )
+
+    meses = [
+        UsoMesOut(mes=ano_mes, aberto_s=tempo.aberto_s, ativo_s=tempo.ativo_s)
+        for ano_mes, tempo in agregado_do_ano(absolute_uso_dir(), ano, usuario)
+    ]
+
+    return UsoAnualOut(
+        ano=ano,
+        total_aberto_s=sum(item.aberto_s for item in meses),
+        total_ativo_s=sum(item.ativo_s for item in meses),
+        meses=meses,
     )
