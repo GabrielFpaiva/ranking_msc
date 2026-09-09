@@ -98,6 +98,18 @@ describe('MeuTempo', () => {
     expect(screen.getByText('36m')).toBeTruthy();
   });
 
+  it('"Por tela" mostra o percentual de cada rota e uma entrada "Total"', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    // /inicio = 5000/7200 ≈ 69%, /pendencias = 2200/7200 ≈ 31%.
+    expect(screen.getByText('69%')).toBeTruthy();
+    expect(screen.getByText('31%')).toBeTruthy();
+    expect(screen.getByText('Total')).toBeTruthy();
+  });
+
   it('a coluna do dia com duas rotas empilha um segmento por rota', async () => {
     usoHistoricoMock.mockResolvedValue(BASE);
 
@@ -108,6 +120,59 @@ describe('MeuTempo', () => {
     // dia deve ter dois `.uso-barra-seg`, um por rota presente.
     const segmentos = container.querySelectorAll('.uso-barra-pilha .uso-barra-seg');
     expect(segmentos.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('cada bloco de semana tem seu próprio eixo de letras dos dias', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    const { container } = render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    // As semanas agora ficam lado a lado (não empilhadas) — cada bloco
+    // precisa da própria grade "S T Q Q S S D", não um cabeçalho único
+    // compartilhado acima de todos.
+    const blocos = container.querySelectorAll('.uso-semana-bloco');
+    expect(blocos.length).toBeGreaterThan(1);
+    blocos.forEach((bloco) => {
+      const letras = bloco.querySelectorAll('.uso-dias-letras .uso-dia-letra');
+      expect(letras.length).toBe(7);
+    });
+  });
+
+  it('mês de seis semanas (novembro/2026, começa num domingo) ainda renderiza um bloco por semana', async () => {
+    // Novembro/2026 começa numa segunda... na verdade num domingo (30 dias,
+    // dia 1 é domingo) — o caso em que `agruparEmSemanas` produz 6 blocos,
+    // não os 4–5 mais comuns. Sem uso algum no mês, só para isolar o layout.
+    const diasNovembro: UsoDia[] = Array.from({ length: 30 }, (_, i) => ({
+      dia: `2026-11-${String(i + 1).padStart(2, '0')}`,
+      aberto_s: 0,
+      ativo_s: 0,
+      por_rota: {},
+    }));
+    const dadosNovembro: UsoHistorico = {
+      escala: 'semana',
+      ref: '2026-11-02',
+      inicio: '2026-11-02',
+      fim: '2026-11-08',
+      total_aberto_s: 0,
+      total_ativo_s: 0,
+      dias: diasNovembro,
+      rotas: [],
+    };
+    usoHistoricoMock.mockResolvedValue(dadosNovembro);
+
+    const { container } = render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    const blocos = container.querySelectorAll('.uso-semana-bloco');
+    expect(blocos.length).toBe(6);
+    blocos.forEach((bloco) => {
+      // Cada bloco, mesmo o último (com um único dia real e o resto vazio),
+      // continua com seu próprio eixo de letras e barras vestigiais visíveis
+      // (não some do layout por não ter uso).
+      expect(bloco.querySelectorAll('.uso-dias-letras .uso-dia-letra').length).toBe(7);
+      expect(bloco.querySelectorAll('.uso-barra-pilha-vestigial').length).toBeGreaterThan(0);
+    });
   });
 
   it('o total por semana aparece com o valor certo, com o intervalo de dias', async () => {
@@ -198,6 +263,40 @@ describe('MeuTempo', () => {
     expect(await screen.findByRole('alert')).toBeTruthy();
     // A tela segue de pé — o card "Por tela" continua renderizado.
     expect(screen.getByText('Por tela')).toBeTruthy();
+  });
+
+  it('agrupa rotas além do top 5 do domínio em "Outras"', async () => {
+    const seisRotas = ['/inicio', '/pendencias', '/caixa', '/passivos', '/superavit', '/executivo'];
+    const diasComSeisRotas: UsoDia[] = Array.from({ length: 30 }, (_, i) => {
+      const numero = i + 1;
+      if (numero !== 15) {
+        return { dia: `2026-09-${String(numero).padStart(2, '0')}`, aberto_s: 0, ativo_s: 0, por_rota: {} };
+      }
+      const por_rota = Object.fromEntries(seisRotas.map((rota, idx) => [rota, (6 - idx) * 100]));
+      const aberto_s = Object.values(por_rota).reduce((a, b) => a + b, 0);
+      return { dia: '2026-09-15', aberto_s, ativo_s: aberto_s, por_rota };
+    });
+
+    const dados: UsoHistorico = {
+      escala: 'dia',
+      ref: '2026-09-15',
+      inicio: '2026-09-15',
+      fim: '2026-09-15',
+      total_aberto_s: 2100,
+      total_ativo_s: 2100,
+      dias: diasComSeisRotas,
+      rotas: seisRotas.map((rota, idx) => ({ rota, aberto_s: (6 - idx) * 100, ativo_s: (6 - idx) * 100 })),
+    };
+
+    usoHistoricoMock.mockResolvedValue(dados);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    // A 6ª rota do ranking (/executivo, a menos usada) não ganha cor própria
+    // — some da legenda como item nomeado e vira "Outras".
+    expect(screen.queryByText('Visão Executiva')).toBeNull();
+    expect(screen.getByText('Outras')).toBeTruthy();
   });
 
   it('"rotas" vazio mostra a mensagem de "sem uso registrado"', async () => {

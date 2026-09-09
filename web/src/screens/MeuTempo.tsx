@@ -32,10 +32,46 @@ import {
   moverJanela,
 } from '../format';
 import type { DirecaoJanela } from '../format';
-import type { EscalaUso, UsoAnual, UsoDia, UsoHistorico } from '../types';
+import type { EscalaUso, UsoAnual, UsoDia, UsoHistorico, UsoRota } from '../types';
+
+const ESCALAS: { valor: EscalaUso; rotulo: string }[] = [
+  { valor: 'dia', rotulo: 'Dia' },
+  { valor: 'semana', rotulo: 'Semana' },
+  { valor: 'mes', rotulo: 'Mês' },
+];
+
+// Segunda a domingo — mesma ordem de `agruparEmSemanas`. "S T Q Q S S D"
+// repete letra de propósito (Segunda/Sexta/Sábado, Terça, Quinta todas têm
+// iniciais compartilhadas em português) — é o rótulo de calendário usual.
+const LETRAS_DIA_SEMANA = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+
+const MESES_ABREV = [
+  'jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez',
+];
+
+/** Formata uma data "YYYY-MM-DD" como "DD/MM" por fatiamento de string — sem
+ * passar por `Date`, não há risco de deslocar o dia por fuso (ver
+ * `parseDataLocal` em `format.ts` para o caminho que precisa de `Date`). */
+function formatarDataCurta(iso: string): string {
+  const [, mes, dia] = iso.split('-');
+  return `${dia}/${mes}`;
+}
+
+/** Dia do mês (dois dígitos) a partir de "YYYY-MM-DD", por fatiamento. */
+function diaDoMes(iso: string): string {
+  return iso.slice(8, 10);
+}
+
+/** O dia entra no calendário exibido se cair dentro de `[inicio, fim]` do
+ * período — para escala "dia" esse intervalo colapsa no próprio dia, para
+ * "semana" cobre a semana inteira. Comparação de string funciona porque
+ * `YYYY-MM-DD` ordena lexicograficamente igual à ordem cronológica. */
+function estaNoPeriodo(dia: UsoDia, data: UsoHistorico): boolean {
+  return dia.dia >= data.inicio && dia.dia <= data.fim;
+}
 
 // ---------------------------------------------------------------------------
-// Paleta por rota — pilha empilhada por tela em cada coluna do gráfico
+// Paleta por rota — pilha empilhada (gráfico) e legenda horizontal "Por tela"
 // ---------------------------------------------------------------------------
 //
 // Rank 1 (rota mais usada no domínio do gráfico) sempre ganha `--jp-red` —
@@ -70,7 +106,8 @@ interface Segmento {
  * Deliberadamente **não** usa `data.rotas` (que é só o total do período de
  * `escala`) — é o domínio inteiro do gráfico que decide rank e cor, para a
  * pilha ficar estável coluna a coluna e a cor de uma rota não mudar ao
- * navegar dentro do mesmo mês/ano. */
+ * navegar dentro do mesmo mês/ano. Ver cabeçalho do arquivo sobre a
+ * diferença entre o domínio do gráfico e o do período selecionado. */
 function ordenarRotasPorTotal(colunas: Record<string, number>[]): string[] {
   const totais = new Map<string, number>();
   for (const coluna of colunas) {
@@ -82,7 +119,8 @@ function ordenarRotasPorTotal(colunas: Record<string, number>[]): string[] {
 }
 
 /** Mapa rota → variável CSS de cor, para as até 5 primeiras posições do
- * ranking. Rota fora do mapa cai em "Outras" — ver `montarSegmentos`. */
+ * ranking. Rota fora do mapa cai em "Outras" — ver `montarSegmentos` e
+ * `montarLegenda`. */
 function construirPaleta(ranking: string[]): Map<string, string> {
   const paleta = new Map<string, string>();
   ranking.slice(0, CORES_RANK.length).forEach((rota, i) => paleta.set(rota, CORES_RANK[i]));
@@ -120,40 +158,40 @@ function montarSegmentos(
   return segmentos;
 }
 
-const ESCALAS: { valor: EscalaUso; rotulo: string }[] = [
-  { valor: 'dia', rotulo: 'Dia' },
-  { valor: 'semana', rotulo: 'Semana' },
-  { valor: 'mes', rotulo: 'Mês' },
-];
-
-// Segunda a domingo — mesma ordem de `agruparEmSemanas`. "S T Q Q S S D"
-// repete letra de propósito (Segunda/Sexta/Sábado, Terça, Quinta todas têm
-// iniciais compartilhadas em português) — é o rótulo de calendário usual.
-const LETRAS_DIA_SEMANA = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
-
-const MESES_ABREV = [
-  'jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez',
-];
-
-/** Formata uma data "YYYY-MM-DD" como "DD/MM" por fatiamento de string — sem
- * passar por `Date`, não há risco de deslocar o dia por fuso (ver
- * `parseDataLocal` em `format.ts` para o caminho que precisa de `Date`). */
-function formatarDataCurta(iso: string): string {
-  const [, mes, dia] = iso.split('-');
-  return `${dia}/${mes}`;
+interface EntradaLegenda {
+  rota: string;
+  nome: string;
+  segundos: number;
+  cor: string;
 }
 
-/** Dia do mês (dois dígitos) a partir de "YYYY-MM-DD", por fatiamento. */
-function diaDoMes(iso: string): string {
-  return iso.slice(8, 10);
+/** Mesma lógica de `montarSegmentos`, mas para os totais do período
+ * selecionado (`data.rotas`) — sustenta a legenda horizontal "Por tela".
+ * Recebe a mesma `paleta` do gráfico para que a cor de uma rota seja igual
+ * na pilha e na legenda. */
+function montarLegenda(rotas: UsoRota[], paleta: Map<string, string>): EntradaLegenda[] {
+  const entradas: EntradaLegenda[] = [];
+  let outrasSegundos = 0;
+  for (const r of rotas) {
+    const cor = paleta.get(r.rota);
+    if (cor) {
+      entradas.push({ rota: r.rota, nome: ROUTE_TITLES[r.rota]?.title ?? r.rota, segundos: r.aberto_s, cor });
+    } else {
+      outrasSegundos += r.aberto_s;
+    }
+  }
+  entradas.sort((a, b) => CORES_RANK.indexOf(a.cor) - CORES_RANK.indexOf(b.cor));
+  if (outrasSegundos > 0) {
+    entradas.push({ rota: ROTA_OUTRAS, nome: 'Outras', segundos: outrasSegundos, cor: COR_OUTRAS });
+  }
+  return entradas;
 }
 
-/** O dia entra no calendário exibido se cair dentro de `[inicio, fim]` do
- * período — para escala "dia" esse intervalo colapsa no próprio dia, para
- * "semana" cobre a semana inteira. Comparação de string funciona porque
- * `YYYY-MM-DD` ordena lexicograficamente igual à ordem cronológica. */
-function estaNoPeriodo(dia: UsoDia, data: UsoHistorico): boolean {
-  return dia.dia >= data.inicio && dia.dia <= data.fim;
+/** Percentual inteiro de `valor` sobre `total`; "0%" se `total` for zero —
+ * evita `NaN%` num período sem uso algum. */
+function formatarPercentual(valor: number, total: number): string {
+  if (total <= 0) return '0%';
+  return `${Math.round((valor / total) * 100)}%`;
 }
 
 export function MeuTempo() {
@@ -228,8 +266,6 @@ export function MeuTempo() {
   const semanas = data ? agruparEmSemanas(data.dias) : [];
   const maxDia = data ? Math.max(1, ...data.dias.map((d) => d.aberto_s)) : 1;
   const maxMesDoAno = anual ? Math.max(1, ...anual.meses.map((m) => m.aberto_s)) : 1;
-  const maxRota =
-    data && data.rotas.length > 0 ? Math.max(1, ...data.rotas.map((r) => r.aberto_s)) : 1;
   const ociosoS = data ? Math.max(0, data.total_aberto_s - data.total_ativo_s) : 0;
   const proximaEhFutura = janelaSeguinteEhFutura(escala, ref);
   const mesDoRef = ref.slice(0, 7);
@@ -237,6 +273,10 @@ export function MeuTempo() {
   // Domínio de cores do gráfico: o ano inteiro (doze barras) quando a escala
   // é "mes" **e** o ano já carregou; caso contrário, o mês inteiro do
   // calendário — nunca só o período selecionado (ver `ordenarRotasPorTotal`).
+  // O fallback pro mês importa: se a busca do ano falhar (`anualError`), a
+  // legenda "Por tela" não pode desmoronar em "Outras" só porque o domínio
+  // de cor mais amplo não carregou — ela usa o que já está disponível em
+  // `data`, que é uma busca independente (ver useEffect acima).
   const rankingGrafico =
     escala === 'mes' && anual
       ? ordenarRotasPorTotal(anual.meses.map((m) => m.por_rota))
@@ -244,6 +284,7 @@ export function MeuTempo() {
         ? ordenarRotasPorTotal(data.dias.map((d) => d.por_rota))
         : [];
   const paletaGrafico = construirPaleta(rankingGrafico);
+  const legenda = data ? montarLegenda(data.rotas, paletaGrafico) : [];
 
   function navegar(direcao: DirecaoJanela): void {
     setRef((atual) => moverJanela(escala, atual, direcao));
@@ -283,27 +324,29 @@ export function MeuTempo() {
 
         {data && (
           <>
-            <div className="uso-total mono" data-testid="uso-total">
-              {formatarDuracao(data.total_aberto_s)}
-            </div>
+            <div className="uso-header-row">
+              <div className="uso-total mono" data-testid="uso-total">
+                {formatarDuracao(data.total_aberto_s)}
+              </div>
 
-            <div className="uso-resumo">
-              <div className="uso-resumo-item">
-                <div className="samid-eyebrow">Aberto</div>
-                <div className="mono uso-resumo-val" data-testid="uso-aberto">
-                  {formatarDuracao(data.total_aberto_s)}
+              <div className="uso-resumo">
+                <div className="uso-resumo-item">
+                  <div className="samid-eyebrow">Aberto</div>
+                  <div className="mono uso-resumo-val" data-testid="uso-aberto">
+                    {formatarDuracao(data.total_aberto_s)}
+                  </div>
                 </div>
-              </div>
-              <div className="uso-resumo-item">
-                <div className="samid-eyebrow">Ativo</div>
-                <div className="mono uso-resumo-val" data-testid="uso-ativo">
-                  {formatarDuracao(data.total_ativo_s)}
+                <div className="uso-resumo-item">
+                  <div className="samid-eyebrow">Ativo</div>
+                  <div className="mono uso-resumo-val" data-testid="uso-ativo">
+                    {formatarDuracao(data.total_ativo_s)}
+                  </div>
                 </div>
-              </div>
-              <div className="uso-resumo-item">
-                <div className="samid-eyebrow">Ocioso</div>
-                <div className="mono uso-resumo-val" data-testid="uso-ocioso">
-                  {formatarDuracao(ociosoS)}
+                <div className="uso-resumo-item">
+                  <div className="samid-eyebrow">Ocioso</div>
+                  <div className="mono uso-resumo-val" data-testid="uso-ocioso">
+                    {formatarDuracao(ociosoS)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -381,18 +424,22 @@ export function MeuTempo() {
                 )
               ) : (
                 <div className="uso-semanas" data-testid="uso-semanas">
-                  <div className="uso-dias-letras" aria-hidden>
-                    {LETRAS_DIA_SEMANA.map((letra, i) => (
-                      <span key={i} className="uso-dia-letra">
-                        {letra}
-                      </span>
-                    ))}
-                  </div>
                   {semanas.map((semana, i) => {
                     const diasReais = semana.filter((d): d is UsoDia => d !== null);
                     const somaSemana = diasReais.reduce((soma, d) => soma + d.aberto_s, 0);
                     return (
                       <div key={i} className="uso-semana-bloco">
+                        {/* Eixo de letras por bloco — com as semanas lado a
+                            lado (não mais empilhadas), um cabeçalho único
+                            acima de tudo não se alinharia com cada grade de
+                            7 colunas, que agora tem sua própria largura. */}
+                        <div className="uso-dias-letras" aria-hidden>
+                          {LETRAS_DIA_SEMANA.map((letra, j) => (
+                            <span key={j} className="uso-dia-letra">
+                              {letra}
+                            </span>
+                          ))}
+                        </div>
                         <div className="uso-semana">
                           {semana.map((dia, j) =>
                             dia ? (
@@ -456,20 +503,29 @@ export function MeuTempo() {
           <p className="samid-muted">sem uso registrado no período</p>
         )}
         {data && data.rotas.length > 0 && (
-          <div className="uso-rotas">
-            {data.rotas.map((r) => {
-              const pct = (r.aberto_s / maxRota) * 100;
-              const nome = ROUTE_TITLES[r.rota]?.title ?? r.rota;
-              return (
-                <div key={r.rota} className="uso-rota-row">
-                  <div className="uso-rota-nome">{nome}</div>
-                  <div className="uso-rota-track">
-                    <div className="uso-rota-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="mono uso-rota-tempo">{formatarDuracao(r.aberto_s)}</div>
-                </div>
-              );
-            })}
+          <div className="uso-legenda">
+            {legenda.map((item) => (
+              <div key={item.rota} className="uso-legenda-item">
+                <span className="uso-legenda-dot" style={{ background: item.cor }} />
+                <span className="uso-legenda-corpo">
+                  <span className="uso-legenda-nome">{item.nome}</span>
+                  <span className="uso-legenda-linha2">
+                    <span className="mono uso-legenda-tempo">{formatarDuracao(item.segundos)}</span>
+                    <span className="uso-legenda-pct">
+                      {formatarPercentual(item.segundos, data.total_aberto_s)}
+                    </span>
+                  </span>
+                </span>
+              </div>
+            ))}
+            <div className="uso-legenda-item uso-legenda-total">
+              <span className="uso-legenda-corpo">
+                <span className="uso-legenda-nome">Total</span>
+                <span className="uso-legenda-linha2">
+                  <span className="mono uso-legenda-tempo">{formatarDuracao(data.total_aberto_s)}</span>
+                </span>
+              </span>
+            </div>
           </div>
         )}
       </section>

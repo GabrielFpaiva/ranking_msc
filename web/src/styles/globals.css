@@ -494,13 +494,20 @@ a:focus-visible { outline-offset: 2px; }
 
 /* ===== Tempo de uso — tela "Meu tempo de uso" ===== */
 .uso-escala-chips { display: flex; gap: 8px; }
-.uso-total { font-size: 40px; font-weight: 700; color: var(--fg-1); line-height: 1; margin: 4px 0 20px; }
-.uso-resumo { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
-.uso-resumo-item {
-  background: var(--bg-canvas); border: 1px solid var(--border-default);
-  border-radius: 10px; padding: 10px 16px; min-width: 110px;
+.uso-total { font-size: 40px; font-weight: 700; color: var(--fg-1); line-height: 1; }
+/* Número grande e o trio aberto/ativo/ocioso lado a lado, não mais
+   empilhados — o ponto deste redesenho é usar espaço horizontal (F6-01);
+   manter o trio abaixo do número deixaria a largura ganha sem uso aqui. */
+.uso-header-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap; margin: 4px 0 20px;
 }
-.uso-resumo-val { font-size: 20px; font-weight: 600; color: var(--fg-1); margin-top: 4px; }
+.uso-resumo { display: flex; gap: 10px; flex-wrap: wrap; }
+.uso-resumo-item {
+  background: var(--bg-sunken); border: 1px solid var(--border-default);
+  border-radius: 10px; padding: 8px 14px; min-width: 92px;
+}
+.uso-resumo-val { font-size: 18px; font-weight: 600; color: var(--fg-1); margin-top: 2px; }
 .uso-grafico { margin-top: 8px; }
 .uso-grafico-nav {
   display: flex; align-items: center; justify-content: center; gap: 16px;
@@ -513,17 +520,27 @@ a:focus-visible { outline-offset: 2px; }
 }
 .uso-nav-btn:hover:not(:disabled) { border-color: var(--jp-red); color: var(--jp-red); }
 .uso-nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-/* Rola horizontalmente em telas estreitas em vez de empurrar a página. */
-.uso-semanas { overflow-x: auto; padding-bottom: 4px; }
+/* As semanas ficam lado a lado, cada bloco com fatia igual da largura —
+   antes eram uma faixa por linha, com colunas de 28px fixos que só ocupavam
+   os primeiros ~25% de uma tela larga. `overflow-x: auto` continua como
+   rede de segurança (telas muito estreitas com 5–6 semanas no mês), mas o
+   caminho normal agora é caber tudo numa linha só. */
+.uso-semanas {
+  display: flex; align-items: flex-start; gap: 12px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+/* `min-width` evita que, num mês de 6 semanas numa janela estreita, cada
+   bloco encolha a ponto de as 7 colunas virarem fios — abaixo disso o
+   `overflow-x` do pai assume e passa a rolar. */
+.uso-semana-bloco { flex: 1 1 0; min-width: 170px; }
 .uso-dias-letras {
-  display: grid; grid-template-columns: repeat(7, 28px); gap: 4px;
-  margin: 0 0 6px; min-width: fit-content;
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  margin: 0 0 6px;
 }
 .uso-dia-letra { text-align: center; font-size: 11px; font-weight: 700; color: var(--fg-3); }
-.uso-semana-bloco { margin-bottom: 10px; min-width: fit-content; }
 .uso-semana {
-  display: grid; grid-template-columns: repeat(7, 28px); gap: 4px;
-  align-items: end; height: 64px;
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  align-items: end; height: 140px;
 }
 .uso-barra-col { display: flex; align-items: flex-end; justify-content: center; height: 100%; border-radius: 6px; }
 .uso-barra-col-vazia { visibility: hidden; }
@@ -538,9 +555,15 @@ a:focus-visible { outline-offset: 2px; }
    pilha. `overflow: hidden` arredonda o topo visível da pilha sem precisar
    decidir, em JS, qual segmento é "o de cima" — isso muda de coluna pra
    coluna. O fundo cinza é o que aparece se `por_rota` vier vazio sem o dia
-   estar marcado vestigial (não deveria acontecer, mas não deixa buraco). */
+   estar marcado vestigial (não deveria acontecer, mas não deixa buraco).
+   Largura relativa (não mais 16px fixos): a coluna agora divide o bloco da
+   semana, então a barra engorda numa tela larga — o ponto de tirar as
+   semanas do empilhamento vertical. `max-width` trava o exagero num monitor
+   ultrawide; `min-width` evita sumir quando o bloco é espremido perto do
+   `min-width` de `.uso-semana-bloco`. */
 .uso-barra-pilha {
-  width: 16px; min-height: 3px; border-radius: 3px 3px 0 0; overflow: hidden;
+  width: 60%; max-width: 34px; min-width: 8px; min-height: 3px;
+  border-radius: 3px 3px 0 0; overflow: hidden;
   display: flex; flex-direction: column-reverse; background: var(--border-subtle);
 }
 .uso-barra-seg { width: 100%; }
@@ -568,7 +591,10 @@ a:focus-visible { outline-offset: 2px; }
   display: flex; align-items: end; gap: 10px; height: 120px;
   overflow-x: auto; padding-bottom: 4px;
 }
-.uso-ano-col { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 28px; height: 100%; }
+/* `flex: 1 1 0` faz as doze colunas dividirem a largura inteira do card —
+   sem isso (mesmo bug das semanas antes do F6-01) elas ficam do tamanho do
+   próprio conteúdo, espremidas à esquerda com o resto do card vazio. */
+.uso-ano-col { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 6px; min-width: 28px; height: 100%; }
 .uso-ano-barra-track { flex: 1; display: flex; align-items: flex-end; }
 /* Mesma pilha empilhada das barras diárias, só que mais larga — ver
    `.uso-barra-pilha` acima para a explicação de `column-reverse`. */
@@ -591,15 +617,35 @@ a:focus-visible { outline-offset: 2px; }
   transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .uso-ano-retry:hover { border-color: var(--jp-red); color: var(--jp-red); }
-.uso-rotas { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-.uso-rota-row { display: grid; grid-template-columns: 160px 1fr 70px; align-items: center; gap: 12px; padding: 6px 4px; }
-.uso-rota-nome {
-  color: var(--fg-1); font-family: var(--font-display); font-size: 15px;
+/* "Por tela": grade horizontal (bolinha + nome + tempo + percentual), não
+   mais lista vertical de barras — o mesmo motivo do `.uso-header-row` acima.
+   `auto-fill`/`minmax` resolve "várias por linha em tela larga, menos
+   conforme estreita" sem precisar de breakpoint dedicado. */
+.uso-legenda {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 4px 16px; margin-top: 8px;
+}
+.uso-legenda-item {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  padding: 8px 4px; border-bottom: 1px solid var(--border-subtle);
+}
+.uso-legenda-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.uso-legenda-corpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.uso-legenda-nome {
+  color: var(--fg-1); font-family: var(--font-display); font-size: 14px; font-weight: 600;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.uso-rota-track { height: 8px; background: var(--bg-sunken); border-radius: 4px; overflow: hidden; }
-.uso-rota-fill { height: 100%; border-radius: 4px; background: var(--jp-red); }
-.uso-rota-tempo { font-weight: 700; text-align: right; color: var(--fg-1); }
+.uso-legenda-linha2 { display: flex; align-items: baseline; gap: 6px; }
+.uso-legenda-tempo { font-size: 13px; font-weight: 700; color: var(--fg-1); }
+.uso-legenda-pct { font-size: 12px; color: var(--fg-3); }
+/* "Total" fecha a grade, como no Screen Time do iPhone — sem bolinha de cor
+   (não é uma categoria) e com o nome discreto, para não competir com as
+   telas de verdade. */
+.uso-legenda-total { border-bottom: none; }
+.uso-legenda-total .uso-legenda-nome {
+  color: var(--fg-2); text-transform: uppercase; font-size: 12px; letter-spacing: 0.08em;
+}
+.uso-legenda-total .uso-legenda-tempo { font-size: 14px; }
 
 /* ===== Responsividade ===== */
 
