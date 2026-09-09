@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Outlet, useLocation } from 'react-router-dom';
 
+import { useTempoUso } from '../store/useTempoUso';
 import { DrawerHost } from './DrawerHost';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
@@ -14,6 +15,8 @@ export function Layout() {
   useEffect(() => {
     setNavOpen(false);
   }, [pathname]);
+
+  useTempoUso();
 
   return (
     <div className="samid-app">
