@@ -310,3 +310,16 @@ export interface UsoHistorico {
   dias: UsoDia[];
   rotas: UsoRota[];
 }
+
+export interface UsoMes {
+  mes: string;
+  aberto_s: number;
+  ativo_s: number;
+}
+
+export interface UsoAnual {
+  ano: number;
+  total_aberto_s: number;
+  total_ativo_s: number;
+  meses: UsoMes[];
+}

@@ -22,6 +22,7 @@ import type {
   ScoreHistory,
   Summary,
   SuperavitData,
+  UsoAnual,
   UsoHistorico,
   UsoHoje,
 } from '../types';
@@ -230,6 +231,9 @@ export const api = {
     fetchAuth(`${BASE}/uso/historico${qs({ escala, ref })}`).then((r) =>
       jsonOrThrow<UsoHistorico>(r),
     ),
+
+  usoAnual: (ano: number): Promise<UsoAnual> =>
+    fetchAuth(`${BASE}/uso/anual${qs({ ano })}`).then((r) => jsonOrThrow<UsoAnual>(r)),
 
   rule: (ruleId: string): Promise<RuleDetail> =>
     fetchAuth(`${BASE}/rules/${encodeURIComponent(ruleId)}`).then((r) => jsonOrThrow<RuleDetail>(r)),
