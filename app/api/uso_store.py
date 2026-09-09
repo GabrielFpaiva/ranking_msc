@@ -247,3 +247,102 @@ def ler_mes(uso_dir: Path, ano_mes: str, usuario: str) -> dict[tuple[str, str], 
             tempo.aberto_s += aberto_s
             tempo.ativo_s += ativo_s
     return agregado
+
+
+def compactar_meses_pendentes(uso_dir: Path, ano_mes_corrente: str) -> list[str]:
+    """Compacta todo mês já fechado que ainda esteja em formato bruto.
+
+    Um mês fechado nunca mais muda, então seus deltas podem colapsar em uma
+    linha por ``(usuario, dia, rota)``. Isso derruba a leitura de centenas de
+    milissegundos para dezenas e o disco de dezenas de MB por ano para poucos.
+
+    A varredura cobre **todos** os meses pendentes, não só o anterior: se o
+    servidor ficar fora do ar por um mês inteiro, o mês pulado não pode ficar
+    bruto para sempre.
+
+    A gravação é atômica — escreve ``.tmp``, renomeia, e só então remove o
+    bruto. Uma interrupção no meio não deixa o mês sem dado.
+
+    Args:
+        uso_dir: diretório de tempo de uso.
+        ano_mes_corrente: mês em curso, em ``YYYY-MM``; não é compactado.
+
+    Returns:
+        Lista ordenada dos meses compactados nesta chamada.
+    """
+    if not uso_dir.is_dir():
+        return []
+
+    compactados: list[str] = []
+    # ``ler_mes`` também toma ``_LOCK_ARQUIVO``, e este lock não é reentrante:
+    # chamá-lo daqui de dentro travaria o processo para sempre. Por isso o
+    # bruto é lido diretamente com `json.loads`, como abaixo.
+    with _LOCK_ARQUIVO:
+        for bruto in sorted(uso_dir.glob("[0-9][0-9][0-9][0-9]-[0-9][0-9].jsonl")):
+            ano_mes = bruto.stem
+            if ano_mes >= ano_mes_corrente:
+                continue
+
+            destino = uso_dir / f"{ano_mes}.agg.jsonl"
+            if destino.exists():
+                # Ambos existem: sinal de crash na janela entre o `replace()`
+                # abaixo e o `bruto.unlink()` seguinte, de uma execução
+                # anterior. O `.agg.jsonl` só existe depois de um replace
+                # atômico do `.tmp` — logo, se está aqui, já está completo e é
+                # a fonte da verdade; recompactar do bruto geraria o mesmo
+                # conteúdo à toa. O certo é só descartar o bruto órfão (dado
+                # pessoal sem valor de auditoria) e seguir, sem contar o mês
+                # como compactado nesta chamada — ele não foi, só teve lixo
+                # removido.
+                bruto.unlink()
+                continue
+
+            agregado: dict[tuple[str, str, str], TempoUso] = {}
+            # Mesmo tratamento de `ler_mes`: binário + decodificação dentro do
+            # try, porque isto roda dentro do loop de flush em background — uma
+            # linha ruim aqui não pode matar a tarefa periódica, e como o bruto
+            # é apagado ao final, uma exceção sem tratamento destruiria o mês
+            # inteiro sem chance de nova tentativa.
+            with bruto.open("rb") as arquivo:
+                for linha_bytes in arquivo:
+                    if not linha_bytes.strip():
+                        continue
+                    try:
+                        registro = json.loads(linha_bytes.decode("utf-8"))
+                        chave = (registro["usuario"], registro["dia"], registro["rota"])
+                        aberto_s = registro["aberto_s"]
+                        ativo_s = registro["ativo_s"]
+                    except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as erro:
+                        logger.warning(
+                            "Linha inválida em %s — %s. Trecho: %r. Ignorando linha.",
+                            bruto,
+                            erro,
+                            linha_bytes[:200],
+                            extra={"modulo": "uso_store"},
+                        )
+                        continue
+                    tempo = agregado.setdefault(chave, TempoUso())
+                    tempo.aberto_s += aberto_s
+                    tempo.ativo_s += ativo_s
+
+            temporario = destino.with_suffix(".tmp")
+            with temporario.open("w", encoding="utf-8") as arquivo:
+                for (usuario, dia, rota), tempo in sorted(agregado.items()):
+                    arquivo.write(
+                        json.dumps(
+                            {
+                                "usuario": usuario,
+                                "dia": dia,
+                                "rota": rota,
+                                "aberto_s": tempo.aberto_s,
+                                "ativo_s": tempo.ativo_s,
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+            temporario.replace(destino)
+            bruto.unlink()
+            compactados.append(ano_mes)
+
+    return compactados

@@ -205,3 +205,135 @@ class TestFlushELeitura:
         assert len(agregado) == 2
         assert agregado[("2026-09-09", "/caixa")].aberto_s == 300
         assert agregado[("2026-09-09", "/regras")].aberto_s == 100
+
+
+class TestCompactacao:
+    def _semear(self, uso_dir: Path, ano_mes: str, dia: str, repeticoes: int) -> None:
+        """Escreve N flushes iguais para um mês, simulando dias de uso."""
+        from app.api.uso_store import Acumulador, escrever_flush
+
+        for _ in range(repeticoes):
+            acc = Acumulador()
+            acc.registrar("gabriel", "/caixa", 300, 200, dia=dia)
+            escrever_flush(uso_dir, acc.drenar())
+
+    def test_compacta_uma_linha_por_chave_preservando_totais(self, tmp_path: Path) -> None:
+        """10 deltas viram 1 linha, e a soma não muda."""
+        from app.api.uso_store import compactar_meses_pendentes, ler_mes
+
+        self._semear(tmp_path, "2026-08", "2026-08-14", 10)
+        assert compactar_meses_pendentes(tmp_path, "2026-09") == ["2026-08"]
+
+        linhas = (tmp_path / "2026-08.agg.jsonl").read_text(encoding="utf-8").strip().split("\n")
+        assert len(linhas) == 1
+        agregado = ler_mes(tmp_path, "2026-08", "gabriel")
+        assert agregado[("2026-08-14", "/caixa")].aberto_s == 3000
+
+    def test_compactacao_descarta_o_bruto(self, tmp_path: Path) -> None:
+        """O arquivo de deltas é removido — é dado pessoal sem valor de auditoria."""
+        from app.api.uso_store import compactar_meses_pendentes
+
+        self._semear(tmp_path, "2026-08", "2026-08-14", 3)
+        compactar_meses_pendentes(tmp_path, "2026-09")
+
+        assert not (tmp_path / "2026-08.jsonl").exists()
+        assert (tmp_path / "2026-08.agg.jsonl").exists()
+
+    def test_nao_compacta_o_mes_corrente(self, tmp_path: Path) -> None:
+        """O mês em curso ainda recebe escrita — compactá-lo perderia dado."""
+        from app.api.uso_store import compactar_meses_pendentes
+
+        self._semear(tmp_path, "2026-09", "2026-09-09", 3)
+        assert compactar_meses_pendentes(tmp_path, "2026-09") == []
+        assert (tmp_path / "2026-09.jsonl").exists()
+
+    def test_alcanca_meses_pendentes_antigos(self, tmp_path: Path) -> None:
+        """Servidor fora do ar por meses não pode deixar mês bruto para trás."""
+        from app.api.uso_store import compactar_meses_pendentes
+
+        self._semear(tmp_path, "2026-06", "2026-06-10", 2)
+        self._semear(tmp_path, "2026-07", "2026-07-10", 2)
+        self._semear(tmp_path, "2026-08", "2026-08-10", 2)
+
+        assert compactar_meses_pendentes(tmp_path, "2026-09") == ["2026-06", "2026-07", "2026-08"]
+
+    def test_e_idempotente(self, tmp_path: Path) -> None:
+        """Rodar duas vezes não recompacta nem duplica."""
+        from app.api.uso_store import compactar_meses_pendentes
+
+        self._semear(tmp_path, "2026-08", "2026-08-14", 3)
+        compactar_meses_pendentes(tmp_path, "2026-09")
+        assert compactar_meses_pendentes(tmp_path, "2026-09") == []
+
+    def test_nao_deixa_tmp_para_tras(self, tmp_path: Path) -> None:
+        """A escrita é atômica: nenhum .tmp sobrevive a uma compactação bem-sucedida."""
+        from app.api.uso_store import compactar_meses_pendentes
+
+        self._semear(tmp_path, "2026-08", "2026-08-14", 3)
+        compactar_meses_pendentes(tmp_path, "2026-09")
+        assert list(tmp_path.glob("*.tmp")) == []
+
+    def test_linha_malformada_e_pulada_mas_o_resto_compacta(self, tmp_path: Path) -> None:
+        """Uma linha corrompida no bruto não impede a compactação das demais."""
+        from app.api.uso_store import compactar_meses_pendentes, ler_mes
+
+        self._semear(tmp_path, "2026-08", "2026-08-14", 3)
+
+        caminho = tmp_path / "2026-08.jsonl"
+        with caminho.open("a", encoding="utf-8") as arquivo:
+            arquivo.write('{"usuario": "gabriel", "dia": "2026-08-14"}\n')  # falta rota/valores
+
+        assert compactar_meses_pendentes(tmp_path, "2026-09") == ["2026-08"]
+
+        agregado = ler_mes(tmp_path, "2026-08", "gabriel")
+        assert agregado[("2026-08-14", "/caixa")].aberto_s == 900
+
+    def test_linha_malformada_nao_bloqueia_a_remocao_do_bruto(self, tmp_path: Path) -> None:
+        """Uma linha ruim não pode deixar o mês bruto para trás para sempre."""
+        from app.api.uso_store import compactar_meses_pendentes
+
+        self._semear(tmp_path, "2026-08", "2026-08-14", 2)
+
+        caminho = tmp_path / "2026-08.jsonl"
+        with caminho.open("a", encoding="utf-8") as arquivo:
+            arquivo.write("isto nao e json\n")
+
+        compactar_meses_pendentes(tmp_path, "2026-09")
+        assert not (tmp_path / "2026-08.jsonl").exists()
+        assert (tmp_path / "2026-08.agg.jsonl").exists()
+
+    def test_remove_bruto_orfao_de_compactacao_interrompida_sem_tocar_no_agregado(
+        self, tmp_path: Path
+    ) -> None:
+        """Crash entre o replace() e o unlink() não deve travar o mês para sempre."""
+        from app.api.uso_store import compactar_meses_pendentes
+
+        agregado_bom = json.dumps(
+            {
+                "usuario": "gabriel",
+                "dia": "2026-08-14",
+                "rota": "/caixa",
+                "aberto_s": 3000,
+                "ativo_s": 2000,
+            }
+        ) + "\n"
+        (tmp_path / "2026-08.agg.jsonl").write_text(agregado_bom, encoding="utf-8")
+        (tmp_path / "2026-08.jsonl").write_text(
+            json.dumps(
+                {
+                    "usuario": "gabriel",
+                    "dia": "2026-08-14",
+                    "rota": "/caixa",
+                    "aberto_s": 300,
+                    "ativo_s": 200,
+                    "ts": "2026-08-14T10:00:00-03:00",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        assert compactar_meses_pendentes(tmp_path, "2026-09") == []
+
+        assert not (tmp_path / "2026-08.jsonl").exists()
+        assert (tmp_path / "2026-08.agg.jsonl").read_text(encoding="utf-8") == agregado_bom
