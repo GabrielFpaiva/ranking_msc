@@ -84,6 +84,12 @@ def absolute_reports_dir() -> Path:
     return (PROJECT_ROOT / settings.paths.reports_dir).resolve()
 
 
+def absolute_uso_dir() -> Path:
+    """Retorna o diretório de tempo de uso resolvido absolutamente."""
+    settings = get_settings()
+    return (PROJECT_ROOT / settings.paths.uso_dir).resolve()
+
+
 def get_current_user(token: str = Depends(_oauth2_scheme)) -> str:  # noqa: B008
     """Decodifica o JWT e retorna o username autenticado.
 

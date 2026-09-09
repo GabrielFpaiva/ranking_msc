@@ -382,3 +382,62 @@ class EntregasOut(BaseModel):
     )
     resumo: ResumoEntregasOut
     entregas: list[EntregaOut]
+
+
+# ---------------------------------------------------------------------------
+# Tempo de uso por usuário (F6)
+# ---------------------------------------------------------------------------
+
+
+class HeartbeatIn(BaseModel):
+    """Batida de relógio enviada pelo front a cada ~60 s.
+
+    Os tetos de 120 s são deliberados: o heartbeat é de 60 s, e sem limite
+    qualquer cliente se daria horas de uso com uma requisição forjada.
+    """
+
+    rota: str
+    aberto_s: int = Field(..., ge=0, le=120, description="Segundos com a aba visível")
+    ativo_s: int = Field(..., ge=0, le=120, description="Segundos com interação")
+
+
+class UsoHojeOut(BaseModel):
+    """Totais do dia corrente para o usuário autenticado."""
+
+    aberto_s: int
+    ativo_s: int
+
+
+class UsoDiaOut(BaseModel):
+    """Total de um dia dentro do mês consultado."""
+
+    dia: str = Field(..., description="YYYY-MM-DD")
+    aberto_s: int
+    ativo_s: int
+
+
+class UsoRotaOut(BaseModel):
+    """Total de uma tela dentro do período selecionado."""
+
+    rota: str
+    aberto_s: int
+    ativo_s: int
+
+
+class UsoHistoricoOut(BaseModel):
+    """Resposta de /api/uso/historico.
+
+    ``dias`` cobre sempre o **mês inteiro** de ``ref``, com zeros preenchidos,
+    para o front desenhar as semanas agrupadas sob o cabeçalho do mês sem
+    precisar de várias requisições. ``rotas`` e os totais referem-se apenas ao
+    período selecionado por ``escala``.
+    """
+
+    escala: Literal["dia", "semana", "mes"]
+    ref: str
+    inicio: str
+    fim: str
+    total_aberto_s: int
+    total_ativo_s: int
+    dias: list[UsoDiaOut]
+    rotas: list[UsoRotaOut]
