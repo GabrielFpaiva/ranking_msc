@@ -1,6 +1,6 @@
 /** Helpers de formatação compartilhados pela UI. */
 
-import type { UsoDia } from './types';
+import type { EscalaUso, UsoDia } from './types';
 
 /**
  * Formata um número como moeda BRL.
@@ -94,4 +94,94 @@ export function agruparEmSemanas(dias: UsoDia[]): (UsoDia | null)[][] {
     semanas.push(semanaAtual);
   }
   return semanas;
+}
+
+/** `1` avança a janela, `-1` volta. */
+export type DirecaoJanela = 1 | -1;
+
+/**
+ * Move a "janela" que a tela "Meu tempo de uso" está olhando — um mês para
+ * as escalas `dia`/`semana`, um ano para `mes` — e devolve o novo `ref` já
+ * dentro dela.
+ *
+ * Para navegação por mês, mantém o mesmo dia quando ele existe no mês de
+ * destino, e cai no último dia válido quando não existe (ex.: 31 de março
+ * → fevereiro vira 28, ou 29 em ano bissexto — nunca joga para março de
+ * novo, nem quebra em "31 de fevereiro"). Para navegação por ano (escala
+ * `mes`), o dia do `ref` não influencia nada que a tela mostra — os números
+ * olham o mês inteiro e o gráfico olha o ano inteiro — então o novo `ref`
+ * sempre cai no dia 1 do mesmo mês, no ano de destino: não há "dia certo"
+ * a preservar, e dia 1 nunca precisa de clamp.
+ *
+ * `new Date(ano, mes, 1)` com `mes` fora de 0..11 é normalizado pelo próprio
+ * motor JS (mês 12 vira janeiro do ano seguinte, mês -1 vira dezembro do
+ * ano anterior) — é assim que a virada de dezembro/janeiro é tratada aqui,
+ * sem aritmética manual de módulo.
+ */
+export function moverJanela(escala: EscalaUso, ref: string, direcao: DirecaoJanela): string {
+  const atual = parseDataLocal(ref);
+
+  if (escala === 'mes') {
+    const novoAno = atual.getFullYear() + direcao;
+    return `${novoAno}-${String(atual.getMonth() + 1).padStart(2, '0')}-01`;
+  }
+
+  const alvo = new Date(atual.getFullYear(), atual.getMonth() + direcao, 1);
+  const novoAno = alvo.getFullYear();
+  const novoMes = alvo.getMonth();
+  const ultimoDiaDoMes = new Date(novoAno, novoMes + 1, 0).getDate();
+  const novoDia = Math.min(atual.getDate(), ultimoDiaDoMes);
+
+  return `${novoAno}-${String(novoMes + 1).padStart(2, '0')}-${String(novoDia).padStart(2, '0')}`;
+}
+
+/**
+ * `true` quando avançar a janela de `ref` (um mês para `dia`/`semana`, um
+ * ano para `mes`) levaria a uma janela inteiramente futura — nenhum dia
+ * dela já aconteceu.
+ *
+ * Isso acontece exatamente quando a janela ATUAL de `ref` já é a janela de
+ * hoje (ou uma além dela, que não deveria ser alcançável pela UI, mas fica
+ * coberto por segurança). Usado para desabilitar o botão "›": ninguém
+ * precisa navegar para um mês ou ano que ainda não começou.
+ *
+ * `hoje` é parâmetro para permitir teste determinístico — o padrão usa o
+ * relógio real via `hojeISO()`.
+ */
+export function janelaSeguinteEhFutura(
+  escala: EscalaUso,
+  ref: string,
+  hoje: string = hojeISO(),
+): boolean {
+  const dataRef = parseDataLocal(ref);
+  const dataHoje = parseDataLocal(hoje);
+
+  if (escala === 'mes') {
+    return dataRef.getFullYear() >= dataHoje.getFullYear();
+  }
+
+  const chaveRef = dataRef.getFullYear() * 12 + dataRef.getMonth();
+  const chaveHoje = dataHoje.getFullYear() * 12 + dataHoje.getMonth();
+  return chaveRef >= chaveHoje;
+}
+
+const MESES_POR_EXTENSO = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+
+/**
+ * Descreve a janela atual por extenso — `"Setembro 2026"` para as escalas
+ * `dia`/`semana` (janela de mês), `"2026"` para `mes` (janela de ano).
+ *
+ * Mês por extenso via tabela própria, não `toLocaleDateString`: evita
+ * depender de dados de locale do ambiente (Node/browser) só para um rótulo
+ * de cabeçalho, e mantém o formato exato pedido, sem o "de" que
+ * `Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' })`
+ * insere entre mês e ano.
+ */
+export function descricaoJanela(escala: EscalaUso, ref: string): string {
+  const data = parseDataLocal(ref);
+  if (escala === 'mes') return String(data.getFullYear());
+  return `${MESES_POR_EXTENSO[data.getMonth()]} ${data.getFullYear()}`;
 }

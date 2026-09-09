@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { agruparEmSemanas, formatarDuracao, parseDataLocal } from './format';
+import {
+  agruparEmSemanas,
+  descricaoJanela,
+  formatarDuracao,
+  janelaSeguinteEhFutura,
+  moverJanela,
+  parseDataLocal,
+} from './format';
 import type { UsoDia } from './types';
 
 describe('formatarDuracao', () => {
@@ -91,5 +98,73 @@ describe('agruparEmSemanas', () => {
     expect(achatada[achatada.length - 1]).toEqual([
       '2026-09-28', '2026-09-29', '2026-09-30', null, null, null, null,
     ]);
+  });
+});
+
+describe('moverJanela', () => {
+  it('dia inexistente no mês de destino é clampado (31 de março → fevereiro)', () => {
+    // Fevereiro de 2026 tem 28 dias (não bissexto) — dia 31 não existe.
+    expect(moverJanela('semana', '2026-03-31', -1)).toBe('2026-02-28');
+    expect(moverJanela('dia', '2026-03-31', -1)).toBe('2026-02-28');
+  });
+
+  it('clampa para o dia 29 num fevereiro bissexto', () => {
+    expect(moverJanela('dia', '2024-03-31', -1)).toBe('2024-02-29');
+  });
+
+  it('virada de ano ao avançar de dezembro para janeiro', () => {
+    expect(moverJanela('dia', '2026-12-15', 1)).toBe('2027-01-15');
+  });
+
+  it('virada de ano ao voltar de janeiro para dezembro', () => {
+    expect(moverJanela('semana', '2026-01-10', -1)).toBe('2025-12-10');
+  });
+
+  it('dia do mês preservado quando existe no mês de destino', () => {
+    expect(moverJanela('dia', '2026-06-15', 1)).toBe('2026-07-15');
+  });
+
+  it('escala "mes" navega por ano e sempre cai no dia 1 do mesmo mês', () => {
+    expect(moverJanela('mes', '2026-05-20', 1)).toBe('2027-05-01');
+    expect(moverJanela('mes', '2026-05-20', -1)).toBe('2025-05-01');
+  });
+
+  it('escala "mes" nunca quebra num 29/02 de ano não bissexto — cai sempre em dia 1', () => {
+    expect(moverJanela('mes', '2024-02-29', 1)).toBe('2025-02-01');
+  });
+});
+
+describe('janelaSeguinteEhFutura', () => {
+  it('escala dia/semana: bloqueia avançar quando já se está no mês corrente', () => {
+    expect(janelaSeguinteEhFutura('dia', '2026-09-01', '2026-09-09')).toBe(true);
+    expect(janelaSeguinteEhFutura('semana', '2026-09-30', '2026-09-09')).toBe(true);
+  });
+
+  it('escala dia/semana: permite avançar de um mês passado para o corrente', () => {
+    expect(janelaSeguinteEhFutura('dia', '2026-08-01', '2026-09-09')).toBe(false);
+  });
+
+  it('escala dia/semana: bloqueia mesmo virando o ano (dezembro passado, janeiro corrente)', () => {
+    expect(janelaSeguinteEhFutura('dia', '2027-01-05', '2027-01-20')).toBe(true);
+    expect(janelaSeguinteEhFutura('dia', '2026-12-05', '2027-01-20')).toBe(false);
+  });
+
+  it('escala mes: bloqueia avançar quando já se está no ano corrente', () => {
+    expect(janelaSeguinteEhFutura('mes', '2026-01-01', '2026-09-09')).toBe(true);
+  });
+
+  it('escala mes: permite avançar de um ano passado para o corrente', () => {
+    expect(janelaSeguinteEhFutura('mes', '2025-06-01', '2026-09-09')).toBe(false);
+  });
+});
+
+describe('descricaoJanela', () => {
+  it('escala dia/semana descreve o mês por extenso com o ano', () => {
+    expect(descricaoJanela('semana', '2026-09-09')).toBe('Setembro 2026');
+    expect(descricaoJanela('dia', '2026-01-01')).toBe('Janeiro 2026');
+  });
+
+  it('escala mes descreve só o ano', () => {
+    expect(descricaoJanela('mes', '2026-09-09')).toBe('2026');
   });
 });
