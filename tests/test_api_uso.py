@@ -107,3 +107,90 @@ class TestUsoHoje:
         assert corpo["ativo_s"] == 65
 
 
+class TestUsoHistorico:
+    def _gravar(self, dia: str, rota: str, aberto_s: int, ativo_s: int) -> None:
+        """Grava direto no store, como se um flush já tivesse acontecido."""
+        from app.api.deps import absolute_uso_dir
+        from app.api.uso_store import Acumulador, escrever_flush
+
+        acc = Acumulador()
+        acc.registrar("test-user", rota, aberto_s, ativo_s, dia=dia)
+        escrever_flush(absolute_uso_dir(), acc.drenar())
+
+    def test_escala_semana_soma_so_a_semana(self) -> None:
+        """Segunda a domingo — o dia de fora não entra no total."""
+        self._gravar("2026-09-07", "/caixa", 3600, 3000)
+        self._gravar("2026-09-09", "/caixa", 1800, 1500)
+        self._gravar("2026-09-20", "/caixa", 9999, 9999)
+
+        corpo = client.get("/api/uso/historico?escala=semana&ref=2026-09-09").json()
+        assert corpo["inicio"] == "2026-09-07"
+        assert corpo["fim"] == "2026-09-13"
+        assert corpo["total_aberto_s"] == 5400
+        assert corpo["total_ativo_s"] == 4500
+
+    def test_dias_cobrem_o_mes_inteiro_com_zeros(self) -> None:
+        """O front desenha as semanas do mês sem fazer várias requisições."""
+        self._gravar("2026-09-09", "/caixa", 1800, 1500)
+
+        corpo = client.get("/api/uso/historico?escala=semana&ref=2026-09-09").json()
+        assert len(corpo["dias"]) == 30
+        assert corpo["dias"][0]["dia"] == "2026-09-01"
+        assert corpo["dias"][0]["aberto_s"] == 0
+        assert corpo["dias"][8]["dia"] == "2026-09-09"
+        assert corpo["dias"][8]["aberto_s"] == 1800
+
+    def test_rotas_vem_ordenadas_por_tempo_desc(self) -> None:
+        """A tela 'Por tela' mostra a mais usada primeiro."""
+        self._gravar("2026-09-09", "/caixa", 600, 500)
+        self._gravar("2026-09-09", "/pendencias", 3600, 3000)
+        self._gravar("2026-09-09", "/regras", 1200, 900)
+
+        corpo = client.get("/api/uso/historico?escala=dia&ref=2026-09-09").json()
+        assert [item["rota"] for item in corpo["rotas"]] == ["/pendencias", "/regras", "/caixa"]
+
+    def test_escala_invalida_e_rejeitada(self) -> None:
+        """Query param fora do enum não chega ao store."""
+        resposta = client.get("/api/uso/historico?escala=decada&ref=2026-09-09")
+        assert resposta.status_code == 422
+
+    def test_ref_malformada_e_rejeitada(self) -> None:
+        """Data inválida vira 422, não 500."""
+        resposta = client.get("/api/uso/historico?escala=dia&ref=09/09/2026")
+        assert resposta.status_code == 422
+
+    def test_ref_e_normalizada_na_resposta(self) -> None:
+        """`ref=20260909` (ISO básico) não pode voltar diferente de `inicio`/`fim`.
+
+        `date.fromisoformat` aceita variantes não canônicas; se a resposta
+        ecoasse a string recebida, `ref` destoaria de `inicio`/`fim` — que
+        `intervalo()` sempre canonicaliza — dentro do mesmo payload.
+        """
+        corpo = client.get("/api/uso/historico?escala=dia&ref=20260909").json()
+        assert corpo["ref"] == "2026-09-09"
+        assert corpo["inicio"] == "2026-09-09"
+        assert corpo["fim"] == "2026-09-09"
+
+    def test_semana_cruzando_mes_soma_os_dois_lados_mas_dias_e_so_do_mes_de_ref(self) -> None:
+        """Semana de 31/08 a 06/09/2026 (segunda a domingo), ref em setembro.
+
+        Os totais e `rotas` somam os dois lados da fronteira; `dias` continua
+        cobrindo só o mês de `ref` (setembro) — sem barra para 31/08, embora
+        aquele dia entre na soma. Ver docstring do endpoint.
+        """
+        self._gravar("2026-08-31", "/caixa", 1000, 800)
+        self._gravar("2026-09-06", "/caixa", 500, 400)
+
+        corpo = client.get("/api/uso/historico?escala=semana&ref=2026-09-02").json()
+        assert corpo["inicio"] == "2026-08-31"
+        assert corpo["fim"] == "2026-09-06"
+        assert corpo["total_aberto_s"] == 1500
+        assert corpo["total_ativo_s"] == 1200
+        assert corpo["rotas"] == [{"rota": "/caixa", "aberto_s": 1500, "ativo_s": 1200}]
+
+        dias_do_payload = [item["dia"] for item in corpo["dias"]]
+        assert "2026-08-31" not in dias_do_payload
+        assert dias_do_payload[0] == "2026-09-01"
+        assert dias_do_payload[-1] == "2026-09-30"
+        dia_06 = next(item for item in corpo["dias"] if item["dia"] == "2026-09-06")
+        assert dia_06["aberto_s"] == 500

@@ -7,15 +7,32 @@ Endpoints do tempo de uso por usuário.
 O usuário **nunca** é parâmetro: sai sempre do ``sub`` do JWT via
 ``get_current_user``. Não existindo rota que aceite "de quem", não existe a
 classe de bug em que um ``?usuario=`` mal validado vaza o tempo do colega.
+
+As três rotas declaram ``Depends(get_current_user)`` por função, em vez do
+padrão de outros módulos de rota (``Depends`` no ``APIRouter``, aplicado a
+todas as rotas de uma vez). É deliberado: aqui o username não é só um portão
+de acesso — é consumido diretamente por cada handler (chave de agregação,
+filtro do acumulador). Se um dia alguém "padronizar" isto para o
+``APIRouter``, as três rotas param de receber ``usuario`` como parâmetro.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+import calendar
+from datetime import date
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.api.deps import absolute_uso_dir, get_current_user
-from app.api.schemas import HeartbeatIn, UsoHojeOut
-from app.api.uso_store import ACUMULADOR, ROTAS_VALIDAS, dia_local, ler_mes
+from app.api.schemas import (
+    HeartbeatIn,
+    UsoDiaOut,
+    UsoHistoricoOut,
+    UsoHojeOut,
+    UsoRotaOut,
+)
+from app.api.uso_store import ACUMULADOR, ROTAS_VALIDAS, agregado_do_periodo, dia_local, ler_mes
 
 router = APIRouter(prefix="/api", tags=["uso"])
 
@@ -72,3 +89,76 @@ def get_uso_hoje(usuario: str = Depends(get_current_user)) -> UsoHojeOut:  # noq
             ativo_s += tempo.ativo_s
 
     return UsoHojeOut(aberto_s=aberto_s, ativo_s=ativo_s)
+
+
+@router.get(
+    "/uso/historico",
+    response_model=UsoHistoricoOut,
+    summary="Série diária do mês e totais do período para o usuário autenticado",
+)
+def get_uso_historico(
+    escala: Literal["dia", "semana", "mes"] = Query(..., description="Bucket do período"),
+    ref: str = Query(..., description="Data de referência YYYY-MM-DD"),
+    usuario: str = Depends(get_current_user),  # noqa: B008
+) -> UsoHistoricoOut:
+    """Monta o payload da tela "Meu tempo de uso".
+
+    ``dias`` cobre o mês inteiro de ``ref`` com zeros preenchidos, para o front
+    desenhar as semanas agrupadas sob o cabeçalho do mês numa requisição só.
+    ``rotas`` e os totais referem-se apenas ao período de ``escala``.
+
+    Quando o período de ``escala`` cruza a virada do mês (ex.: uma semana de
+    31/08 a 06/09 com ``ref`` em setembro), os totais e ``rotas`` incluem os
+    dois lados da fronteira, mas ``dias`` continua cobrindo só o mês de
+    ``ref`` — o dia do outro mês entra na soma, mas não ganha barra no
+    gráfico. É intencional: o gráfico é uma visão de mês, os totais são uma
+    visão de período.
+
+    Raises:
+        HTTPException 422: se ``ref`` não for uma data ISO válida.
+    """
+    try:
+        referencia = date.fromisoformat(ref)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Data de referência inválida: {ref!r}. Use YYYY-MM-DD.",
+        ) from exc
+
+    ref_normalizado = referencia.isoformat()
+    agregado, inicio, fim = agregado_do_periodo(
+        absolute_uso_dir(), escala, ref_normalizado, usuario
+    )
+
+    # Série diária: mês inteiro de ref, com zeros preenchidos.
+    ultimo_dia = calendar.monthrange(referencia.year, referencia.month)[1]
+    por_dia: dict[str, UsoDiaOut] = {}
+    for numero in range(1, ultimo_dia + 1):
+        chave = referencia.replace(day=numero).isoformat()
+        por_dia[chave] = UsoDiaOut(dia=chave, aberto_s=0, ativo_s=0)
+
+    por_rota: dict[str, UsoRotaOut] = {}
+    total_aberto_s = 0
+    total_ativo_s = 0
+
+    for (dia, rota), tempo in agregado.items():
+        if dia in por_dia:
+            por_dia[dia].aberto_s += tempo.aberto_s
+            por_dia[dia].ativo_s += tempo.ativo_s
+        if inicio <= dia <= fim:
+            atual = por_rota.setdefault(rota, UsoRotaOut(rota=rota, aberto_s=0, ativo_s=0))
+            atual.aberto_s += tempo.aberto_s
+            atual.ativo_s += tempo.ativo_s
+            total_aberto_s += tempo.aberto_s
+            total_ativo_s += tempo.ativo_s
+
+    return UsoHistoricoOut(
+        escala=escala,
+        ref=ref_normalizado,
+        inicio=inicio,
+        fim=fim,
+        total_aberto_s=total_aberto_s,
+        total_ativo_s=total_ativo_s,
+        dias=list(por_dia.values()),
+        rotas=sorted(por_rota.values(), key=lambda item: item.aberto_s, reverse=True),
+    )

@@ -519,3 +519,122 @@ class TestIntervalo:
         assert intervalo("dia", "20260909") == ("2026-09-09", "2026-09-09")
         assert intervalo("semana", "20260909") == intervalo("semana", "2026-09-09")
         assert intervalo("mes", "20260909") == intervalo("mes", "2026-09-09")
+
+
+class TestAgregadoDoPeriodo:
+    def _gravar(self, uso_dir: Path, dia: str, rota: str, aberto_s: int, ativo_s: int) -> None:
+        """Grava direto no store, como se um flush já tivesse acontecido."""
+        from app.api.uso_store import Acumulador, escrever_flush
+
+        acc = Acumulador()
+        acc.registrar("gabriel", rota, aberto_s, ativo_s, dia=dia)
+        escrever_flush(uso_dir, acc.drenar())
+
+    def test_semana_que_comeca_no_mes_anterior_traz_os_dois_meses(self, tmp_path: Path) -> None:
+        """O caso do bug: fusão que só olhava `fim` perdia o mês de `inicio`.
+
+        Semana de 2026-08-31 (segunda) a 2026-09-06 (domingo), com `ref` em
+        setembro — o início da semana cai em agosto. `2026-08` é mês fechado
+        (hoje é 2026-09-09) e por isso passa pelo cache — `limpar_cache()`
+        evita que um `tmp_path` de outro teste vaze aqui.
+        """
+        from app.api.uso_store import agregado_do_periodo, limpar_cache
+
+        limpar_cache()
+        self._gravar(tmp_path, "2026-08-31", "/caixa", 1000, 800)
+        self._gravar(tmp_path, "2026-09-06", "/caixa", 500, 400)
+
+        agregado, inicio, fim = agregado_do_periodo(tmp_path, "semana", "2026-09-02", "gabriel")
+
+        assert inicio == "2026-08-31"
+        assert fim == "2026-09-06"
+        assert agregado[("2026-08-31", "/caixa")].aberto_s == 1000
+        assert agregado[("2026-09-06", "/caixa")].aberto_s == 500
+
+    def test_semana_que_termina_no_mes_seguinte_traz_os_dois_meses(self, tmp_path: Path) -> None:
+        """Espelho do caso acima: `ref` no fim do mês, semana estende para o mês seguinte."""
+        from app.api.uso_store import agregado_do_periodo, limpar_cache
+
+        limpar_cache()
+        self._gravar(tmp_path, "2026-08-31", "/caixa", 1000, 800)
+        self._gravar(tmp_path, "2026-09-06", "/caixa", 500, 400)
+
+        agregado, inicio, fim = agregado_do_periodo(tmp_path, "semana", "2026-08-31", "gabriel")
+
+        assert inicio == "2026-08-31"
+        assert fim == "2026-09-06"
+        assert agregado[("2026-08-31", "/caixa")].aberto_s == 1000
+        assert agregado[("2026-09-06", "/caixa")].aberto_s == 500
+
+    def test_periodo_dentro_de_um_so_mes_carrega_so_um_mes(self, tmp_path: Path) -> None:
+        """Sem cruzar fronteira de mês, o agregado vem só do mês de `ref`.
+
+        `agregado_do_periodo` devolve o mês inteiro — a filtragem para a
+        janela de `escala` acontece na camada de cima (a rota). Aqui só
+        confirmamos que os dados do mês de `ref` chegam corretos e que nenhum
+        outro mês foi envolvido.
+        """
+        from app.api.uso_store import agregado_do_periodo
+
+        self._gravar(tmp_path, "2026-09-07", "/caixa", 3600, 3000)
+        self._gravar(tmp_path, "2026-09-09", "/caixa", 1800, 1500)
+
+        agregado, inicio, fim = agregado_do_periodo(tmp_path, "semana", "2026-09-09", "gabriel")
+
+        assert inicio == "2026-09-07"
+        assert fim == "2026-09-13"
+        assert agregado[("2026-09-07", "/caixa")].aberto_s == 3600
+        assert agregado[("2026-09-09", "/caixa")].aberto_s == 1800
+
+    def test_escala_mes(self, tmp_path: Path) -> None:
+        """Escala 'mes' cobre o mês inteiro de `ref`."""
+        from app.api.uso_store import agregado_do_periodo
+
+        self._gravar(tmp_path, "2026-09-01", "/caixa", 100, 80)
+        self._gravar(tmp_path, "2026-09-30", "/caixa", 200, 160)
+
+        agregado, inicio, fim = agregado_do_periodo(tmp_path, "mes", "2026-09-15", "gabriel")
+
+        assert inicio == "2026-09-01"
+        assert fim == "2026-09-30"
+        assert agregado[("2026-09-01", "/caixa")].aberto_s == 100
+        assert agregado[("2026-09-30", "/caixa")].aberto_s == 200
+
+    def test_escala_dia(self, tmp_path: Path) -> None:
+        """Escala 'dia' resolve para o próprio dia, início igual a fim."""
+        from app.api.uso_store import agregado_do_periodo
+
+        self._gravar(tmp_path, "2026-09-09", "/caixa", 600, 500)
+        self._gravar(tmp_path, "2026-09-10", "/caixa", 999, 999)
+
+        agregado, inicio, fim = agregado_do_periodo(tmp_path, "dia", "2026-09-09", "gabriel")
+
+        assert inicio == fim == "2026-09-09"
+        assert set(agregado) == {("2026-09-09", "/caixa"), ("2026-09-10", "/caixa")}
+
+    def test_devolve_dict_novo_nao_a_referencia_do_cache(self, tmp_path: Path) -> None:
+        """O dict devolvido é novo — inserir/remover chave nele não afeta o cache.
+
+        `2026-08` é mês fechado em relação ao `ano_mes_corrente` real do
+        processo (hoje é 2026-09-09) — `agregado_do_mes` devolve, para ele, o
+        mesmo dict guardado em `_CACHE_MES`. `agregado_do_periodo` monta o
+        combinado com `dict(...)`/`.update(...)`, então o dict em si é novo.
+
+        Isso não estende à mutação de atributo de um `TempoUso` dentro do
+        dict: a cópia é rasa, então os `TempoUso` de um mês fechado ainda são
+        os mesmos objetos do cache — exatamente a mesma ressalva que
+        `agregado_do_mes` já documenta. A rota nunca escreve em `tempo.*`, só
+        lê, então isso nunca é exercitado em produção; não é reconfirmado
+        aqui para não sugerir que seria seguro fazer.
+        """
+        from app.api.uso_store import agregado_do_mes, agregado_do_periodo, limpar_cache
+
+        limpar_cache()
+        self._gravar(tmp_path, "2026-08-14", "/caixa", 300, 200)
+
+        cache_direto = agregado_do_mes(tmp_path, "2026-08", "gabriel", ano_mes_corrente="2026-09")
+        agregado, _, _ = agregado_do_periodo(tmp_path, "dia", "2026-08-14", "gabriel")
+
+        assert agregado is not cache_direto
+        del agregado[("2026-08-14", "/caixa")]
+        assert ("2026-08-14", "/caixa") in cache_direto

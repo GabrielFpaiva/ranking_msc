@@ -500,3 +500,62 @@ def intervalo(escala: str, ref: str) -> tuple[str, str]:
         )
 
     raise ValueError(f"Escala desconhecida: {escala!r}. Use 'dia', 'semana' ou 'mes'.")
+
+
+def agregado_do_periodo(
+    uso_dir: Path,
+    escala: str,
+    ref: str,
+    usuario: str,
+) -> tuple[dict[tuple[str, str], TempoUso], str, str]:
+    """Agregado combinado do período de ``escala`` que contém ``ref``, mais o intervalo.
+
+    Carrega o mês de ``ref`` e, quando o período cruza a virada do mês — uma
+    semana que começa no mês anterior ou termina no seguinte —, também carrega
+    e funde o mês do lado que diferir. Os dois lados são checados de forma
+    independente porque nunca ocorrem ao mesmo tempo (uma janela de até 31
+    dias por ``escala`` não alcança um terceiro mês), mas checar só um deles
+    já escondeu um bug: uma versão anterior olhava só o mês de ``fim``, e uma
+    semana começando no mês anterior a ``ref`` perdia dado em silêncio.
+
+    Chaves são ``(dia, rota)`` e ``dia`` embute o mês (``YYYY-MM-DD``): dois
+    meses diferentes nunca produzem a mesma chave, então o merge nunca
+    sobrescreve dado por colisão. O dict devolvido é sempre um objeto novo —
+    ``agregado_do_mes`` pode devolver, para um mês fechado, o mesmo dict
+    guardado no cache de módulo, e este merge nunca o repassa direto; inserir
+    ou remover chave no resultado não afeta o cache.
+
+    Isso **não** estende à mutação de atributo de um ``TempoUso`` dentro do
+    dict — a cópia é rasa, então os valores de um mês fechado ainda são os
+    mesmos objetos guardados em ``_CACHE_MES``. Vale a mesma ressalva de
+    ``agregado_do_mes``: trate o resultado como somente leitura.
+
+    Args:
+        uso_dir: diretório de tempo de uso.
+        escala: ``"dia"``, ``"semana"`` ou ``"mes"``.
+        ref: data de referência, em qualquer variante aceita por
+            ``date.fromisoformat`` — não precisa vir pré-normalizada.
+        usuario: username do JWT.
+
+    Returns:
+        Tupla ``(agregado, inicio, fim)`` — ``agregado`` é o mapa combinado de
+        ``(dia, rota)`` para ``TempoUso``; ``inicio``/``fim`` são o intervalo
+        canônico devolvido por ``intervalo()``.
+
+    Raises:
+        ValueError: se ``ref`` não for parseável ou ``escala`` for
+            desconhecida — ver ``intervalo()``.
+    """
+    ano_mes = date.fromisoformat(ref).isoformat()[:7]
+    inicio, fim = intervalo(escala, ref)
+
+    agregado = dict(agregado_do_mes(uso_dir, ano_mes, usuario))
+
+    ano_mes_inicio = inicio[:7]
+    if ano_mes_inicio != ano_mes:
+        agregado.update(agregado_do_mes(uso_dir, ano_mes_inicio, usuario))
+    ano_mes_fim = fim[:7]
+    if ano_mes_fim != ano_mes:
+        agregado.update(agregado_do_mes(uso_dir, ano_mes_fim, usuario))
+
+    return agregado, inicio, fim
