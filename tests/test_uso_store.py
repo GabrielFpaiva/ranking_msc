@@ -206,6 +206,32 @@ class TestFlushELeitura:
         assert agregado[("2026-09-09", "/caixa")].aberto_s == 300
         assert agregado[("2026-09-09", "/regras")].aberto_s == 100
 
+    def test_ler_mes_pula_linha_com_aberto_s_nao_numerico(self, tmp_path: Path) -> None:
+        """`aberto_s` não numérico não pode estourar fora do handler de linha ruim."""
+        from app.api.uso_store import Acumulador, escrever_flush, ler_mes
+
+        acc = Acumulador()
+        acc.registrar("gabriel", "/caixa", 300, 200, dia="2026-09-09")
+        escrever_flush(tmp_path, acc.drenar())
+
+        caminho = tmp_path / "2026-09.jsonl"
+        with caminho.open("a", encoding="utf-8") as arquivo:
+            arquivo.write(
+                json.dumps(
+                    {
+                        "usuario": "gabriel",
+                        "dia": "2026-09-09",
+                        "rota": "/caixa",
+                        "aberto_s": "not-a-number",
+                        "ativo_s": 10,
+                    }
+                )
+                + "\n"
+            )
+
+        agregado = ler_mes(tmp_path, "2026-09", "gabriel")
+        assert agregado[("2026-09-09", "/caixa")].aberto_s == 300
+
 
 class TestCompactacao:
     def _semear(self, uso_dir: Path, ano_mes: str, dia: str, repeticoes: int) -> None:
@@ -337,3 +363,30 @@ class TestCompactacao:
 
         assert not (tmp_path / "2026-08.jsonl").exists()
         assert (tmp_path / "2026-08.agg.jsonl").read_text(encoding="utf-8") == agregado_bom
+
+    def test_compacta_ignorando_linha_com_aberto_s_nao_numerico(self, tmp_path: Path) -> None:
+        """`aberto_s` não numérico não pode travar a compactação nem sobreviver a ela."""
+        from app.api.uso_store import compactar_meses_pendentes, ler_mes
+
+        self._semear(tmp_path, "2026-08", "2026-08-14", 3)
+
+        caminho = tmp_path / "2026-08.jsonl"
+        with caminho.open("a", encoding="utf-8") as arquivo:
+            arquivo.write(
+                json.dumps(
+                    {
+                        "usuario": "gabriel",
+                        "dia": "2026-08-14",
+                        "rota": "/caixa",
+                        "aberto_s": "not-a-number",
+                        "ativo_s": 10,
+                    }
+                )
+                + "\n"
+            )
+
+        assert compactar_meses_pendentes(tmp_path, "2026-09") == ["2026-08"]
+
+        assert not (tmp_path / "2026-08.jsonl").exists()
+        agregado = ler_mes(tmp_path, "2026-08", "gabriel")
+        assert agregado[("2026-08-14", "/caixa")].aberto_s == 900

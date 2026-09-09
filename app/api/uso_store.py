@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -203,6 +204,65 @@ def escrever_flush(uso_dir: Path, dados: dict[ChaveUso, TempoUso]) -> int:
     return total
 
 
+def _parse_linhas_uso(caminho: Path) -> Iterator[tuple[ChaveUso, TempoUso]]:
+    """Itera registros válidos de um JSONL de tempo de uso, linha a linha.
+
+    Não toma lock — quem chama já deve estar de posse do ``_LOCK_ARQUIVO``
+    quando isso importa. Cuida só do parsing e do log de linha inválida.
+
+    Compartilhado por ``ler_mes`` e ``compactar_meses_pendentes`` para que o
+    endurecimento contra linha malformada exista num só lugar: as duas
+    funções já duplicaram esse trecho uma vez, e foi assim que passou um
+    ``aberto_s`` não numérico — extraído dentro do ``try``, mas somado fora
+    dele, estourando ``TypeError`` sem handler nos dois lugares.
+
+    Lê em binário e decodifica linha a linha, dentro do mesmo try do parse:
+    se abríssemos em modo texto, o ``TextIOWrapper`` decodificaria o arquivo
+    inteiro dentro do ``for``, e um byte inválido no meio estouraria
+    ``UnicodeDecodeError`` fora de qualquer try, derrubando o mês inteiro. Pela
+    mesma razão, ``aberto_s``/``ativo_s`` são convertidos com ``int(...)``
+    dentro do try — se não fossem, uma soma mais tarde com um valor não
+    numérico estouraria fora de qualquer handler.
+
+    Args:
+        caminho: arquivo JSONL a ler (bruto ou compactado).
+
+    Yields:
+        Par ``(ChaveUso, TempoUso)`` já validado.
+    """
+    with caminho.open("rb") as arquivo:
+        for linha_bytes in arquivo:
+            if not linha_bytes.strip():
+                continue
+            try:
+                registro = json.loads(linha_bytes.decode("utf-8"))
+                chave = ChaveUso(
+                    usuario=registro["usuario"],
+                    dia=registro["dia"],
+                    rota=registro["rota"],
+                )
+                tempo = TempoUso(
+                    aberto_s=int(registro["aberto_s"]),
+                    ativo_s=int(registro["ativo_s"]),
+                )
+            except (
+                UnicodeDecodeError,
+                json.JSONDecodeError,
+                KeyError,
+                TypeError,
+                ValueError,
+            ) as erro:
+                logger.warning(
+                    "Linha inválida em %s — %s. Trecho: %r. Ignorando linha.",
+                    caminho,
+                    erro,
+                    linha_bytes[:200],
+                    extra={"modulo": "uso_store"},
+                )
+                continue
+            yield chave, tempo
+
+
 def ler_mes(uso_dir: Path, ano_mes: str, usuario: str) -> dict[tuple[str, str], TempoUso]:
     """Soma os deltas de um mês para um usuário, agrupados por ``(dia, rota)``.
 
@@ -219,33 +279,13 @@ def ler_mes(uso_dir: Path, ano_mes: str, usuario: str) -> dict[tuple[str, str], 
         return {}
 
     agregado: dict[tuple[str, str], TempoUso] = {}
-    # Lê em binário e decodifica linha a linha, dentro do mesmo try do parse:
-    # se abríssemos em modo texto, o `TextIOWrapper` decodificaria o arquivo
-    # inteiro dentro do `for`, e um byte inválido no meio estouraria
-    # `UnicodeDecodeError` fora de qualquer try, derrubando o mês inteiro.
-    with _LOCK_ARQUIVO, caminho.open("rb") as arquivo:
-        for linha_bytes in arquivo:
-            if not linha_bytes.strip():
+    with _LOCK_ARQUIVO:
+        for chave, tempo_lido in _parse_linhas_uso(caminho):
+            if chave.usuario != usuario:
                 continue
-            try:
-                registro = json.loads(linha_bytes.decode("utf-8"))
-                if registro["usuario"] != usuario:
-                    continue
-                chave = (registro["dia"], registro["rota"])
-                aberto_s = registro["aberto_s"]
-                ativo_s = registro["ativo_s"]
-            except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as erro:
-                logger.warning(
-                    "Linha inválida em %s — %s. Trecho: %r. Ignorando linha.",
-                    caminho,
-                    erro,
-                    linha_bytes[:200],
-                    extra={"modulo": "uso_store"},
-                )
-                continue
-            tempo = agregado.setdefault(chave, TempoUso())
-            tempo.aberto_s += aberto_s
-            tempo.ativo_s += ativo_s
+            tempo = agregado.setdefault((chave.dia, chave.rota), TempoUso())
+            tempo.aberto_s += tempo_lido.aberto_s
+            tempo.ativo_s += tempo_lido.ativo_s
     return agregado
 
 
@@ -274,16 +314,29 @@ def compactar_meses_pendentes(uso_dir: Path, ano_mes_corrente: str) -> list[str]
         return []
 
     compactados: list[str] = []
-    # ``ler_mes`` também toma ``_LOCK_ARQUIVO``, e este lock não é reentrante:
-    # chamá-lo daqui de dentro travaria o processo para sempre. Por isso o
-    # bruto é lido diretamente com `json.loads`, como abaixo.
-    with _LOCK_ARQUIVO:
-        for bruto in sorted(uso_dir.glob("[0-9][0-9][0-9][0-9]-[0-9][0-9].jsonl")):
-            ano_mes = bruto.stem
-            if ano_mes >= ano_mes_corrente:
-                continue
+    # O glob roda fora do lock, e cada mês só toma `_LOCK_ARQUIVO` para o
+    # próprio corpo (ler, agregar, escrever `.tmp`, `replace`, `unlink`) — não
+    # para a varredura inteira. Um backlog de vários meses fora do ar não pode
+    # travar as leituras HTTP (`ler_mes`) por segundos justamente quando o app
+    # volta e as pessoas começam a usar.
+    #
+    # Isso abre uma corrida estreita entre o glob (fora do lock) e o
+    # `bruto.unlink()` de um mês (dentro dele): um segundo chamador
+    # concorrente poderia ter, na sua própria lista, um bruto que este já
+    # removeu. Hoje isso é inalcançável — o único chamador é o loop de flush
+    # em background, que roda serialmente. Se um dia surgir um segundo
+    # chamador (por exemplo uma ação administrativa de "compactar agora"),
+    # esta função vai precisar reconferir `bruto.exists()` dentro do lock
+    # antes de processar, ou os dois chamadores vão precisar ser serializados
+    # por fora.
+    for bruto in sorted(uso_dir.glob("[0-9][0-9][0-9][0-9]-[0-9][0-9].jsonl")):
+        ano_mes = bruto.stem
+        if ano_mes >= ano_mes_corrente:
+            continue
 
-            destino = uso_dir / f"{ano_mes}.agg.jsonl"
+        destino = uso_dir / f"{ano_mes}.agg.jsonl"
+
+        with _LOCK_ARQUIVO:
             if destino.exists():
                 # Ambos existem: sinal de crash na janela entre o `replace()`
                 # abaixo e o `bruto.unlink()` seguinte, de uma execução
@@ -297,43 +350,29 @@ def compactar_meses_pendentes(uso_dir: Path, ano_mes_corrente: str) -> list[str]
                 bruto.unlink()
                 continue
 
-            agregado: dict[tuple[str, str, str], TempoUso] = {}
-            # Mesmo tratamento de `ler_mes`: binário + decodificação dentro do
-            # try, porque isto roda dentro do loop de flush em background — uma
-            # linha ruim aqui não pode matar a tarefa periódica, e como o bruto
-            # é apagado ao final, uma exceção sem tratamento destruiria o mês
-            # inteiro sem chance de nova tentativa.
-            with bruto.open("rb") as arquivo:
-                for linha_bytes in arquivo:
-                    if not linha_bytes.strip():
-                        continue
-                    try:
-                        registro = json.loads(linha_bytes.decode("utf-8"))
-                        chave = (registro["usuario"], registro["dia"], registro["rota"])
-                        aberto_s = registro["aberto_s"]
-                        ativo_s = registro["ativo_s"]
-                    except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as erro:
-                        logger.warning(
-                            "Linha inválida em %s — %s. Trecho: %r. Ignorando linha.",
-                            bruto,
-                            erro,
-                            linha_bytes[:200],
-                            extra={"modulo": "uso_store"},
-                        )
-                        continue
-                    tempo = agregado.setdefault(chave, TempoUso())
-                    tempo.aberto_s += aberto_s
-                    tempo.ativo_s += ativo_s
+            agregado: dict[ChaveUso, TempoUso] = {}
+            for chave, tempo_lido in _parse_linhas_uso(bruto):
+                tempo = agregado.setdefault(chave, TempoUso())
+                tempo.aberto_s += tempo_lido.aberto_s
+                tempo.ativo_s += tempo_lido.ativo_s
 
             temporario = destino.with_suffix(".tmp")
             with temporario.open("w", encoding="utf-8") as arquivo:
-                for (usuario, dia, rota), tempo in sorted(agregado.items()):
+                # `ChaveUso` é `frozen=True` mas não `order=True` — não tem
+                # `__lt__` — então `sorted()` direto sobre as chaves levanta
+                # `TypeError`. A ordenação existe só para o `.agg.jsonl` sair
+                # determinístico, então um `key=` explícito basta; não vale
+                # ligar `order=True` na classe inteira por causa de um detalhe
+                # de escrita de arquivo.
+                for chave, tempo in sorted(
+                    agregado.items(), key=lambda item: (item[0].usuario, item[0].dia, item[0].rota)
+                ):
                     arquivo.write(
                         json.dumps(
                             {
-                                "usuario": usuario,
-                                "dia": dia,
-                                "rota": rota,
+                                "usuario": chave.usuario,
+                                "dia": chave.dia,
+                                "rota": chave.rota,
                                 "aberto_s": tempo.aberto_s,
                                 "ativo_s": tempo.ativo_s,
                             },
