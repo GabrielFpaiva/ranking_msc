@@ -16,6 +16,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.api.uso_store import MAX_SEGUNDOS_POR_HEARTBEAT
+
 Severidade = Literal["ERRO", "ALERTA", "INFO"]
 Banda = Literal["A", "B", "C", "D", "E"]
 
@@ -392,13 +394,20 @@ class EntregasOut(BaseModel):
 class HeartbeatIn(BaseModel):
     """Batida de relógio enviada pelo front a cada ~60 s.
 
-    Os tetos de 120 s são deliberados: o heartbeat é de 60 s, e sem limite
-    qualquer cliente se daria horas de uso com uma requisição forjada.
+    O teto de ``MAX_SEGUNDOS_POR_HEARTBEAT`` é deliberado: o heartbeat é de
+    60 s, e sem limite qualquer cliente se daria horas de uso com uma
+    requisição forjada. Esta é a fonte canônica do valor no servidor — o
+    browser espelha o mesmo número em ``LIMITE_SERVIDOR_S``
+    (``web/src/store/relogioUso.ts``), e os dois precisam mudar juntos.
     """
 
     rota: str
-    aberto_s: int = Field(..., ge=0, le=120, description="Segundos com a aba visível")
-    ativo_s: int = Field(..., ge=0, le=120, description="Segundos com interação")
+    aberto_s: int = Field(
+        ..., ge=0, le=MAX_SEGUNDOS_POR_HEARTBEAT, description="Segundos com a aba visível"
+    )
+    ativo_s: int = Field(
+        ..., ge=0, le=MAX_SEGUNDOS_POR_HEARTBEAT, description="Segundos com interação"
+    )
 
 
 class UsoHojeOut(BaseModel):

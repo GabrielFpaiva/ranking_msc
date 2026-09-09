@@ -46,6 +46,12 @@ ROTAS_VALIDAS: frozenset[str] = frozenset({
 
 # Teto por heartbeat. O front bate a cada 60 s; 120 s dá folga para atraso de
 # rede sem permitir que alguém se dê 40 horas de uso com um curl.
+#
+# Fonte canônica: `app/api/schemas.py` importa esta constante para o
+# `le=` de `HeartbeatIn.aberto_s`/`ativo_s` — é ela, e não um literal
+# duplicado no schema, que a API de fato aplica. O browser espelha o mesmo
+# número em `LIMITE_SERVIDOR_S` (`web/src/store/relogioUso.ts`); os dois
+# precisam mudar juntos.
 MAX_SEGUNDOS_POR_HEARTBEAT = 120
 
 
