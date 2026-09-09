@@ -33,6 +33,14 @@ const usoAnualMock = vi.mocked(api.usoAnual);
  * `dias`. Dois dias da semana 07–13 recebem uso (6h40 cada, somando 13h20),
  * repartido entre duas rotas, para o teste do total por semana ter um valor
  * não trivial de conferir e para a pilha ter mais de um segmento. */
+/** Converte o texto de `formatarDuracao` ("1h23" ou "45m") de volta a
+ * minutos — só para conferir, em teste, que partes exibidas somam o total
+ * exibido sem duplicar a lógica de `formatarDuracao` no teste. */
+function minutosDoTexto(texto: string): number {
+  const [h, m] = texto.includes('h') ? texto.split('h') : ['0', texto.replace('m', '')];
+  return Number(h) * 60 + Number(m);
+}
+
 function mesFixo(): UsoDia[] {
   return Array.from({ length: 30 }, (_, i) => {
     const numero = i + 1;
@@ -120,16 +128,102 @@ describe('MeuTempo', () => {
     // As partes exibidas (1h23 = 83min, 37m) somam exatamente o minuto do
     // total exibido (2h00 = 120min) — 83 + 37 = 120, não 119.
     const minutos = [...container.querySelectorAll('.uso-legenda-item:not(.uso-legenda-total) .uso-legenda-tempo')]
-      .map((el) => el.textContent ?? '')
-      .map((texto) => {
-        const [h, m] = texto.includes('h') ? texto.split('h') : ['0', texto.replace('m', '')];
-        return Number(h) * 60 + Number(m);
-      });
+      .map((el) => minutosDoTexto(el.textContent ?? ''));
     expect(minutos.reduce((soma, m) => soma + m, 0)).toBe(120);
 
     const percentuais = [...container.querySelectorAll('.uso-legenda-pct')]
       .map((el) => Number((el.textContent ?? '').replace('%', '')));
     expect(percentuais.reduce((soma, p) => soma + p, 0)).toBe(100);
+  });
+
+  it('os ativos exibidos por tela somam o ATIVO do card em cima', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    const { container } = render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    // BASE: /inicio 4000s ativos, /pendencias 1400s — soma 5400s = total_ativo_s
+    // (1h30, os mesmos "ATIVO" do card acima). Cada chip mostra o ativo
+    // distribuído por maior resto na barrinha ativo/ocioso.
+    const minutosAtivos = [...container.querySelectorAll('.uso-legenda-ativo-tempo')].map((el) =>
+      minutosDoTexto(el.textContent ?? ''),
+    );
+    expect(minutosAtivos.reduce((soma, m) => soma + m, 0)).toBe(90); // 1h30 = 90min
+  });
+
+  it('chip com ativo muito menor que o aberto (aba esquecida aberta, caso "Início")', async () => {
+    // 59min abertos, só 5min de uso de verdade — o caso real que motivou o
+    // pedido: sem a barrinha, essa diferença fica invisível na tela.
+    const dadosInicioEsquecido: UsoHistorico = {
+      ...BASE,
+      total_aberto_s: 3540, // 59m
+      total_ativo_s: 300, // 5m
+      rotas: [{ rota: '/inicio', aberto_s: 3540, ativo_s: 300 }],
+    };
+    usoHistoricoMock.mockResolvedValue(dadosInicioEsquecido);
+
+    const { container } = render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    // "59m" e "5m" também aparecem no card de cima (aberto/ativo) — a
+    // conferência aqui é especificamente no chip "Por tela", não em texto
+    // solto na tela inteira.
+    const chip = screen.getByText('Início').closest('.uso-legenda-item')!;
+    expect(chip.querySelector('.uso-legenda-tempo')?.textContent).toBe('59m'); // aberto — continua o protagonista
+    expect(chip.querySelector('.uso-legenda-ativo-tempo')?.textContent).toBe('5m'); // ativo — pequeno, ao lado
+
+    // A barra reflete a proporção: ~8,5% ativo, ~91,5% ocioso — "quase toda
+    // esmaecida", como descrito no pedido.
+    const trackAtivo = container.querySelector('.uso-legenda-track-ativo') as HTMLElement;
+    const trackOcioso = container.querySelector('.uso-legenda-track-ocioso') as HTMLElement;
+    const larguraAtivo = Number(trackAtivo.style.width.replace('%', ''));
+    const larguraOcioso = Number(trackOcioso.style.width.replace('%', ''));
+    expect(larguraAtivo).toBeLessThan(10);
+    expect(larguraOcioso).toBeGreaterThan(90);
+    expect(larguraAtivo + larguraOcioso).toBeCloseTo(100, 5);
+  });
+
+  it('"Outras" soma o ativo (e o aberto) das rotas fora do top 5', async () => {
+    const seisRotas = ['/inicio', '/pendencias', '/caixa', '/passivos', '/superavit', '/executivo'];
+    // Pesos decrescentes dão rank estável — as cinco primeiras ganham cor
+    // própria; a sexta (/executivo) cai em "Outras". Ativo de /executivo é
+    // desproporcionalmente baixo (10 de 100) pra distinguir sua barrinha da
+    // das demais (metade do aberto) se "Outras" não estivesse somando certo.
+    const abertoPorRota = [600, 500, 400, 300, 200, 100];
+    const ativoPorRota = [300, 250, 200, 150, 100, 10];
+    const diasComSeisRotas: UsoDia[] = Array.from({ length: 30 }, (_, i) => {
+      const numero = i + 1;
+      if (numero !== 15) {
+        return { dia: `2026-09-${String(numero).padStart(2, '0')}`, aberto_s: 0, ativo_s: 0, por_rota: {} };
+      }
+      const por_rota = Object.fromEntries(seisRotas.map((rota, idx) => [rota, abertoPorRota[idx]]));
+      const aberto_s = abertoPorRota.reduce((a, b) => a + b, 0);
+      return { dia: '2026-09-15', aberto_s, ativo_s: aberto_s, por_rota };
+    });
+
+    const dados: UsoHistorico = {
+      escala: 'dia',
+      ref: '2026-09-15',
+      inicio: '2026-09-15',
+      fim: '2026-09-15',
+      total_aberto_s: abertoPorRota.reduce((a, b) => a + b, 0),
+      total_ativo_s: ativoPorRota.reduce((a, b) => a + b, 0),
+      dias: diasComSeisRotas,
+      rotas: seisRotas.map((rota, idx) => ({ rota, aberto_s: abertoPorRota[idx], ativo_s: ativoPorRota[idx] })),
+    };
+
+    usoHistoricoMock.mockResolvedValue(dados);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    const itemOutras = screen.getByText('Outras').closest('.uso-legenda-item');
+    expect(itemOutras).toBeTruthy();
+
+    // "Outras" aqui é só /executivo (100s abertos, 10s ativos) — 10% ativo,
+    // bem abaixo dos ~50% de qualquer uma das cinco nomeadas.
+    const trackAtivo = itemOutras!.querySelector('.uso-legenda-track-ativo') as HTMLElement;
+    expect(trackAtivo.style.width).toBe('10%');
   });
 
   it('a coluna do dia com duas rotas empilha um segmento por rota', async () => {

@@ -29,6 +29,7 @@ export default [
         URLSearchParams: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
+        HTMLElement: 'readonly',
         HTMLInputElement: 'readonly',
         HTMLDivElement: 'readonly',
         HTMLButtonElement: 'readonly',

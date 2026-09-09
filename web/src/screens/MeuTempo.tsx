@@ -170,27 +170,49 @@ interface EntradaLegenda {
   rota: string;
   nome: string;
   segundos: number;
+  /** Segundos de uso *ativo* dentro do aberto acima — sustenta a barrinha
+   * ativo/ocioso e o texto pequeno de "ativo" do chip (ver JSX). Nunca maior
+   * que `segundos`. */
+  ativoSegundos: number;
   cor: string;
 }
 
 /** Mesma lógica de `montarSegmentos`, mas para os totais do período
  * selecionado (`data.rotas`) — sustenta a legenda horizontal "Por tela".
  * Recebe a mesma `paleta` do gráfico para que a cor de uma rota seja igual
- * na pilha e na legenda. */
+ * na pilha e na legenda.
+ *
+ * Carrega `ativo_s` junto de `aberto_s` desde o início — não é possível
+ * calcular "quanto do Outras foi ativo" depois de já ter jogado fora o
+ * detalhe por rota, então a soma teria que ser refeita do zero. */
 function montarLegenda(rotas: UsoRota[], paleta: Map<string, string>): EntradaLegenda[] {
   const entradas: EntradaLegenda[] = [];
   let outrasSegundos = 0;
+  let outrasAtivoSegundos = 0;
   for (const r of rotas) {
     const cor = paleta.get(r.rota);
     if (cor) {
-      entradas.push({ rota: r.rota, nome: ROUTE_TITLES[r.rota]?.title ?? r.rota, segundos: r.aberto_s, cor });
+      entradas.push({
+        rota: r.rota,
+        nome: ROUTE_TITLES[r.rota]?.title ?? r.rota,
+        segundos: r.aberto_s,
+        ativoSegundos: r.ativo_s,
+        cor,
+      });
     } else {
       outrasSegundos += r.aberto_s;
+      outrasAtivoSegundos += r.ativo_s;
     }
   }
   entradas.sort((a, b) => CORES_RANK.indexOf(a.cor) - CORES_RANK.indexOf(b.cor));
   if (outrasSegundos > 0) {
-    entradas.push({ rota: ROTA_OUTRAS, nome: 'Outras', segundos: outrasSegundos, cor: COR_OUTRAS });
+    entradas.push({
+      rota: ROTA_OUTRAS,
+      nome: 'Outras',
+      segundos: outrasSegundos,
+      ativoSegundos: outrasAtivoSegundos,
+      cor: COR_OUTRAS,
+    });
   }
   return entradas;
 }
@@ -310,6 +332,15 @@ export function MeuTempo() {
   const totalMinutosExibido = data ? Math.floor(data.total_aberto_s / 60) : 0;
   const minutosLegenda = distribuirMaiorResto(pesosLegenda, totalMinutosExibido);
   const percentuaisLegenda = distribuirMaiorResto(pesosLegenda, 100);
+  // Mesmo problema, mesmo remédio, agora para o "ativo" de cada chip: sem
+  // isso, o card anuncia aberto/ativo/ocioso lá em cima mas só o aberto
+  // aparece decomposto por tela embaixo — a pessoa não tem como enxergar,
+  // por exemplo, que os 59min abertos de "Início" foram só 5min de uso de
+  // verdade (54min de aba esquecida aberta). Pesos em segundos de novo, para
+  // a soma dos minutos ativos exibidos fechar com `data.total_ativo_s`.
+  const pesosAtivoLegenda = legenda.map((item) => item.ativoSegundos);
+  const totalMinutosAtivoExibido = data ? Math.floor(data.total_ativo_s / 60) : 0;
+  const minutosAtivoLegenda = distribuirMaiorResto(pesosAtivoLegenda, totalMinutosAtivoExibido);
 
   function navegar(direcao: DirecaoJanela): void {
     setRef((atual) => moverPeriodo(escala, atual, direcao));
@@ -620,20 +651,53 @@ export function MeuTempo() {
         )}
         {data && data.rotas.length > 0 && (
           <div className="uso-legenda">
-            {legenda.map((item, i) => (
-              <div key={item.rota} className="uso-legenda-item">
-                <span className="uso-legenda-dot" style={{ background: item.cor }} />
-                <span className="uso-legenda-corpo">
-                  <span className="uso-legenda-nome">{item.nome}</span>
-                  <span className="uso-legenda-linha2">
-                    <span className="mono uso-legenda-tempo">
-                      {formatarDuracao(minutosLegenda[i] * 60)}
+            {legenda.map((item, i) => {
+              // Fração do aberto desta tela que foi ativo — governa a
+              // barrinha de duas tonalidades logo abaixo. `Math.min(100, …)`
+              // é rede de segurança (ativo nunca deveria passar do aberto).
+              const pctAtivo =
+                item.segundos > 0 ? Math.min(100, (item.ativoSegundos / item.segundos) * 100) : 0;
+              return (
+                <div key={item.rota} className="uso-legenda-item">
+                  <span className="uso-legenda-dot" style={{ background: item.cor }} />
+                  <span className="uso-legenda-corpo">
+                    <span className="uso-legenda-nome">{item.nome}</span>
+                    <span className="uso-legenda-linha2">
+                      <span className="mono uso-legenda-tempo">
+                        {formatarDuracao(minutosLegenda[i] * 60)}
+                      </span>
+                      <span className="uso-legenda-pct">{percentuaisLegenda[i]}%</span>
                     </span>
-                    <span className="uso-legenda-pct">{percentuaisLegenda[i]}%</span>
+                    {/* Ativo/ocioso desta tela: a mesma cor da categoria, cheia
+                        na fração ativa e esmaecida (opacidade) no resto — dá
+                        pra ver "quase tudo esmaecido" (aba esquecida aberta,
+                        ex.: Início) sem ler número nenhum. O texto ao lado é
+                        só reforço, pequeno de propósito — o protagonista
+                        continua sendo o aberto, na linha de cima. */}
+                    <span
+                      className="uso-legenda-linha3"
+                      title={`${formatarDuracao(minutosAtivoLegenda[i] * 60)} de uso ativo, de ${formatarDuracao(
+                        minutosLegenda[i] * 60,
+                      )} de tela aberta`}
+                    >
+                      <span className="uso-legenda-track">
+                        <span
+                          className="uso-legenda-track-ativo"
+                          style={{ width: `${pctAtivo}%`, background: item.cor }}
+                        />
+                        <span
+                          className="uso-legenda-track-ocioso"
+                          style={{ width: `${100 - pctAtivo}%`, background: item.cor }}
+                        />
+                      </span>
+                      <span className="mono uso-legenda-ativo-tempo">
+                        {formatarDuracao(minutosAtivoLegenda[i] * 60)}
+                      </span>
+                    </span>
                   </span>
-                </span>
-              </div>
-            ))}
+                </div>
+              );
+            })}
             {/* "Aberto", não só "Total": a tela também mostra "Ocioso" logo
                 acima, e sem dizer do que esta faixa é a decomposição, é fácil
                 tentar reconciliar as duas — são recortes diferentes (tela vs.

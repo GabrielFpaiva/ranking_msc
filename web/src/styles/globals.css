@@ -733,6 +733,23 @@ button.uso-dia-col:focus-visible { outline: none; box-shadow: var(--shadow-focus
 .uso-legenda-linha2 { display: flex; align-items: baseline; gap: 6px; }
 .uso-legenda-tempo { font-size: 13px; font-weight: 700; color: var(--fg-1); }
 .uso-legenda-pct { font-size: 12px; color: var(--fg-3); }
+/* Ativo/ocioso por tela: barrinha fina de duas tonalidades da própria cor da
+   categoria (cheia = ativo, esmaecida por opacidade = ocioso) + o valor do
+   ativo em texto pequeno. Só 3px de altura de propósito — o objetivo é caber
+   sem engordar o chip que os ajustes anteriores deixaram compacto; se algum
+   dia isso não couber mais, o texto do ativo sozinho (sem a barra) é o plano
+   B descrito no pedido original, não uma barra maior. */
+.uso-legenda-linha3 { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+.uso-legenda-track {
+  flex: 1; min-width: 24px; height: 3px; border-radius: 2px; overflow: hidden;
+  display: flex; background: var(--bg-sunken);
+}
+.uso-legenda-track-ativo { height: 100%; }
+/* Opacidade, não uma segunda variável de cor: esmaece qualquer cor de
+   categoria (são cinco + "Outras") sem precisar de um tom "esmaecido"
+   dedicado para cada uma. */
+.uso-legenda-track-ocioso { height: 100%; opacity: 0.32; }
+.uso-legenda-ativo-tempo { font-size: 11px; color: var(--fg-3); flex-shrink: 0; }
 /* "Total" fecha a grade, como no Screen Time do iPhone — sem bolinha de cor
    (não é uma categoria) e com o nome discreto, para não competir com as
    telas de verdade. */
