@@ -8,6 +8,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from ranking_msc.config.settings import Settings
 
 
@@ -452,3 +454,68 @@ class TestCache:
         primeiro = agregado_do_mes(tmp_path, "2026-08", "gabriel", ano_mes_corrente="2026-09")
         segundo = agregado_do_mes(tmp_path, "2026-08", "gabriel", ano_mes_corrente="2026-09")
         assert primeiro is segundo
+
+
+class TestIntervalo:
+    def test_dia_e_o_proprio_dia(self) -> None:
+        """Escala 'dia' começa e termina no mesmo dia."""
+        from app.api.uso_store import intervalo
+
+        assert intervalo("dia", "2026-09-09") == ("2026-09-09", "2026-09-09")
+
+    def test_semana_vai_de_segunda_a_domingo(self) -> None:
+        """2026-09-09 é quarta; a semana é 07 (seg) a 13 (dom)."""
+        from app.api.uso_store import intervalo
+
+        assert intervalo("semana", "2026-09-09") == ("2026-09-07", "2026-09-13")
+
+    def test_semana_a_partir_de_um_domingo(self) -> None:
+        """Domingo pertence à semana que começou na segunda anterior."""
+        from app.api.uso_store import intervalo
+
+        assert intervalo("semana", "2026-09-13") == ("2026-09-07", "2026-09-13")
+
+    def test_semana_cruza_virada_de_mes(self) -> None:
+        """2026-09-02 é quarta; a semana começa em 2026-08-31 (segunda) e
+        termina em 2026-09-06 (domingo) — a virada de agosto para setembro
+        cai no meio da semana. O endpoint de histórico (task futura) precisa
+        buscar dois meses quando a semana selecionada cruza essa fronteira.
+        """
+        from app.api.uso_store import intervalo
+
+        assert intervalo("semana", "2026-09-02") == ("2026-08-31", "2026-09-06")
+
+    def test_mes_cobre_do_primeiro_ao_ultimo_dia(self) -> None:
+        """Setembro tem 30 dias."""
+        from app.api.uso_store import intervalo
+
+        assert intervalo("mes", "2026-09-09") == ("2026-09-01", "2026-09-30")
+
+    def test_mes_de_fevereiro_bissexto(self) -> None:
+        """2028 é bissexto — fevereiro termina em 29."""
+        from app.api.uso_store import intervalo
+
+        assert intervalo("mes", "2028-02-10") == ("2028-02-01", "2028-02-29")
+
+    def test_escala_desconhecida_levanta_valueerror(self) -> None:
+        """Escala fora de 'dia'/'semana'/'mes' levanta ValueError."""
+        from app.api.uso_store import intervalo
+
+        with pytest.raises(ValueError):
+            intervalo("ano", "2026-09-09")
+
+    def test_saida_e_sempre_canonica_mesmo_com_entrada_nao_canonica(self) -> None:
+        """A saída é sempre YYYY-MM-DD canônico, mesmo se `ref` não for.
+
+        `date.fromisoformat` aceita variantes além de "YYYY-MM-DD" (ex.:
+        "20260909" sem hífens). Remover a normalização da saída quebra o
+        filtro `inicio <= dia <= fim` da rota de histórico, que compara
+        strings direto contra o `dia` gravado no JSONL — uma saída não
+        canônica faz essa comparação falhar em silêncio, devolvendo "sem uso"
+        para um período com dados.
+        """
+        from app.api.uso_store import intervalo
+
+        assert intervalo("dia", "20260909") == ("2026-09-09", "2026-09-09")
+        assert intervalo("semana", "20260909") == intervalo("semana", "2026-09-09")
+        assert intervalo("mes", "20260909") == intervalo("mes", "2026-09-09")

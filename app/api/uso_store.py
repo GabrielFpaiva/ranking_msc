@@ -22,12 +22,13 @@ lento e usa 26x mais memória.
 
 from __future__ import annotations
 
+import calendar
 import json
 import logging
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -463,3 +464,39 @@ def limpar_cache() -> None:
     Também usada pelos testes para isolar casos entre si.
     """
     _CACHE_MES.clear()
+
+
+def intervalo(escala: str, ref: str) -> tuple[str, str]:
+    """Primeiro e último dia do período que contém ``ref``.
+
+    Args:
+        escala: ``"dia"``, ``"semana"`` ou ``"mes"``.
+        ref: data de referência em ``YYYY-MM-DD``.
+
+    Returns:
+        Tupla ``(inicio, fim)`` sempre em ``YYYY-MM-DD`` canônico, ambos
+        inclusivos — mesmo que ``ref`` chegue numa variante aceita por
+        ``date.fromisoformat`` (ex.: ``"20260909"`` ou uma data de semana ISO).
+        Essa garantia sustenta o filtro ``inicio <= dia <= fim`` da rota de
+        histórico, que compara strings direto contra o ``dia`` gravado no
+        JSONL; um retorno não canônico faria essa comparação de string falhar
+        silenciosamente, devolvendo "sem uso" para um período com dados.
+
+    Raises:
+        ValueError: se a escala for desconhecida.
+    """
+    referencia = date.fromisoformat(ref)
+
+    if escala == "dia":
+        return referencia.isoformat(), referencia.isoformat()
+    if escala == "semana":
+        segunda = referencia - timedelta(days=referencia.weekday())
+        return segunda.isoformat(), (segunda + timedelta(days=6)).isoformat()
+    if escala == "mes":
+        ultimo = calendar.monthrange(referencia.year, referencia.month)[1]
+        return (
+            referencia.replace(day=1).isoformat(),
+            referencia.replace(day=ultimo).isoformat(),
+        )
+
+    raise ValueError(f"Escala desconhecida: {escala!r}. Use 'dia', 'semana' ou 'mes'.")
