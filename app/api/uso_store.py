@@ -56,7 +56,13 @@ def dia_local(momento: datetime | None = None) -> str:
     cairia no dia seguinte e a semana ficaria torta.
 
     Args:
-        momento: instante a converter. Se ``None``, usa o agora.
+        momento: instante a converter. Se ``None``, usa o agora. Quando
+            informado, **precisa ser timezone-aware** — um ``datetime`` naive
+            é interpretado por ``astimezone()`` como estando no fuso local do
+            sistema operacional, não em UTC, e o resultado sai errado em
+            silêncio num host configurado num fuso diferente. Nenhum call
+            site atual passa ``momento``; todos usam o default e caem no
+            ramo ``datetime.now(tz=FUSO)``.
 
     Returns:
         Data local em ``YYYY-MM-DD``.
