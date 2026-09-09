@@ -22,6 +22,8 @@ lento e usa 26x mais memória.
 
 from __future__ import annotations
 
+import threading
+from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -54,3 +56,78 @@ def dia_local(momento: datetime | None = None) -> str:
     """
     referencia = momento.astimezone(FUSO) if momento is not None else datetime.now(tz=FUSO)
     return referencia.strftime("%Y-%m-%d")
+
+
+@dataclass(frozen=True)
+class ChaveUso:
+    """Chave de agregação do tempo de uso."""
+
+    usuario: str
+    dia: str
+    rota: str
+
+
+@dataclass
+class TempoUso:
+    """Segundos acumulados de aba aberta e de uso ativo para uma chave."""
+
+    aberto_s: int = 0
+    ativo_s: int = 0
+
+
+class Acumulador:
+    """Buffer em memória de tempo de uso, agregado por ``ChaveUso``.
+
+    Existe para evitar uma escrita em disco por heartbeat: com 10 pessoas
+    batendo a cada 60 s seriam 4.800 linhas por dia. Acumulando e drenando a
+    cada 5 minutos, caem para cerca de 500.
+    """
+
+    def __init__(self) -> None:
+        self._dados: dict[ChaveUso, TempoUso] = {}
+        self._lock = threading.Lock()
+
+    def registrar(
+        self,
+        usuario: str,
+        rota: str,
+        aberto_s: int,
+        ativo_s: int,
+        dia: str | None = None,
+    ) -> None:
+        """Soma um heartbeat ao balde correspondente.
+
+        Args:
+            usuario: username vindo do ``sub`` do JWT.
+            rota: rota do SPA, já validada contra ``ROTAS_VALIDAS``.
+            aberto_s: segundos com a aba visível desde o último heartbeat.
+            ativo_s: segundos com interação desde o último heartbeat.
+            dia: dia local; se ``None``, calculado na hora.
+        """
+        chave = ChaveUso(usuario=usuario, dia=dia or dia_local(), rota=rota)
+        with self._lock:
+            tempo = self._dados.setdefault(chave, TempoUso())
+            tempo.aberto_s += aberto_s
+            tempo.ativo_s += ativo_s
+
+    def drenar(self) -> dict[ChaveUso, TempoUso]:
+        """Devolve o conteúdo acumulado e esvazia o buffer."""
+        with self._lock:
+            dados = self._dados
+            self._dados = {}
+            return dados
+
+    def espiar(self) -> dict[ChaveUso, TempoUso]:
+        """Cópia do buffer atual, sem esvaziá-lo.
+
+        Usado pelo endpoint ``/api/uso/hoje``: sem isto, o número da sidebar
+        ficaria até 5 minutos atrasado em relação ao relógio do browser.
+        """
+        with self._lock:
+            return {
+                chave: TempoUso(tempo.aberto_s, tempo.ativo_s)
+                for chave, tempo in self._dados.items()
+            }
+
+
+ACUMULADOR = Acumulador()
