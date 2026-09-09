@@ -278,3 +278,35 @@ export interface EntregasResponse {
   resumo: ResumoEntregas;
   entregas: Entrega[];
 }
+
+// ---------- Tempo de uso ----------
+
+export interface UsoHoje {
+  aberto_s: number;
+  ativo_s: number;
+}
+
+export interface UsoDia {
+  dia: string;
+  aberto_s: number;
+  ativo_s: number;
+}
+
+export interface UsoRota {
+  rota: string;
+  aberto_s: number;
+  ativo_s: number;
+}
+
+export type EscalaUso = 'dia' | 'semana' | 'mes';
+
+export interface UsoHistorico {
+  escala: EscalaUso;
+  ref: string;
+  inicio: string;
+  fim: string;
+  total_aberto_s: number;
+  total_ativo_s: number;
+  dias: UsoDia[];
+  rotas: UsoRota[];
+}

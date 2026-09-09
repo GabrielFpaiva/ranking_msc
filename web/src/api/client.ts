@@ -9,6 +9,7 @@ import type {
   ContaDetail,
   ContaList,
   EntregasResponse,
+  EscalaUso,
   Heatmap,
   LogPage,
   PendenciasPage,
@@ -21,6 +22,8 @@ import type {
   ScoreHistory,
   Summary,
   SuperavitData,
+  UsoHistorico,
+  UsoHoje,
 } from '../types';
 
 const BASE = '/api';
@@ -188,6 +191,21 @@ export const api = {
 
   rules: (): Promise<Rule[]> =>
     fetchAuth(`${BASE}/rules`).then((r) => jsonOrThrow<Rule[]>(r)),
+
+  usoHeartbeat: (rota: string, aberto_s: number, ativo_s: number): Promise<void> =>
+    fetchAuth(`${BASE}/uso/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rota, aberto_s, ativo_s }),
+    }).then(() => undefined),
+
+  usoHoje: (): Promise<UsoHoje> =>
+    fetchAuth(`${BASE}/uso/hoje`).then((r) => jsonOrThrow<UsoHoje>(r)),
+
+  usoHistorico: (escala: EscalaUso, ref: string): Promise<UsoHistorico> =>
+    fetchAuth(`${BASE}/uso/historico${qs({ escala, ref })}`).then((r) =>
+      jsonOrThrow<UsoHistorico>(r),
+    ),
 
   rule: (ruleId: string): Promise<RuleDetail> =>
     fetchAuth(`${BASE}/rules/${encodeURIComponent(ruleId)}`).then((r) => jsonOrThrow<RuleDetail>(r)),
