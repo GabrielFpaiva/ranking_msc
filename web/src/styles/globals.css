@@ -483,6 +483,41 @@ a:focus-visible { outline-offset: 2px; }
 .uso-mini-arrow { color: var(--fg-3); font-size: 16px; line-height: 1; flex-shrink: 0; }
 .uso-mini:hover .uso-mini-arrow { color: var(--jp-red); }
 
+/* ===== Tempo de uso — tela "Meu tempo de uso" ===== */
+.uso-escala-chips { display: flex; gap: 8px; }
+.uso-total { font-size: 40px; font-weight: 700; color: var(--fg-1); line-height: 1; margin: 4px 0 20px; }
+.uso-resumo { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.uso-resumo-item {
+  background: var(--bg-canvas); border: 1px solid var(--border-default);
+  border-radius: 10px; padding: 10px 16px; min-width: 110px;
+}
+.uso-resumo-val { font-size: 20px; font-weight: 600; color: var(--fg-1); margin-top: 4px; }
+.uso-grafico { margin-top: 8px; }
+/* Rola horizontalmente em telas estreitas em vez de empurrar a página. */
+.uso-semanas { overflow-x: auto; padding-bottom: 4px; }
+.uso-dias-letras {
+  display: grid; grid-template-columns: repeat(7, 28px); gap: 4px;
+  margin: 8px 0 6px; min-width: fit-content;
+}
+.uso-dia-letra { text-align: center; font-size: 11px; font-weight: 700; color: var(--fg-3); }
+.uso-semana {
+  display: grid; grid-template-columns: repeat(7, 28px); gap: 4px;
+  align-items: end; height: 64px; margin-bottom: 4px; min-width: fit-content;
+}
+.uso-barra-col { display: flex; align-items: flex-end; justify-content: center; height: 100%; }
+.uso-barra-col-vazia { visibility: hidden; }
+.uso-barra { width: 16px; border-radius: 3px 3px 0 0; background: var(--jp-red); min-height: 3px; }
+.uso-barra-vestigial { background: var(--border-default); }
+.uso-rotas { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.uso-rota-row { display: grid; grid-template-columns: 160px 1fr 70px; align-items: center; gap: 12px; padding: 6px 4px; }
+.uso-rota-nome {
+  color: var(--fg-1); font-family: var(--font-display); font-size: 15px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.uso-rota-track { height: 8px; background: var(--bg-sunken); border-radius: 4px; overflow: hidden; }
+.uso-rota-fill { height: 100%; border-radius: 4px; background: var(--jp-red); }
+.uso-rota-tempo { font-weight: 700; text-align: right; color: var(--fg-1); }
+
 /* ===== Responsividade ===== */
 
 /* Notebook médio: sidebar colapsa para ícones, conteúdo ganha espaço */

@@ -6,7 +6,9 @@ import { ApiError, api } from '../api/client';
 import { useMCRA } from '../store/useMCRA';
 import type { Competencia } from '../types';
 
-const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
+// Exportado: `MeuTempo` reaproveita os títulos por extenso das rotas para
+// rotular "Por tela" — evita duplicar o mesmo mapa rota → nome amigável.
+export const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
   '/inicio': { breadcrumb: 'Análise', title: 'Início' },
   '/pendencias': { breadcrumb: 'Análise', title: 'Pendências' },
   '/caixa': { breadcrumb: 'Contas', title: 'Caixa' },
@@ -17,6 +19,7 @@ const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }> = {
   '/entregas': { breadcrumb: 'Visões', title: 'Entregas' },
   '/regras': { breadcrumb: 'Referência', title: 'Regras' },
   '/execucao': { breadcrumb: 'Referência', title: 'Execução' },
+  '/uso': { breadcrumb: 'Minha conta', title: 'Meu tempo de uso' },
 };
 
 interface TopBarProps {
@@ -104,48 +107,54 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
         </div>
       </div>
       <div className="samid-topbar-actions">
-        {exportError && (
-          <span className="samid-topbar-export-error" role="alert">
-            {exportError}
-          </span>
-        )}
-        <div className="samid-competencia">
-          <div className="samid-competencia-lbl">
-            {siconfi ? `ENTE ${siconfi}` : 'COMPETÊNCIA'}
-          </div>
-          {siconfi && competencia ? (
-            <select
-              className="samid-select samid-competencia-select"
-              aria-label="Trocar competência"
-              value={competencia}
-              onChange={(e) => setCurrent(siconfi, e.target.value)}
+        {/* "Meu tempo de uso" não tem competência nem exportação — o seletor
+            de período dela é interno ao card, não acoplado à TopBar. */}
+        {pathname !== '/uso' && (
+          <>
+            {exportError && (
+              <span className="samid-topbar-export-error" role="alert">
+                {exportError}
+              </span>
+            )}
+            <div className="samid-competencia">
+              <div className="samid-competencia-lbl">
+                {siconfi ? `ENTE ${siconfi}` : 'COMPETÊNCIA'}
+              </div>
+              {siconfi && competencia ? (
+                <select
+                  className="samid-select samid-competencia-select"
+                  aria-label="Trocar competência"
+                  value={competencia}
+                  onChange={(e) => setCurrent(siconfi, e.target.value)}
+                >
+                  {competenciaOptions.map((mes) => (
+                    <option key={mes} value={mes}>
+                      {mes}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="samid-competencia-val">{competencia ?? '—'}</div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="samid-btn samid-btn-ghost"
+              disabled={!hasSelection || exportBusy !== null}
+              onClick={() => triggerExport('excel')}
             >
-              {competenciaOptions.map((mes) => (
-                <option key={mes} value={mes}>
-                  {mes}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="samid-competencia-val">{competencia ?? '—'}</div>
-          )}
-        </div>
-        <button
-          type="button"
-          className="samid-btn samid-btn-ghost"
-          disabled={!hasSelection || exportBusy !== null}
-          onClick={() => triggerExport('excel')}
-        >
-          {exportBusy === 'excel' ? 'Gerando…' : 'Excel'}
-        </button>
-        <button
-          type="button"
-          className="samid-btn samid-btn-gold"
-          disabled={!hasSelection || exportBusy !== null}
-          onClick={() => triggerExport('pdf')}
-        >
-          {exportBusy === 'pdf' ? 'Gerando…' : 'Exportar PDF'}
-        </button>
+              {exportBusy === 'excel' ? 'Gerando…' : 'Excel'}
+            </button>
+            <button
+              type="button"
+              className="samid-btn samid-btn-gold"
+              disabled={!hasSelection || exportBusy !== null}
+              onClick={() => triggerExport('pdf')}
+            >
+              {exportBusy === 'pdf' ? 'Gerando…' : 'Exportar PDF'}
+            </button>
+          </>
+        )}
       </div>
     </header>
   );
