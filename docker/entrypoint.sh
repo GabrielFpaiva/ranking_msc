@@ -13,6 +13,6 @@ if [ -n "${RANKING_MSC_ADMIN_USERNAME:-}" ] && [ -n "${RANKING_MSC_ADMIN_PASSWOR
     --password-env RANKING_MSC_ADMIN_PASSWORD
 fi
 
-mkdir -p data/snapshots data/reports data/logs
+mkdir -p data/snapshots data/reports data/logs data/uso
 
 exec python -m uvicorn app.api.main:app --host 0.0.0.0 --port "${PORT:-8000}"
