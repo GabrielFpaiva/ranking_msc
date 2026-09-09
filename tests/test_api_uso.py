@@ -82,3 +82,28 @@ class TestHeartbeat:
             json={"rota": "/caixa", "aberto_s": -60, "ativo_s": -60},
         )
         assert resposta.status_code == 422
+
+
+class TestUsoHoje:
+    def test_sem_uso_retorna_zeros(self) -> None:
+        """Usuário que nunca abriu o app não quebra a sidebar."""
+        resposta = client.get("/api/uso/hoje")
+        assert resposta.status_code == 200
+        assert resposta.json() == {"aberto_s": 0, "ativo_s": 0}
+
+    def test_soma_o_buffer_ainda_nao_gravado(self) -> None:
+        """O número da sidebar não pode ficar 5 minutos atrasado esperando o flush."""
+        client.post(
+            "/api/uso/heartbeat",
+            json={"rota": "/caixa", "aberto_s": 60, "ativo_s": 45},
+        )
+        client.post(
+            "/api/uso/heartbeat",
+            json={"rota": "/regras", "aberto_s": 30, "ativo_s": 20},
+        )
+
+        corpo = client.get("/api/uso/hoje").json()
+        assert corpo["aberto_s"] == 90
+        assert corpo["ativo_s"] == 65
+
+

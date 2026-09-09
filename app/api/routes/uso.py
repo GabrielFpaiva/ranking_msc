@@ -13,9 +13,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.api.deps import get_current_user
-from app.api.schemas import HeartbeatIn
-from app.api.uso_store import ACUMULADOR, ROTAS_VALIDAS
+from app.api.deps import absolute_uso_dir, get_current_user
+from app.api.schemas import HeartbeatIn, UsoHojeOut
+from app.api.uso_store import ACUMULADOR, ROTAS_VALIDAS, dia_local, ler_mes
 
 router = APIRouter(prefix="/api", tags=["uso"])
 
@@ -47,3 +47,28 @@ def post_heartbeat(
         ativo_s=payload.ativo_s,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/uso/hoje",
+    response_model=UsoHojeOut,
+    summary="Totais do dia corrente para o usuário autenticado",
+)
+def get_uso_hoje(usuario: str = Depends(get_current_user)) -> UsoHojeOut:  # noqa: B008
+    """Soma o que já está em disco com o que ainda está no buffer em memória.
+
+    Sem a parcela do buffer, o número mostrado na sidebar ficaria até um ciclo
+    de flush (5 minutos) atrás do relógio que roda no browser.
+    """
+    hoje = dia_local()
+    gravado = ler_mes(absolute_uso_dir(), hoje[:7], usuario)
+
+    aberto_s = sum(tempo.aberto_s for (dia, _), tempo in gravado.items() if dia == hoje)
+    ativo_s = sum(tempo.ativo_s for (dia, _), tempo in gravado.items() if dia == hoje)
+
+    for chave, tempo in ACUMULADOR.espiar().items():
+        if chave.usuario == usuario and chave.dia == hoje:
+            aberto_s += tempo.aberto_s
+            ativo_s += tempo.ativo_s
+
+    return UsoHojeOut(aberto_s=aberto_s, ativo_s=ativo_s)
