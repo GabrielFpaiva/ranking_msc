@@ -1,19 +1,38 @@
-// Tela "Meu tempo de uso" — período selecionável (dia/semana/mês), gráfico
-// diário do mês corrente e detalhamento por tela.
+// Tela "Meu tempo de uso" — período selecionável (dia/semana/mês), navegação
+// por mês ou ano, gráfico do período (calendário do mês ou barras do ano) e
+// detalhamento por tela.
 //
-// Consome GET /api/uso/historico?escala&ref (ver app/api/routes/uso.py). Uma
-// assimetria é intencional e documentada lá: quando o período de `escala`
-// cruza a virada do mês, `total_aberto_s`/`total_ativo_s`/`rotas` incluem os
-// dois lados da fronteira, mas `dias` (o gráfico) cobre só o mês de `ref`. Não
-// "corrigir" isso aqui — o gráfico é visão de mês, os totais são visão de
-// período.
+// Consome GET /api/uso/historico?escala&ref (números do card + "Por tela") e,
+// só na escala "mes", também GET /api/uso/anual?ano (as doze barras do ano).
+// Ver app/api/routes/uso.py para a assimetria intencional: quando o período
+// de `escala` cruza a virada do mês, `total_aberto_s`/`total_ativo_s`/`rotas`
+// incluem os dois lados da fronteira, mas `dias` (o calendário) cobre só o
+// mês de `ref`. Não "corrigir" isso aqui — o gráfico é visão de mês (ou de
+// ano, na escala "mes"), os totais são visão de período.
+//
+// Por que não existe visão de hora do dia: a spec original previa a escala
+// "Dia" mostrando as 24 horas do dia corrente, mas o armazenamento no
+// backend agrega por `(usuário, dia, rota)` — sem granularidade de hora.
+// Mostrar isso exigiria mudar o formato em disco (ver app/api/uso_store.py),
+// o que ficou fora deste trabalho. "Dia" continua existindo como período —
+// números e "Por tela" refletem só aquele dia — mas o gráfico permanece
+// sendo o calendário do mês, com o dia destacado. Não tente "completar" a
+// visão de hora sem antes resolver isso no backend.
 
 import { useEffect, useState } from 'react';
 
 import { ApiError, api } from '../api/client';
 import { ROUTE_TITLES } from '../components/TopBar';
-import { agruparEmSemanas, formatarDuracao, hojeISO, parseDataLocal } from '../format';
-import type { EscalaUso, UsoHistorico } from '../types';
+import {
+  agruparEmSemanas,
+  descricaoJanela,
+  formatarDuracao,
+  hojeISO,
+  janelaSeguinteEhFutura,
+  moverJanela,
+} from '../format';
+import type { DirecaoJanela } from '../format';
+import type { EscalaUso, UsoAnual, UsoDia, UsoHistorico } from '../types';
 
 const ESCALAS: { valor: EscalaUso; rotulo: string }[] = [
   { valor: 'dia', rotulo: 'Dia' },
@@ -26,6 +45,10 @@ const ESCALAS: { valor: EscalaUso; rotulo: string }[] = [
 // iniciais compartilhadas em português) — é o rótulo de calendário usual.
 const LETRAS_DIA_SEMANA = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
+const MESES_ABREV = [
+  'jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez',
+];
+
 /** Formata uma data "YYYY-MM-DD" como "DD/MM" por fatiamento de string — sem
  * passar por `Date`, não há risco de deslocar o dia por fuso (ver
  * `parseDataLocal` em `format.ts` para o caminho que precisa de `Date`). */
@@ -34,16 +57,26 @@ function formatarDataCurta(iso: string): string {
   return `${dia}/${mes}`;
 }
 
-/** "Setembro de 2026" a partir de uma data "YYYY-MM-DD" do próprio mês. */
-function formatarMesAno(iso: string): string {
-  const nome = parseDataLocal(iso).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  return nome.charAt(0).toUpperCase() + nome.slice(1);
+/** Dia do mês (dois dígitos) a partir de "YYYY-MM-DD", por fatiamento. */
+function diaDoMes(iso: string): string {
+  return iso.slice(8, 10);
+}
+
+/** O dia entra no calendário exibido se cair dentro de `[inicio, fim]` do
+ * período — para escala "dia" esse intervalo colapsa no próprio dia, para
+ * "semana" cobre a semana inteira. Comparação de string funciona porque
+ * `YYYY-MM-DD` ordena lexicograficamente igual à ordem cronológica. */
+function estaNoPeriodo(dia: UsoDia, data: UsoHistorico): boolean {
+  return dia.dia >= data.inicio && dia.dia <= data.fim;
 }
 
 export function MeuTempo() {
   const [escala, setEscala] = useState<EscalaUso>('semana');
-  const [ref] = useState<string>(() => hojeISO());
+  const [ref, setRef] = useState<string>(() => hojeISO());
   const [data, setData] = useState<UsoHistorico | null>(null);
+  const [anual, setAnual] = useState<UsoAnual | null>(null);
+  const [anualError, setAnualError] = useState<string | null>(null);
+  const [tentativaAnual, setTentativaAnual] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -59,8 +92,8 @@ export function MeuTempo() {
       .catch((err: unknown) => {
         if (!cancelado) {
           // Descarta o resultado anterior — mesma razão de Entregas.tsx:
-          // sem isto, uma falha ao trocar de escala deixaria os chips na
-          // escala nova mas os números na escala antiga.
+          // sem isto, uma falha ao trocar de escala ou navegar deixaria os
+          // controles no valor novo mas os números no período antigo.
           setData(null);
           setError(err instanceof ApiError ? err.userMessage : 'Erro ao carregar o tempo de uso.');
         }
@@ -73,12 +106,51 @@ export function MeuTempo() {
     };
   }, [escala, ref]);
 
+  // Só a escala "mes" troca o gráfico de calendário do mês para as doze
+  // barras do ano — busca separada do efeito acima: o card de números e o
+  // "Por tela" têm seu próprio erro (banner principal), e uma falha aqui não
+  // pode arrastar o resto da tela. Mas "não travar a tela" não é o mesmo que
+  // "não dizer nada": sem um estado de falha próprio, uma requisição que
+  // nunca resolve fica presa em "Carregando gráfico…" para sempre — o tipo
+  // de coisa que vira chamado de suporte dizendo que a tela travou. Por isso
+  // o gráfico guarda seu próprio `anualError`, mostrado só ali, sem banner.
+  useEffect(() => {
+    if (escala !== 'mes') {
+      setAnual(null);
+      setAnualError(null);
+      return;
+    }
+    let cancelado = false;
+    setAnualError(null);
+    const ano = Number(ref.slice(0, 4));
+    api
+      .usoAnual(ano)
+      .then((resposta) => {
+        if (!cancelado) setAnual(resposta);
+      })
+      .catch(() => {
+        if (!cancelado) {
+          setAnual(null);
+          setAnualError('Não foi possível carregar o gráfico do ano.');
+        }
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [escala, ref, tentativaAnual]);
+
   const semanas = data ? agruparEmSemanas(data.dias) : [];
   const maxDia = data ? Math.max(1, ...data.dias.map((d) => d.aberto_s)) : 1;
+  const maxMesDoAno = anual ? Math.max(1, ...anual.meses.map((m) => m.aberto_s)) : 1;
   const maxRota =
     data && data.rotas.length > 0 ? Math.max(1, ...data.rotas.map((r) => r.aberto_s)) : 1;
   const ociosoS = data ? Math.max(0, data.total_aberto_s - data.total_ativo_s) : 0;
-  const nomeMes = data && data.dias.length > 0 ? formatarMesAno(data.dias[0].dia) : '';
+  const proximaEhFutura = janelaSeguinteEhFutura(escala, ref);
+  const mesDoRef = ref.slice(0, 7);
+
+  function navegar(direcao: DirecaoJanela): void {
+    setRef((atual) => moverJanela(escala, atual, direcao));
+  }
 
   return (
     <div className="samid-stack">
@@ -140,43 +212,119 @@ export function MeuTempo() {
             </div>
 
             <div className="uso-grafico">
-              <div className="samid-eyebrow" style={{ marginTop: 24 }}>
-                {nomeMes}
+              <div className="uso-grafico-nav">
+                <button
+                  type="button"
+                  className="uso-nav-btn"
+                  aria-label="Período anterior"
+                  onClick={() => navegar(-1)}
+                >
+                  ‹
+                </button>
+                <div className="samid-eyebrow">{descricaoJanela(escala, ref)}</div>
+                <button
+                  type="button"
+                  className="uso-nav-btn"
+                  aria-label="Próximo período"
+                  disabled={proximaEhFutura}
+                  onClick={() => navegar(1)}
+                >
+                  ›
+                </button>
               </div>
-              <div className="uso-semanas" data-testid="uso-semanas">
-                <div className="uso-dias-letras" aria-hidden>
-                  {LETRAS_DIA_SEMANA.map((letra, i) => (
-                    <span key={i} className="uso-dia-letra">
-                      {letra}
-                    </span>
-                  ))}
-                </div>
-                {semanas.map((semana, i) => (
-                  <div key={i} className="uso-semana">
-                    {semana.map((dia, j) =>
-                      dia ? (
-                        <div
-                          key={j}
-                          className="uso-barra-col"
-                          title={`${formatarDataCurta(dia.dia)} — ${formatarDuracao(dia.aberto_s)}`}
-                        >
+
+              {escala === 'mes' ? (
+                anualError ? (
+                  <div className="uso-ano-falha">
+                    <p>{anualError}</p>
+                    <button
+                      type="button"
+                      className="uso-ano-retry"
+                      onClick={() => setTentativaAnual((n) => n + 1)}
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                ) : anual ? (
+                  <div className="uso-ano-grafico" data-testid="uso-ano-grafico">
+                    {anual.meses.map((m) => (
+                      <div
+                        key={m.mes}
+                        className="uso-ano-col"
+                        title={`${MESES_ABREV[Number(m.mes.slice(5, 7)) - 1]} — ${formatarDuracao(m.aberto_s)}`}
+                      >
+                        <div className="uso-ano-barra-track">
                           <div
-                            className={`uso-barra${dia.aberto_s === 0 ? ' uso-barra-vestigial' : ''}`}
+                            className={`uso-ano-barra${m.mes === mesDoRef ? ' uso-barra-destaque' : ''}${
+                              m.aberto_s === 0 ? ' uso-barra-vestigial' : ''
+                            }`}
                             style={{
                               height:
-                                dia.aberto_s === 0
-                                  ? '6%'
-                                  : `${Math.max(4, (dia.aberto_s / maxDia) * 100)}%`,
+                                m.aberto_s === 0 ? '6%' : `${Math.max(4, (m.aberto_s / maxMesDoAno) * 100)}%`,
                             }}
                           />
                         </div>
-                      ) : (
-                        <div key={j} className="uso-barra-col uso-barra-col-vazia" />
-                      ),
-                    )}
+                        <span className="uso-ano-mes-lbl">
+                          {MESES_ABREV[Number(m.mes.slice(5, 7)) - 1]}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                ) : (
+                  <p className="samid-muted">Carregando gráfico…</p>
+                )
+              ) : (
+                <div className="uso-semanas" data-testid="uso-semanas">
+                  <div className="uso-dias-letras" aria-hidden>
+                    {LETRAS_DIA_SEMANA.map((letra, i) => (
+                      <span key={i} className="uso-dia-letra">
+                        {letra}
+                      </span>
+                    ))}
+                  </div>
+                  {semanas.map((semana, i) => {
+                    const diasReais = semana.filter((d): d is UsoDia => d !== null);
+                    const somaSemana = diasReais.reduce((soma, d) => soma + d.aberto_s, 0);
+                    return (
+                      <div key={i} className="uso-semana-bloco">
+                        <div className="uso-semana">
+                          {semana.map((dia, j) =>
+                            dia ? (
+                              <div
+                                key={j}
+                                className={`uso-barra-col${estaNoPeriodo(dia, data) ? ' uso-barra-col-destaque' : ''}`}
+                                title={`${formatarDataCurta(dia.dia)} — ${formatarDuracao(dia.aberto_s)}`}
+                              >
+                                <div
+                                  className={`uso-barra${estaNoPeriodo(dia, data) ? ' uso-barra-destaque' : ''}${
+                                    dia.aberto_s === 0 ? ' uso-barra-vestigial' : ''
+                                  }`}
+                                  style={{
+                                    height:
+                                      dia.aberto_s === 0
+                                        ? '6%'
+                                        : `${Math.max(4, (dia.aberto_s / maxDia) * 100)}%`,
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div key={j} className="uso-barra-col uso-barra-col-vazia" />
+                            ),
+                          )}
+                        </div>
+                        {diasReais.length > 0 && (
+                          <div className="uso-semana-rodape">
+                            <span className="uso-semana-intervalo">
+                              {diaDoMes(diasReais[0].dia)} – {diaDoMes(diasReais[diasReais.length - 1].dia)}
+                            </span>
+                            <span className="mono uso-semana-total">{formatarDuracao(somaSemana)}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </>
         )}

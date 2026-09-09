@@ -493,21 +493,79 @@ a:focus-visible { outline-offset: 2px; }
 }
 .uso-resumo-val { font-size: 20px; font-weight: 600; color: var(--fg-1); margin-top: 4px; }
 .uso-grafico { margin-top: 8px; }
+.uso-grafico-nav {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  margin: 24px 0 10px;
+}
+.uso-nav-btn {
+  width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border-default);
+  background: var(--bg-canvas); color: var(--fg-2); font-size: 16px; line-height: 1;
+  cursor: pointer; transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.uso-nav-btn:hover:not(:disabled) { border-color: var(--jp-red); color: var(--jp-red); }
+.uso-nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 /* Rola horizontalmente em telas estreitas em vez de empurrar a página. */
 .uso-semanas { overflow-x: auto; padding-bottom: 4px; }
 .uso-dias-letras {
   display: grid; grid-template-columns: repeat(7, 28px); gap: 4px;
-  margin: 8px 0 6px; min-width: fit-content;
+  margin: 0 0 6px; min-width: fit-content;
 }
 .uso-dia-letra { text-align: center; font-size: 11px; font-weight: 700; color: var(--fg-3); }
+.uso-semana-bloco { margin-bottom: 10px; min-width: fit-content; }
 .uso-semana {
   display: grid; grid-template-columns: repeat(7, 28px); gap: 4px;
-  align-items: end; height: 64px; margin-bottom: 4px; min-width: fit-content;
+  align-items: end; height: 64px;
 }
-.uso-barra-col { display: flex; align-items: flex-end; justify-content: center; height: 100%; }
+.uso-barra-col { display: flex; align-items: flex-end; justify-content: center; height: 100%; border-radius: 6px; }
 .uso-barra-col-vazia { visibility: hidden; }
-.uso-barra { width: 16px; border-radius: 3px 3px 0 0; background: var(--jp-red); min-height: 3px; }
-.uso-barra-vestigial { background: var(--border-default); }
+/* Fundo de coluna destacada (semana/dia do ref, no calendário mensal): tom
+   claro da marca — a mesma combinação de `.uso-mini.active` (fundo claro +
+   acento vermelho sólido no conteúdo), já usada no rodapé da sidebar. */
+.uso-barra-col-destaque { background: var(--jp-red-lt); }
+/* Sem destaque nem uso: tom claro da marca. Dias/meses sem uso e o mês/dia
+   destacado têm modificadores próprios abaixo, que precisam vencer este. */
+.uso-barra { width: 16px; border-radius: 3px 3px 0 0; background: var(--jp-red-lt); min-height: 3px; }
+/* Seletores compostos (não só isolados) para vencer `.uso-ano-barra` na
+   cascata não importa a ordem no arquivo — mesma especificidade de outro
+   modo. A regra com as duas classes juntas garante que "sem uso" vence
+   "destacado" quando um dia destacado não teve uso (não faz sentido pintar
+   de vermelho sólido uma barra de altura vestigial). */
+.uso-barra.uso-barra-vestigial,
+.uso-ano-barra.uso-barra-vestigial { background: var(--border-subtle); }
+.uso-barra.uso-barra-destaque,
+.uso-ano-barra.uso-barra-destaque { background: var(--jp-red); }
+.uso-barra.uso-barra-destaque.uso-barra-vestigial,
+.uso-ano-barra.uso-barra-destaque.uso-barra-vestigial { background: var(--border-subtle); }
+.uso-semana-rodape {
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--border-default); margin-top: 4px; padding-top: 4px;
+  width: 100%;
+}
+.uso-semana-intervalo { font-size: 12px; color: var(--fg-3); }
+.uso-semana-total { font-size: 13px; font-weight: 700; color: var(--fg-1); }
+/* Barras anuais (escala "mes"): mesma ideia das barras diárias, uma coluna
+   por mês do ano, com rótulo abreviado embaixo. */
+.uso-ano-grafico {
+  display: flex; align-items: end; gap: 10px; height: 120px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+.uso-ano-col { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 28px; height: 100%; }
+.uso-ano-barra-track { flex: 1; display: flex; align-items: flex-end; }
+.uso-ano-barra { width: 20px; border-radius: 3px 3px 0 0; background: var(--jp-red-lt); min-height: 3px; }
+.uso-ano-mes-lbl { font-size: 11px; font-weight: 700; color: var(--fg-3); text-transform: uppercase; }
+/* Estado de falha do gráfico anual — contido, sem banner: uma falha no
+   gráfico secundário não pode ler como a tela inteira quebrada, mas também
+   não pode ficar em "Carregando…" para sempre (isso é pior que um erro
+   visível — vira chamado de suporte). */
+.uso-ano-falha { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 0 4px; }
+.uso-ano-falha p { margin: 0; font-size: 14px; color: var(--samid-erro); }
+.uso-ano-retry {
+  border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--fg-2);
+  border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: var(--font-display);
+  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.uso-ano-retry:hover { border-color: var(--jp-red); color: var(--jp-red); }
 .uso-rotas { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .uso-rota-row { display: grid; grid-template-columns: 160px 1fr 70px; align-items: center; gap: 12px; padding: 6px 4px; }
 .uso-rota-nome {
