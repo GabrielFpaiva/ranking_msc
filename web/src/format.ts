@@ -28,6 +28,56 @@ export function formatarDuracao(segundos: number): string {
 }
 
 /**
+ * Distribui um `total` inteiro entre `pesos` proporcionalmente, garantindo
+ * que a soma dos resultados seja **exatamente** `total` — método do maior
+ * resto (Hare-Niemeyer): a fração exata de cada peso é arredondada para
+ * baixo, e o que falta para fechar `total` vai, uma unidade de cada vez,
+ * para quem descartou a maior fração ao arredondar.
+ *
+ * Existe porque formatar cada parte isoladamente — segundos → minutos
+ * (`formatarDuracao`), segundos → percentual — trunca cada uma para baixo de
+ * forma independente. Numa lista de onze rotas, cada `formatarDuracao`
+ * descarta até 59s; a soma dos minutos exibidos fica visivelmente abaixo do
+ * total exibido, e os percentuais exibidos somam algo como 99%, não 100 —
+ * mesmo com o dado por baixo exato. Num sistema de conferência contábil,
+ * uma coluna que não fecha derruba a confiança na tela inteira. Ver "Por
+ * tela" em `MeuTempo.tsx`, que usa esta função tanto para os minutos quanto
+ * para os percentuais exibidos.
+ *
+ * `pesos` não precisa somar `total` nem ser inteiro — a proporção de cada
+ * peso é calculada sobre a soma de `pesos`, não sobre `total`. `total` deve
+ * ser um inteiro não negativo (é o alvo da soma, não mais um peso).
+ *
+ * Casos degenerados devolvem só zeros, nunca `NaN`: `total <= 0` (nada para
+ * distribuir) e soma de `pesos` <= 0 (nenhuma base de proporção — não tem
+ * como ratear um total positivo entre pesos todos nulos; não deveria
+ * acontecer com dados reais desta tela, já que os pesos vêm de partes que
+ * somam ao próprio `total`, mas o guard evita divisão por zero se algum dia
+ * acontecer).
+ */
+export function distribuirMaiorResto(pesos: number[], total: number): number[] {
+  const somaPesos = pesos.reduce((soma, peso) => soma + peso, 0);
+  if (total <= 0 || somaPesos <= 0) return pesos.map(() => 0);
+
+  const exatos = pesos.map((peso) => (peso / somaPesos) * total);
+  const base = exatos.map((valor) => Math.floor(valor));
+  const somaBase = base.reduce((soma, valor) => soma + valor, 0);
+  let falta = total - somaBase;
+
+  // Maior resto primeiro — quem mais perdeu ao arredondar pra baixo é quem
+  // mais "merece" a unidade inteira que sobrou.
+  const ordemPorResto = exatos
+    .map((valor, indice) => ({ indice, resto: valor - base[indice] }))
+    .sort((a, b) => b.resto - a.resto);
+
+  const resultado = [...base];
+  for (let k = 0; k < ordemPorResto.length && falta > 0; k++, falta--) {
+    resultado[ordemPorResto[k].indice] += 1;
+  }
+  return resultado;
+}
+
+/**
  * Interpreta uma data "YYYY-MM-DD" como meia-noite local, nunca UTC.
  *
  * `new Date("2026-09-01")` é tratado pelo motor JS como meia-noite UTC. Num

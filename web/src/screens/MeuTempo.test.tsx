@@ -56,8 +56,8 @@ const BASE: UsoHistorico = {
   total_ativo_s: 5400, // 1h30 — ocioso = 1800s = 30m
   dias: mesFixo(),
   rotas: [
-    { rota: '/inicio', aberto_s: 5000, ativo_s: 4000 }, // 1h23
-    { rota: '/pendencias', aberto_s: 2200, ativo_s: 1400 }, // 36m
+    { rota: '/inicio', aberto_s: 5000, ativo_s: 4000 }, // 1h23 (83min)
+    { rota: '/pendencias', aberto_s: 2200, ativo_s: 1400 }, // 36,67min "sozinho" — 37m exibido (ver testes)
   ],
 };
 
@@ -93,22 +93,43 @@ describe('MeuTempo', () => {
     expect(screen.getByTestId('uso-ocioso').textContent).toBe('30m');
 
     // "Por tela": nome amigável (via ROUTE_TITLES) + tempo formatado.
+    // /inicio = 5000s = 83,33min exibidos (1h23, sem resto a distribuir).
+    // /pendencias = 2200s = 36,67min "sozinho", mas a distribuição por maior
+    // resto dá a ele o minuto que sobra (83 + 36 = 119 ≠ 120 = total exibido)
+    // — por isso 37m aqui, não os 36m que `formatarDuracao(2200)` daria
+    // isolado. Ver `distribuirMaiorResto` em format.ts.
     expect(screen.getByText('Início')).toBeTruthy();
     expect(screen.getByText('1h23')).toBeTruthy();
     expect(screen.getByText('Pendências')).toBeTruthy();
-    expect(screen.getByText('36m')).toBeTruthy();
+    expect(screen.getByText('37m')).toBeTruthy();
   });
 
-  it('"Por tela" mostra o percentual de cada rota e uma entrada "Total"', async () => {
+  it('"Por tela" mostra o percentual de cada rota e uma entrada "Total aberto", e as partes fecham com o total', async () => {
     usoHistoricoMock.mockResolvedValue(BASE);
 
-    render(<MeuTempo />);
+    const { container } = render(<MeuTempo />);
     await screen.findByTestId('uso-total');
 
-    // /inicio = 5000/7200 ≈ 69%, /pendencias = 2200/7200 ≈ 31%.
+    // /inicio = 5000/7200 ≈ 69%, /pendencias = 2200/7200 ≈ 31% — somam 100.
     expect(screen.getByText('69%')).toBeTruthy();
     expect(screen.getByText('31%')).toBeTruthy();
-    expect(screen.getByText('Total')).toBeTruthy();
+    // "Total aberto", não só "Total": deixa explícito que a faixa decompõe o
+    // tempo aberto — não deve ser confundida com "Ocioso", exibido ao lado.
+    expect(screen.getByText('Total aberto')).toBeTruthy();
+
+    // As partes exibidas (1h23 = 83min, 37m) somam exatamente o minuto do
+    // total exibido (2h00 = 120min) — 83 + 37 = 120, não 119.
+    const minutos = [...container.querySelectorAll('.uso-legenda-item:not(.uso-legenda-total) .uso-legenda-tempo')]
+      .map((el) => el.textContent ?? '')
+      .map((texto) => {
+        const [h, m] = texto.includes('h') ? texto.split('h') : ['0', texto.replace('m', '')];
+        return Number(h) * 60 + Number(m);
+      });
+    expect(minutos.reduce((soma, m) => soma + m, 0)).toBe(120);
+
+    const percentuais = [...container.querySelectorAll('.uso-legenda-pct')]
+      .map((el) => Number((el.textContent ?? '').replace('%', '')));
+    expect(percentuais.reduce((soma, p) => soma + p, 0)).toBe(100);
   });
 
   it('a coluna do dia com duas rotas empilha um segmento por rota', async () => {

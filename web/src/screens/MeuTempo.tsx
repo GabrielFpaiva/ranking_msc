@@ -32,6 +32,7 @@ import { ROUTE_TITLES } from '../routeTitles';
 import {
   agruparEmSemanas,
   descricaoJanela,
+  distribuirMaiorResto,
   formatarDuracao,
   hojeISO,
   moverPeriodo,
@@ -194,13 +195,6 @@ function montarLegenda(rotas: UsoRota[], paleta: Map<string, string>): EntradaLe
   return entradas;
 }
 
-/** Percentual inteiro de `valor` sobre `total`; "0%" se `total` for zero —
- * evita `NaN%` num período sem uso algum. */
-function formatarPercentual(valor: number, total: number): string {
-  if (total <= 0) return '0%';
-  return `${Math.round((valor / total) * 100)}%`;
-}
-
 export function MeuTempo() {
   const [escala, setEscala] = useState<EscalaUso>('semana');
   const [ref, setRef] = useState<string>(() => hojeISO());
@@ -305,6 +299,17 @@ export function MeuTempo() {
         : [];
   const paletaGrafico = construirPaleta(rankingGrafico);
   const legenda = data ? montarLegenda(data.rotas, paletaGrafico) : [];
+  // "Por tela" precisa fechar: formatar cada entrada isoladamente (segundos
+  // → minutos, segundos → percentual) trunca cada uma pra baixo de forma
+  // independente — a soma dos minutos exibidos fica visivelmente abaixo do
+  // total exibido, e os percentuais exibidos somam 99%, não 100 (ver
+  // `distribuirMaiorResto` em format.ts). Os pesos são os segundos de cada
+  // entrada — já incluindo "Outras" — que juntos somam exatamente
+  // `data.total_aberto_s`, então as duas distribuições fecham certo.
+  const pesosLegenda = legenda.map((item) => item.segundos);
+  const totalMinutosExibido = data ? Math.floor(data.total_aberto_s / 60) : 0;
+  const minutosLegenda = distribuirMaiorResto(pesosLegenda, totalMinutosExibido);
+  const percentuaisLegenda = distribuirMaiorResto(pesosLegenda, 100);
 
   function navegar(direcao: DirecaoJanela): void {
     setRef((atual) => moverPeriodo(escala, atual, direcao));
@@ -615,23 +620,27 @@ export function MeuTempo() {
         )}
         {data && data.rotas.length > 0 && (
           <div className="uso-legenda">
-            {legenda.map((item) => (
+            {legenda.map((item, i) => (
               <div key={item.rota} className="uso-legenda-item">
                 <span className="uso-legenda-dot" style={{ background: item.cor }} />
                 <span className="uso-legenda-corpo">
                   <span className="uso-legenda-nome">{item.nome}</span>
                   <span className="uso-legenda-linha2">
-                    <span className="mono uso-legenda-tempo">{formatarDuracao(item.segundos)}</span>
-                    <span className="uso-legenda-pct">
-                      {formatarPercentual(item.segundos, data.total_aberto_s)}
+                    <span className="mono uso-legenda-tempo">
+                      {formatarDuracao(minutosLegenda[i] * 60)}
                     </span>
+                    <span className="uso-legenda-pct">{percentuaisLegenda[i]}%</span>
                   </span>
                 </span>
               </div>
             ))}
+            {/* "Aberto", não só "Total": a tela também mostra "Ocioso" logo
+                acima, e sem dizer do que esta faixa é a decomposição, é fácil
+                tentar reconciliar as duas — são recortes diferentes (tela vs.
+                qualidade do tempo), não deveriam bater. */}
             <div className="uso-legenda-item uso-legenda-total">
               <span className="uso-legenda-corpo">
-                <span className="uso-legenda-nome">Total</span>
+                <span className="uso-legenda-nome">Total aberto</span>
                 <span className="uso-legenda-linha2">
                   <span className="mono uso-legenda-tempo">{formatarDuracao(data.total_aberto_s)}</span>
                 </span>

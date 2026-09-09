@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   agruparEmSemanas,
   descricaoJanela,
+  distribuirMaiorResto,
   formatarDuracao,
   moverPeriodo,
   parseDataLocal,
@@ -26,6 +27,55 @@ describe('formatarDuracao', () => {
 
   it('minutos precisam de zero à esquerda → "1h01"', () => {
     expect(formatarDuracao(3660)).toBe('1h01');
+  });
+});
+
+describe('distribuirMaiorResto', () => {
+  it('as partes somam exatamente o total, num caso com vários restos grandes e empatados', () => {
+    // Sete pesos iguais não dividem 10 exatamente (10/7 ≈ 1,4286) — todo
+    // mundo descarta a mesma fração grande (~0,43) ao arredondar pra baixo.
+    // O empate é resolvido pela ordem original (sort estável): as três
+    // primeiras entradas levam a unidade extra.
+    const resultado = distribuirMaiorResto([1, 1, 1, 1, 1, 1, 1], 10);
+    expect(resultado).toEqual([2, 2, 2, 1, 1, 1, 1]);
+    expect(resultado.reduce((soma, v) => soma + v, 0)).toBe(10);
+  });
+
+  it('os percentuais somam exatamente 100', () => {
+    // Mesmos segundos do caso real que motivou o conserto (soma = 18301s).
+    const pesos = [7200, 5400, 3601, 2100];
+    const resultado = distribuirMaiorResto(pesos, 100);
+    expect(resultado.reduce((soma, v) => soma + v, 0)).toBe(100);
+  });
+
+  it('os minutos exibidos somam exatamente os minutos exibidos do total', () => {
+    const pesos = [7200, 5400, 3601, 2100]; // soma = 18301s
+    const totalMinutosExibido = Math.floor(18301 / 60); // 305
+    const resultado = distribuirMaiorResto(pesos, totalMinutosExibido);
+    expect(resultado.reduce((soma, v) => soma + v, 0)).toBe(totalMinutosExibido);
+  });
+
+  it('uma entrada só recebe o total inteiro', () => {
+    expect(distribuirMaiorResto([12345], 205)).toEqual([205]);
+  });
+
+  it('entradas de valor zero ficam zeradas e não atrapalham a soma', () => {
+    const resultado = distribuirMaiorResto([0, 10, 0, 5], 100);
+    expect(resultado[0]).toBe(0);
+    expect(resultado[2]).toBe(0);
+    expect(resultado.reduce((soma, v) => soma + v, 0)).toBe(100);
+  });
+
+  it('total zero devolve só zeros, sem dividir por zero nem NaN', () => {
+    const resultado = distribuirMaiorResto([10, 20, 30], 0);
+    expect(resultado).toEqual([0, 0, 0]);
+    expect(resultado.some(Number.isNaN)).toBe(false);
+  });
+
+  it('pesos todos zero com total positivo não gera NaN (caso degenerado documentado)', () => {
+    const resultado = distribuirMaiorResto([0, 0, 0], 10);
+    expect(resultado).toEqual([0, 0, 0]);
+    expect(resultado.some(Number.isNaN)).toBe(false);
   });
 });
 
