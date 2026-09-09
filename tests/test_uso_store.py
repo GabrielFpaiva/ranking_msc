@@ -390,3 +390,65 @@ class TestCompactacao:
         assert not (tmp_path / "2026-08.jsonl").exists()
         agregado = ler_mes(tmp_path, "2026-08", "gabriel")
         assert agregado[("2026-08-14", "/caixa")].aberto_s == 900
+
+
+class TestCache:
+    def test_mes_fechado_e_servido_do_cache(self, tmp_path: Path) -> None:
+        """Removido o arquivo, o mês fechado continua respondendo — veio do cache."""
+        from app.api.uso_store import Acumulador, agregado_do_mes, escrever_flush, limpar_cache
+
+        limpar_cache()
+        acc = Acumulador()
+        acc.registrar("gabriel", "/caixa", 300, 200, dia="2026-08-14")
+        escrever_flush(tmp_path, acc.drenar())
+
+        primeiro = agregado_do_mes(tmp_path, "2026-08", "gabriel", ano_mes_corrente="2026-09")
+        assert primeiro[("2026-08-14", "/caixa")].aberto_s == 300
+
+        (tmp_path / "2026-08.jsonl").unlink()
+        segundo = agregado_do_mes(tmp_path, "2026-08", "gabriel", ano_mes_corrente="2026-09")
+        assert segundo[("2026-08-14", "/caixa")].aberto_s == 300
+
+    def test_mes_corrente_nunca_e_cacheado(self, tmp_path: Path) -> None:
+        """O mês em curso ainda recebe escrita — cachear mostraria número velho."""
+        from app.api.uso_store import Acumulador, agregado_do_mes, escrever_flush, limpar_cache
+
+        limpar_cache()
+        acc = Acumulador()
+        acc.registrar("gabriel", "/caixa", 300, 200, dia="2026-09-09")
+        escrever_flush(tmp_path, acc.drenar())
+        agregado_do_mes(tmp_path, "2026-09", "gabriel", ano_mes_corrente="2026-09")
+
+        acc = Acumulador()
+        acc.registrar("gabriel", "/caixa", 100, 50, dia="2026-09-09")
+        escrever_flush(tmp_path, acc.drenar())
+
+        atual = agregado_do_mes(tmp_path, "2026-09", "gabriel", ano_mes_corrente="2026-09")
+        assert atual[("2026-09-09", "/caixa")].aberto_s == 400
+
+    def test_cache_nao_mistura_usuarios(self, tmp_path: Path) -> None:
+        """A chave do cache inclui o usuário."""
+        from app.api.uso_store import Acumulador, agregado_do_mes, escrever_flush, limpar_cache
+
+        limpar_cache()
+        acc = Acumulador()
+        acc.registrar("gabriel", "/caixa", 300, 200, dia="2026-08-14")
+        acc.registrar("maria", "/caixa", 999, 999, dia="2026-08-14")
+        escrever_flush(tmp_path, acc.drenar())
+
+        agregado_do_mes(tmp_path, "2026-08", "gabriel", ano_mes_corrente="2026-09")
+        de_maria = agregado_do_mes(tmp_path, "2026-08", "maria", ano_mes_corrente="2026-09")
+        assert de_maria[("2026-08-14", "/caixa")].aberto_s == 999
+
+    def test_retorno_do_cache_e_a_mesma_referencia_entre_chamadas(self, tmp_path: Path) -> None:
+        """`agregado_do_mes` devolve o dict por referência — quem chama não pode mutar."""
+        from app.api.uso_store import Acumulador, agregado_do_mes, escrever_flush, limpar_cache
+
+        limpar_cache()
+        acc = Acumulador()
+        acc.registrar("gabriel", "/caixa", 300, 200, dia="2026-08-14")
+        escrever_flush(tmp_path, acc.drenar())
+
+        primeiro = agregado_do_mes(tmp_path, "2026-08", "gabriel", ano_mes_corrente="2026-09")
+        segundo = agregado_do_mes(tmp_path, "2026-08", "gabriel", ano_mes_corrente="2026-09")
+        assert primeiro is segundo

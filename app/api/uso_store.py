@@ -108,7 +108,16 @@ class Acumulador:
             rota: rota do SPA, já validada contra ``ROTAS_VALIDAS``.
             aberto_s: segundos com a aba visível desde o último heartbeat.
             ativo_s: segundos com interação desde o último heartbeat.
-            dia: dia local; se ``None``, calculado na hora.
+            dia: dia local; se ``None``, calculado na hora. Existe para testes
+                e para chamadas internas. **Nenhuma rota HTTP pode passar
+                aqui um valor vindo do cliente ou do corpo da requisição** —
+                deixe sempre o default, para que ``dia_local()`` seja avaliado
+                no servidor. Um ``dia`` de um mês já compactado grava o delta
+                num ``.jsonl`` novo ao lado do ``.agg.jsonl`` daquele mês;
+                ``_caminho_mes`` nunca lê esse arquivo (o compactado tem
+                precedência), e a varredura de órfãos da próxima compactação
+                o apaga como se fosse lixo de crash — sem erro, sem log
+                distinguível, dado perdido em silêncio.
         """
         chave = ChaveUso(usuario=usuario, dia=dia or dia_local(), rota=rota)
         with self._lock:
@@ -385,3 +394,72 @@ def compactar_meses_pendentes(uso_dir: Path, ano_mes_corrente: str) -> list[str]
             compactados.append(ano_mes)
 
     return compactados
+
+
+# Cache de meses fechados, keyed por (ano_mes, usuario). Mesmo padrão do
+# load_pcasp() em io/ref_loader.py: cache simples em variável de módulo, sem
+# framework. Só entram meses que não recebem mais escrita.
+#
+# Deliberadamente sem lock próprio. `__setitem__` e `clear()` sobre um dict
+# são atômicos sob o GIL, e a corrida check-then-act entre "chave not in
+# _CACHE_MES" e a escrita em agregado_do_mes é inofensiva: na pior hipótese
+# duas threads leem o mesmo mês fechado ao mesmo tempo e uma escrita
+# sobrescreve a outra — `ler_mes` sobre um mês fechado é idempotente, então
+# as duas leituras dão o mesmo resultado, nunca um dado errado. Dar um lock
+# próprio a este cache criaria aninhamento com o `_LOCK_ARQUIVO` que
+# `ler_mes` adquire — que não é reentrante — e travaria o processo.
+_CACHE_MES: dict[tuple[str, str], dict[tuple[str, str], TempoUso]] = {}
+
+
+def agregado_do_mes(
+    uso_dir: Path,
+    ano_mes: str,
+    usuario: str,
+    ano_mes_corrente: str | None = None,
+) -> dict[tuple[str, str], TempoUso]:
+    """Agregado de um mês para um usuário, com cache para meses fechados.
+
+    Um mês fechado nunca mais muda — foi compactado e passou a ser imutável —
+    então seu agregado pode ser calculado uma vez e reaproveitado. O mês em
+    curso é sempre relido, porque ainda recebe escrita.
+
+    O mapa devolvido é compartilhado: para um mês fechado, é o mesmo objeto
+    guardado em ``_CACHE_MES``, não uma cópia. Quem chama deve tratá-lo como
+    somente leitura — mutar o mapa ou um ``TempoUso`` dele corrompe o cache
+    para toda chamada futura, silenciosamente, e só um restart do servidor
+    recupera.
+
+    Args:
+        uso_dir: diretório de tempo de uso.
+        ano_mes: mês pedido, em ``YYYY-MM``.
+        usuario: username do JWT.
+        ano_mes_corrente: mês em curso; se ``None``, calculado do dia local.
+
+    Returns:
+        Mapa de ``(dia, rota)`` para ``TempoUso``.
+    """
+    corrente = ano_mes_corrente or dia_local()[:7]
+    if ano_mes >= corrente:
+        return ler_mes(uso_dir, ano_mes, usuario)
+
+    chave = (ano_mes, usuario)
+    if chave not in _CACHE_MES:
+        _CACHE_MES[chave] = ler_mes(uso_dir, ano_mes, usuario)
+    return _CACHE_MES[chave]
+
+
+def limpar_cache() -> None:
+    """Esvazia o cache de meses fechados.
+
+    Deve ser chamado depois de toda compactação que produza mudança — isto é,
+    sempre que ``compactar_meses_pendentes`` devolver lista não vazia, já que
+    o arquivo do mês muda de forma (bruto → agregado). Essa fiação ainda não
+    existe no código: é da Task 12. Quem chamar ``compactar_meses_pendentes``
+    é responsável por chamar esta função quando a lista vier não vazia. Se
+    surgir um segundo call site — por exemplo uma ação administrativa de
+    "compactar agora" — e ele esquecer disso, agregados velhos passam a ser
+    servidos do cache em silêncio, sem erro.
+
+    Também usada pelos testes para isolar casos entre si.
+    """
+    _CACHE_MES.clear()
