@@ -535,12 +535,11 @@ class TestAgregadoDoPeriodo:
 
         Semana de 2026-08-31 (segunda) a 2026-09-06 (domingo), com `ref` em
         setembro — o início da semana cai em agosto. `2026-08` é mês fechado
-        (hoje é 2026-09-09) e por isso passa pelo cache — `limpar_cache()`
-        evita que um `tmp_path` de outro teste vaze aqui.
+        (hoje é 2026-09-09) e por isso passa pelo cache — a chave do cache
+        inclui `tmp_path`, então não há necessidade de `limpar_cache()` aqui.
         """
-        from app.api.uso_store import agregado_do_periodo, limpar_cache
+        from app.api.uso_store import agregado_do_periodo
 
-        limpar_cache()
         self._gravar(tmp_path, "2026-08-31", "/caixa", 1000, 800)
         self._gravar(tmp_path, "2026-09-06", "/caixa", 500, 400)
 
@@ -553,9 +552,8 @@ class TestAgregadoDoPeriodo:
 
     def test_semana_que_termina_no_mes_seguinte_traz_os_dois_meses(self, tmp_path: Path) -> None:
         """Espelho do caso acima: `ref` no fim do mês, semana estende para o mês seguinte."""
-        from app.api.uso_store import agregado_do_periodo, limpar_cache
+        from app.api.uso_store import agregado_do_periodo
 
-        limpar_cache()
         self._gravar(tmp_path, "2026-08-31", "/caixa", 1000, 800)
         self._gravar(tmp_path, "2026-09-06", "/caixa", 500, 400)
 
@@ -627,9 +625,8 @@ class TestAgregadoDoPeriodo:
         lê, então isso nunca é exercitado em produção; não é reconfirmado
         aqui para não sugerir que seria seguro fazer.
         """
-        from app.api.uso_store import agregado_do_mes, agregado_do_periodo, limpar_cache
+        from app.api.uso_store import agregado_do_mes, agregado_do_periodo
 
-        limpar_cache()
         self._gravar(tmp_path, "2026-08-14", "/caixa", 300, 200)
 
         cache_direto = agregado_do_mes(tmp_path, "2026-08", "gabriel", ano_mes_corrente="2026-09")

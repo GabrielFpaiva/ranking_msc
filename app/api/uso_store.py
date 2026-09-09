@@ -397,9 +397,17 @@ def compactar_meses_pendentes(uso_dir: Path, ano_mes_corrente: str) -> list[str]
     return compactados
 
 
-# Cache de meses fechados, keyed por (ano_mes, usuario). Mesmo padrão do
-# load_pcasp() em io/ref_loader.py: cache simples em variável de módulo, sem
-# framework. Só entram meses que não recebem mais escrita.
+# Cache de meses fechados, keyed por (uso_dir, ano_mes, usuario). Mesmo
+# padrão do load_pcasp() em io/ref_loader.py: cache simples em variável de
+# módulo, sem framework. Só entram meses que não recebem mais escrita.
+#
+# O diretório entra na chave porque em produção existe um único `uso_dir`,
+# mas nada nesta função impede outro — dois `uso_dir` diferentes com o mesmo
+# mês e usuário compartilhariam entrada sem isso. Já causou um problema real
+# de isolamento entre testes (cada um com seu próprio `tmp_path`, mesmo
+# `ano_mes`/`usuario`) que precisou ser contornado com `limpar_cache()`
+# defensivo espalhado pelos testes; incluir o diretório na chave resolve na
+# raiz, por construção.
 #
 # Deliberadamente sem lock próprio. `__setitem__` e `clear()` sobre um dict
 # são atômicos sob o GIL, e a corrida check-then-act entre "chave not in
@@ -409,7 +417,7 @@ def compactar_meses_pendentes(uso_dir: Path, ano_mes_corrente: str) -> list[str]
 # as duas leituras dão o mesmo resultado, nunca um dado errado. Dar um lock
 # próprio a este cache criaria aninhamento com o `_LOCK_ARQUIVO` que
 # `ler_mes` adquire — que não é reentrante — e travaria o processo.
-_CACHE_MES: dict[tuple[str, str], dict[tuple[str, str], TempoUso]] = {}
+_CACHE_MES: dict[tuple[str, str, str], dict[tuple[str, str], TempoUso]] = {}
 
 
 def agregado_do_mes(
@@ -443,7 +451,7 @@ def agregado_do_mes(
     if ano_mes >= corrente:
         return ler_mes(uso_dir, ano_mes, usuario)
 
-    chave = (ano_mes, usuario)
+    chave = (str(uso_dir), ano_mes, usuario)
     if chave not in _CACHE_MES:
         _CACHE_MES[chave] = ler_mes(uso_dir, ano_mes, usuario)
     return _CACHE_MES[chave]
