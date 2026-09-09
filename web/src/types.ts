@@ -290,6 +290,8 @@ export interface UsoDia {
   dia: string;
   aberto_s: number;
   ativo_s: number;
+  /** rota → segundos de aba aberta naquele dia. Vazio em dia zero-preenchido. */
+  por_rota: Record<string, number>;
 }
 
 export interface UsoRota {
@@ -315,6 +317,8 @@ export interface UsoMes {
   mes: string;
   aberto_s: number;
   ativo_s: number;
+  /** rota → segundos de aba aberta naquele mês. Vazio se o mês não teve uso. */
+  por_rota: Record<string, number>;
 }
 
 export interface UsoAnual {

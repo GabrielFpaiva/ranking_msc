@@ -34,6 +34,92 @@ import {
 import type { DirecaoJanela } from '../format';
 import type { EscalaUso, UsoAnual, UsoDia, UsoHistorico } from '../types';
 
+// ---------------------------------------------------------------------------
+// Paleta por rota — pilha empilhada por tela em cada coluna do gráfico
+// ---------------------------------------------------------------------------
+//
+// Rank 1 (rota mais usada no domínio do gráfico) sempre ganha `--jp-red` —
+// igual ao Screen Time do iPhone reserva a cor de destaque pro topo do
+// ranking. As próximas quatro têm cores dedicadas em tokens.css. Acima de 5
+// nomeadas, o resto vira "Outras": esta é uma ferramenta interna de
+// prefeitura, não um painel de 11 cores, e a maioria dos dias reais tem 1–3
+// rotas com uso que importa visualmente.
+const CORES_RANK = [
+  'var(--uso-cat-1)',
+  'var(--uso-cat-2)',
+  'var(--uso-cat-3)',
+  'var(--uso-cat-4)',
+  'var(--uso-cat-5)',
+];
+const COR_OUTRAS = 'var(--uso-cat-outras)';
+// Chave sintética para o grupo "Outras" — nunca colide com uma rota real, que
+// sempre começa com "/" (ver ROTAS_VALIDAS em app/api/uso_store.py).
+const ROTA_OUTRAS = 'outras';
+
+interface Segmento {
+  rota: string;
+  nome: string;
+  segundos: number;
+  cor: string;
+}
+
+/** Soma os segundos de cada rota ao longo de todas as colunas do gráfico (o
+ * mês inteiro no calendário, o ano inteiro nas doze barras) e devolve as
+ * rotas ordenadas da mais usada para a menos usada.
+ *
+ * Deliberadamente **não** usa `data.rotas` (que é só o total do período de
+ * `escala`) — é o domínio inteiro do gráfico que decide rank e cor, para a
+ * pilha ficar estável coluna a coluna e a cor de uma rota não mudar ao
+ * navegar dentro do mesmo mês/ano. */
+function ordenarRotasPorTotal(colunas: Record<string, number>[]): string[] {
+  const totais = new Map<string, number>();
+  for (const coluna of colunas) {
+    for (const [rota, segundos] of Object.entries(coluna)) {
+      totais.set(rota, (totais.get(rota) ?? 0) + segundos);
+    }
+  }
+  return [...totais.entries()].sort((a, b) => b[1] - a[1]).map(([rota]) => rota);
+}
+
+/** Mapa rota → variável CSS de cor, para as até 5 primeiras posições do
+ * ranking. Rota fora do mapa cai em "Outras" — ver `montarSegmentos`. */
+function construirPaleta(ranking: string[]): Map<string, string> {
+  const paleta = new Map<string, string>();
+  ranking.slice(0, CORES_RANK.length).forEach((rota, i) => paleta.set(rota, CORES_RANK[i]));
+  return paleta;
+}
+
+/** Converte o `por_rota` de uma coluna (um dia ou um mês) em segmentos
+ * empilháveis, já na ordem em que devem entrar no DOM: rank 1 primeiro,
+ * "Outras" por último. Combinado com `flex-direction: column-reverse` em
+ * `.uso-barra-pilha`/`.uso-ano-barra-pilha` (globals.css), isso desenha a
+ * rota mais usada embaixo da pilha. */
+function montarSegmentos(
+  porRota: Record<string, number>,
+  ranking: string[],
+  paleta: Map<string, string>,
+): Segmento[] {
+  const segmentos: Segmento[] = [];
+  for (const rota of ranking.slice(0, paleta.size)) {
+    const segundos = porRota[rota] ?? 0;
+    if (segundos > 0) {
+      segmentos.push({
+        rota,
+        nome: ROUTE_TITLES[rota]?.title ?? rota,
+        segundos,
+        cor: paleta.get(rota)!,
+      });
+    }
+  }
+  const outrasSegundos = Object.entries(porRota)
+    .filter(([rota]) => !paleta.has(rota))
+    .reduce((soma, [, segundos]) => soma + segundos, 0);
+  if (outrasSegundos > 0) {
+    segmentos.push({ rota: ROTA_OUTRAS, nome: 'Outras', segundos: outrasSegundos, cor: COR_OUTRAS });
+  }
+  return segmentos;
+}
+
 const ESCALAS: { valor: EscalaUso; rotulo: string }[] = [
   { valor: 'dia', rotulo: 'Dia' },
   { valor: 'semana', rotulo: 'Semana' },
@@ -148,6 +234,17 @@ export function MeuTempo() {
   const proximaEhFutura = janelaSeguinteEhFutura(escala, ref);
   const mesDoRef = ref.slice(0, 7);
 
+  // Domínio de cores do gráfico: o ano inteiro (doze barras) quando a escala
+  // é "mes" **e** o ano já carregou; caso contrário, o mês inteiro do
+  // calendário — nunca só o período selecionado (ver `ordenarRotasPorTotal`).
+  const rankingGrafico =
+    escala === 'mes' && anual
+      ? ordenarRotasPorTotal(anual.meses.map((m) => m.por_rota))
+      : data
+        ? ordenarRotasPorTotal(data.dias.map((d) => d.por_rota))
+        : [];
+  const paletaGrafico = construirPaleta(rankingGrafico);
+
   function navegar(direcao: DirecaoJanela): void {
     setRef((atual) => moverJanela(escala, atual, direcao));
   }
@@ -255,14 +352,23 @@ export function MeuTempo() {
                       >
                         <div className="uso-ano-barra-track">
                           <div
-                            className={`uso-ano-barra${m.mes === mesDoRef ? ' uso-barra-destaque' : ''}${
-                              m.aberto_s === 0 ? ' uso-barra-vestigial' : ''
-                            }`}
+                            className={`uso-ano-barra-pilha${
+                              m.mes === mesDoRef ? ' uso-ano-barra-pilha-destaque' : ''
+                            }${m.aberto_s === 0 ? ' uso-ano-barra-pilha-vestigial' : ''}`}
                             style={{
                               height:
                                 m.aberto_s === 0 ? '6%' : `${Math.max(4, (m.aberto_s / maxMesDoAno) * 100)}%`,
                             }}
-                          />
+                          >
+                            {montarSegmentos(m.por_rota, rankingGrafico, paletaGrafico).map((seg) => (
+                              <div
+                                key={seg.rota}
+                                className="uso-ano-barra-seg"
+                                style={{ flexGrow: seg.segundos, flexBasis: 0, minHeight: 0, background: seg.cor }}
+                                title={`${seg.nome} — ${formatarDuracao(seg.segundos)}`}
+                              />
+                            ))}
+                          </div>
                         </div>
                         <span className="uso-ano-mes-lbl">
                           {MESES_ABREV[Number(m.mes.slice(5, 7)) - 1]}
@@ -296,16 +402,30 @@ export function MeuTempo() {
                                 title={`${formatarDataCurta(dia.dia)} — ${formatarDuracao(dia.aberto_s)}`}
                               >
                                 <div
-                                  className={`uso-barra${estaNoPeriodo(dia, data) ? ' uso-barra-destaque' : ''}${
-                                    dia.aberto_s === 0 ? ' uso-barra-vestigial' : ''
-                                  }`}
+                                  className={`uso-barra-pilha${
+                                    estaNoPeriodo(dia, data) ? ' uso-barra-pilha-destaque' : ''
+                                  }${dia.aberto_s === 0 ? ' uso-barra-pilha-vestigial' : ''}`}
                                   style={{
                                     height:
                                       dia.aberto_s === 0
                                         ? '6%'
                                         : `${Math.max(4, (dia.aberto_s / maxDia) * 100)}%`,
                                   }}
-                                />
+                                >
+                                  {montarSegmentos(dia.por_rota, rankingGrafico, paletaGrafico).map((seg) => (
+                                    <div
+                                      key={seg.rota}
+                                      className="uso-barra-seg"
+                                      style={{
+                                        flexGrow: seg.segundos,
+                                        flexBasis: 0,
+                                        minHeight: 0,
+                                        background: seg.cor,
+                                      }}
+                                      title={`${seg.nome} — ${formatarDuracao(seg.segundos)}`}
+                                    />
+                                  ))}
+                                </div>
                               </div>
                             ) : (
                               <div key={j} className="uso-barra-col uso-barra-col-vazia" />

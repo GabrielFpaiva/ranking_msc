@@ -49,6 +49,7 @@ function mesCompleto(ano: number, mes: number): UsoDia[] {
       dia: `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`,
       aberto_s: 0,
       ativo_s: 0,
+      por_rota: {},
     };
   });
 }

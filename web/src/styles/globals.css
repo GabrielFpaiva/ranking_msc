@@ -531,20 +531,30 @@ a:focus-visible { outline-offset: 2px; }
    claro da marca — a mesma combinação de `.uso-mini.active` (fundo claro +
    acento vermelho sólido no conteúdo), já usada no rodapé da sidebar. */
 .uso-barra-col-destaque { background: var(--jp-red-lt); }
-/* Sem destaque nem uso: tom claro da marca. Dias/meses sem uso e o mês/dia
-   destacado têm modificadores próprios abaixo, que precisam vencer este. */
-.uso-barra { width: 16px; border-radius: 3px 3px 0 0; background: var(--jp-red-lt); min-height: 3px; }
-/* Seletores compostos (não só isolados) para vencer `.uso-ano-barra` na
-   cascata não importa a ordem no arquivo — mesma especificidade de outro
-   modo. A regra com as duas classes juntas garante que "sem uso" vence
-   "destacado" quando um dia destacado não teve uso (não faz sentido pintar
-   de vermelho sólido uma barra de altura vestigial). */
-.uso-barra.uso-barra-vestigial,
-.uso-ano-barra.uso-barra-vestigial { background: var(--border-subtle); }
-.uso-barra.uso-barra-destaque,
-.uso-ano-barra.uso-barra-destaque { background: var(--jp-red); }
-.uso-barra.uso-barra-destaque.uso-barra-vestigial,
-.uso-ano-barra.uso-barra-destaque.uso-barra-vestigial { background: var(--border-subtle); }
+/* Pilha empilhada por rota — substitui a barra sólida de antes do F6-01.
+   `column-reverse` é o que garante "rota mais usada embaixo": os segmentos
+   entram no DOM na ordem do ranking (rank 1 primeiro — ver `montarSegmentos`
+   em MeuTempo.tsx), e column-reverse desenha o primeiro filho no fundo da
+   pilha. `overflow: hidden` arredonda o topo visível da pilha sem precisar
+   decidir, em JS, qual segmento é "o de cima" — isso muda de coluna pra
+   coluna. O fundo cinza é o que aparece se `por_rota` vier vazio sem o dia
+   estar marcado vestigial (não deveria acontecer, mas não deixa buraco). */
+.uso-barra-pilha {
+  width: 16px; min-height: 3px; border-radius: 3px 3px 0 0; overflow: hidden;
+  display: flex; flex-direction: column-reverse; background: var(--border-subtle);
+}
+.uso-barra-seg { width: 100%; }
+/* Seletor composto para vencer `.uso-ano-barra-pilha` na cascata não importa
+   a ordem no arquivo — mesma especificidade de outro modo. */
+.uso-barra-pilha.uso-barra-pilha-vestigial,
+.uso-ano-barra-pilha.uso-ano-barra-pilha-vestigial { background: var(--border-subtle); }
+/* Destaque (dia/semana do período selecionado, ou mês do ref): como a pilha
+   já carrega as cores reais de cada rota, recolorir tudo de vermelho sólido
+   como antes apagaria essa informação. O contorno marca o destaque sem
+   competir com as cores das fatias — o tom claro do fundo da coluna
+   (`.uso-barra-col-destaque`) já reforça o mesmo sinal. */
+.uso-barra-pilha.uso-barra-pilha-destaque,
+.uso-ano-barra-pilha.uso-ano-barra-pilha-destaque { box-shadow: 0 0 0 1px var(--jp-red) inset; }
 .uso-semana-rodape {
   display: flex; align-items: center; justify-content: space-between;
   border-top: 1px solid var(--border-default); margin-top: 4px; padding-top: 4px;
@@ -560,7 +570,13 @@ a:focus-visible { outline-offset: 2px; }
 }
 .uso-ano-col { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 28px; height: 100%; }
 .uso-ano-barra-track { flex: 1; display: flex; align-items: flex-end; }
-.uso-ano-barra { width: 20px; border-radius: 3px 3px 0 0; background: var(--jp-red-lt); min-height: 3px; }
+/* Mesma pilha empilhada das barras diárias, só que mais larga — ver
+   `.uso-barra-pilha` acima para a explicação de `column-reverse`. */
+.uso-ano-barra-pilha {
+  width: 20px; min-height: 3px; border-radius: 3px 3px 0 0; overflow: hidden;
+  display: flex; flex-direction: column-reverse; background: var(--border-subtle);
+}
+.uso-ano-barra-seg { width: 100%; }
 .uso-ano-mes-lbl { font-size: 11px; font-weight: 700; color: var(--fg-3); text-transform: uppercase; }
 /* Estado de falha do gráfico anual — contido, sem banner: uma falha no
    gráfico secundário não pode ler como a tela inteira quebrada, mas também

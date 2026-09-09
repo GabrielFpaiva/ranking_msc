@@ -29,16 +29,19 @@ const usoHistoricoMock = vi.mocked(api.usoHistorico);
 const usoAnualMock = vi.mocked(api.usoAnual);
 
 /** Setembro/2026 inteiro, com zeros — mesmo formato que o backend devolve em
- * `dias`. Dois dias da semana 07–13 recebem uso (6h40 cada, somando 13h20)
- * para o teste do total por semana ter um valor não trivial de conferir. */
+ * `dias`. Dois dias da semana 07–13 recebem uso (6h40 cada, somando 13h20),
+ * repartido entre duas rotas, para o teste do total por semana ter um valor
+ * não trivial de conferir e para a pilha ter mais de um segmento. */
 function mesFixo(): UsoDia[] {
   return Array.from({ length: 30 }, (_, i) => {
     const numero = i + 1;
     const aberto_s = numero === 7 || numero === 8 ? 24_000 : 0;
+    const por_rota: Record<string, number> = aberto_s > 0 ? { '/inicio': 18_000, '/pendencias': 6_000 } : {};
     return {
       dia: `2026-09-${String(numero).padStart(2, '0')}`,
       aberto_s,
       ativo_s: aberto_s,
+      por_rota,
     };
   });
 }
@@ -65,6 +68,7 @@ const ANO_FIXTURE: UsoAnual = {
     mes: `2026-${String(i + 1).padStart(2, '0')}`,
     aberto_s: (i + 1) * 1000,
     ativo_s: (i + 1) * 500,
+    por_rota: { '/inicio': (i + 1) * 1000 },
   })),
 };
 
@@ -92,6 +96,18 @@ describe('MeuTempo', () => {
     expect(screen.getByText('1h23')).toBeTruthy();
     expect(screen.getByText('Pendências')).toBeTruthy();
     expect(screen.getByText('36m')).toBeTruthy();
+  });
+
+  it('a coluna do dia com duas rotas empilha um segmento por rota', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    const { container } = render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    // Os dias 07 e 08 têm `por_rota` com duas chaves cada — a pilha daquele
+    // dia deve ter dois `.uso-barra-seg`, um por rota presente.
+    const segmentos = container.querySelectorAll('.uso-barra-pilha .uso-barra-seg');
+    expect(segmentos.length).toBeGreaterThanOrEqual(2);
   });
 
   it('o total por semana aparece com o valor certo, com o intervalo de dias', async () => {
