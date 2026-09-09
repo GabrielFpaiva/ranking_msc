@@ -192,12 +192,19 @@ export const api = {
   rules: (): Promise<Rule[]> =>
     fetchAuth(`${BASE}/rules`).then((r) => jsonOrThrow<Rule[]>(r)),
 
+  // Telemetria de uso: nunca deve interromper o usuário, então a promise
+  // sempre resolve — mas um status não-2xx (ex: payload inválido em dev)
+  // aparece no console em vez de desaparecer em silêncio.
   usoHeartbeat: (rota: string, aberto_s: number, ativo_s: number): Promise<void> =>
     fetchAuth(`${BASE}/uso/heartbeat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rota, aberto_s, ativo_s }),
-    }).then(() => undefined),
+    }).then((r) => {
+      if (!r.ok) {
+        console.warn(`[uso] heartbeat falhou (${r.status}) para rota=${rota}`);
+      }
+    }),
 
   usoHoje: (): Promise<UsoHoje> =>
     fetchAuth(`${BASE}/uso/hoje`).then((r) => jsonOrThrow<UsoHoje>(r)),
