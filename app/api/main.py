@@ -34,6 +34,7 @@ from app.api.routes import run as run_routes
 from app.api.routes import score as score_routes
 from app.api.routes import summary as summary_routes
 from app.api.routes import superavit as superavit_routes
+from app.api.routes import uso as uso_routes
 
 app = FastAPI(
     title="MCRA PMJP API",
@@ -57,6 +58,7 @@ app.include_router(exports_routes.router)
 app.include_router(recommendations_routes.router)
 app.include_router(log_routes.router)
 app.include_router(entregas_routes.router)
+app.include_router(uso_routes.router)
 
 # CORS: liberado para dev (Vite no :5173). Em prod o front é servido pelo
 # próprio FastAPI então same-origin elimina a necessidade.
