@@ -194,3 +194,85 @@ class TestUsoHistorico:
         assert dias_do_payload[-1] == "2026-09-30"
         dia_06 = next(item for item in corpo["dias"] if item["dia"] == "2026-09-06")
         assert dia_06["aberto_s"] == 500
+
+
+class TestFlushDoCicloDeVida:
+    def test_flush_agora_grava_e_esvazia_o_buffer(self) -> None:
+        """A função chamada pelo lifespan drena o acumulador para o disco."""
+        from app.api.deps import absolute_uso_dir
+        from app.api.main import _flush_agora
+        from app.api.uso_store import ACUMULADOR, dia_local
+
+        client.post(
+            "/api/uso/heartbeat",
+            json={"rota": "/caixa", "aberto_s": 60, "ativo_s": 45},
+        )
+        _flush_agora()
+
+        assert ACUMULADOR.espiar() == {}
+        arquivo = absolute_uso_dir() / f"{dia_local()[:7]}.jsonl"
+        assert arquivo.exists()
+        assert "test-user" in arquivo.read_text(encoding="utf-8")
+
+    def test_shutdown_do_testclient_dispara_flush(self) -> None:
+        """Sair do contexto do TestClient encerra o lifespan sem deixar dado no ar."""
+        from app.api.uso_store import ACUMULADOR
+
+        with TestClient(app) as cliente:
+            cliente.post(
+                "/api/uso/heartbeat",
+                json={"rota": "/regras", "aberto_s": 60, "ativo_s": 45},
+            )
+            assert ACUMULADOR.espiar() != {}
+
+        assert ACUMULADOR.espiar() == {}
+
+    def test_ano_mes_corrente_e_lido_antes_de_drenar_o_acumulador(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Trava a ordem exigida: o relógio é lido uma vez, antes do drenar.
+
+        Reproduz por que a ordem importa (ver docstring de `_flush_agora`):
+        se alguém mover a leitura de `dia_local()` para depois de
+        `ACUMULADOR.drenar()` — ou chamá-la de novo depois —, um heartbeat
+        que chegasse entre o drenar e a meia-noite real acabaria carimbado
+        com o mês antigo, mas seria compactado sob um `ano_mes_corrente` já
+        do mês novo; o próximo flush gravaria esse retardatário num
+        `<mes-antigo>.jsonl` novo ao lado do `.agg.jsonl` já compactado
+        daquele mês, que a próxima varredura de compactação apaga como lixo
+        de crash — dado perdido em silêncio, sem exceção e sem log.
+
+        Em vez de tentar reproduzir a corrida de fato (dependeria de cronometrar
+        threads reais na virada do relógio), este teste finge ser um "linter de
+        ordem": instrumenta `dia_local` (como importado em `app.api.main`) e
+        `Acumulador.drenar` para registrar em que ordem são chamados, e exige
+        que `dia_local` apareça exatamente uma vez, antes de `drenar`. Qualquer
+        reordenação futura de `_flush_agora` que viole isso — mover a leitura
+        do relógio para depois do drenar, ou lê-lo de novo depois — quebra
+        esta asserção mesmo sem executar de fato na virada do mês.
+        """
+        from app.api import main as main_module
+        from app.api.uso_store import ACUMULADOR
+
+        ordem: list[str] = []
+
+        dia_local_original = main_module.dia_local
+
+        def dia_local_espiao(*args: object, **kwargs: object) -> str:
+            ordem.append("dia_local")
+            return dia_local_original(*args, **kwargs)  # type: ignore[arg-type]
+
+        classe_acumulador = type(ACUMULADOR)
+        drenar_original = classe_acumulador.drenar
+
+        def drenar_espiao(self: object) -> dict[object, object]:
+            ordem.append("drenar")
+            return drenar_original(self)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(main_module, "dia_local", dia_local_espiao)
+        monkeypatch.setattr(classe_acumulador, "drenar", drenar_espiao)
+
+        main_module._flush_agora()
+
+        assert ordem.count("dia_local") == 1
+        assert ordem.index("dia_local") < ordem.index("drenar")
