@@ -30,11 +30,17 @@ export function useTempoUso(): void {
     const relogio = relogioRef.current;
     if (!relogio) return;
 
-    function enviar(): void {
+    // `manterVivo` só é passado como `true` a partir do handler de
+    // `pagehide` — ver o comentário de `api.usoHeartbeat` em `api/client.ts`
+    // sobre por que esse envio específico precisa de `keepalive` e por que
+    // não é `sendBeacon`. Os demais chamadores (intervalo, visibilitychange,
+    // cleanup de desmontagem — que não é descarregamento de página) seguem
+    // com o `fetch` normal.
+    function enviar(manterVivo = false): void {
       if (!relogio) return;
       relogio.tick(Date.now());
       for (const balde of relogio.colher()) {
-        void api.usoHeartbeat(balde.rota, balde.aberto_s, balde.ativo_s).catch(() => {
+        void api.usoHeartbeat(balde.rota, balde.aberto_s, balde.ativo_s, { manterVivo }).catch(() => {
           // Tempo de uso não é dado crítico: falha de rede não pode virar erro
           // na tela nem bloquear o trabalho. O intervalo perdido é descartado.
         });
@@ -51,12 +57,16 @@ export function useTempoUso(): void {
       if (!visivel) enviar();
     }
 
-    const timer = window.setInterval(enviar, INTERVALO_HEARTBEAT_MS);
+    function aoDescarregar(): void {
+      enviar(true);
+    }
+
+    const timer = window.setInterval(() => enviar(), INTERVALO_HEARTBEAT_MS);
     for (const evento of EVENTOS_DE_INTERACAO) {
       window.addEventListener(evento, aoInteragir, { passive: true });
     }
     document.addEventListener('visibilitychange', aoTrocarVisibilidade);
-    window.addEventListener('pagehide', enviar);
+    window.addEventListener('pagehide', aoDescarregar);
 
     return () => {
       window.clearInterval(timer);
@@ -64,7 +74,7 @@ export function useTempoUso(): void {
         window.removeEventListener(evento, aoInteragir);
       }
       document.removeEventListener('visibilitychange', aoTrocarVisibilidade);
-      window.removeEventListener('pagehide', enviar);
+      window.removeEventListener('pagehide', aoDescarregar);
       enviar();
     };
   }, []);

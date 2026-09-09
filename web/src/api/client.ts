@@ -195,11 +195,28 @@ export const api = {
   // Telemetria de uso: nunca deve interromper o usuário, então a promise
   // sempre resolve — mas um status não-2xx (ex: payload inválido em dev)
   // aparece no console em vez de desaparecer em silêncio.
-  usoHeartbeat: (rota: string, aberto_s: number, ativo_s: number): Promise<void> =>
+  //
+  // `manterVivo` liga `fetch(..., { keepalive: true })` — só para o envio de
+  // saída disparado por `pagehide` (ver useTempoUso.ts). Sem isso, um fetch
+  // iniciado depois que a página começa a descarregar pode ser abortado pelo
+  // browser antes de completar, perdendo o último intervalo. Não é
+  // `navigator.sendBeacon`: `sendBeacon` não aceita header customizado, e
+  // este endpoint exige `Authorization` (JWT) — `keepalive` resolve o mesmo
+  // problema de sobrevivência ao unload sem abrir mão do header. Fica
+  // desligado por padrão porque `keepalive` tem teto de corpo por navegador
+  // (~64kB somados) e o caminho normal (intervalo, `visibilitychange`) não
+  // precisa dessa garantia.
+  usoHeartbeat: (
+    rota: string,
+    aberto_s: number,
+    ativo_s: number,
+    opcoes: { manterVivo?: boolean } = {},
+  ): Promise<void> =>
     fetchAuth(`${BASE}/uso/heartbeat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rota, aberto_s, ativo_s }),
+      ...(opcoes.manterVivo ? { keepalive: true } : {}),
     }).then((r) => {
       if (!r.ok) {
         console.warn(`[uso] heartbeat falhou (${r.status}) para rota=${rota}`);
