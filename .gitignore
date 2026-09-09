@@ -73,3 +73,6 @@ doc/relatorio-maio/
 
 # Claude Code — settings locais do dev
 .claude/settings.local.json
+
+# Visual companion (brainstorming)
+.superpowers/
