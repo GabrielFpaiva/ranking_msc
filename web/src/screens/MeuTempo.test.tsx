@@ -1,19 +1,20 @@
 // Testes da tela "Meu tempo de uso" — carregamento, números do período,
-// detalhamento por tela, navegação de janela (mês/ano) e tratamento de erro.
+// detalhamento por tela, navegação do período selecionado (‹ › e clique
+// direto numa barra/bloco) e tratamento de erro.
 //
 // A fixture de `dias` usa um mês fixo (setembro/2026) sem relação com o
 // `ref` real que `hojeISO()` calcula em tempo de execução — a tela só
 // exibe o que a API devolve em `data.dias`, nunca deriva o mês a partir de
 // `ref` diretamente. Isso evita depender de congelar o relógio do sistema
 // só para este teste. Os testes de navegação (‹ ›) comparam contra o que
-// `moverJanela` calcularia a partir do `ref` real capturado na primeira
+// `moverPeriodo` calcularia a partir do `ref` real capturado na primeira
 // chamada — pela mesma razão.
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { api } from '../api/client';
-import { moverJanela } from '../format';
+import { descricaoJanela, moverPeriodo } from '../format';
 import type { UsoAnual, UsoDia, UsoHistorico } from '../types';
 import { MeuTempo } from './MeuTempo';
 
@@ -203,6 +204,146 @@ describe('MeuTempo', () => {
     });
   });
 
+  it('escala "Mês": clicar numa barra do ano seleciona aquele mês', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+    usoAnualMock.mockResolvedValue(ANO_FIXTURE);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mês' }));
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+
+    // Janeiro de 2026 é passado em relação a "hoje" (setembro/2026) — clicável.
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar jan de 2026' }));
+
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(3));
+    const [escalaChamada, refChamado] = usoHistoricoMock.mock.calls[2];
+    expect(escalaChamada).toBe('mes');
+    expect(refChamado).toBe('2026-01-01');
+  });
+
+  it('escala "Mês": barra de um mês futuro vem desabilitada', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+    usoAnualMock.mockResolvedValue(ANO_FIXTURE);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mês' }));
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+
+    // Dezembro de 2026 é depois de "hoje" (setembro/2026).
+    const botaoFuturo = screen.getByRole('button', { name: 'Selecionar dez de 2026' }) as HTMLButtonElement;
+    expect(botaoFuturo.disabled).toBe(true);
+  });
+
+  it('escala "Semana": clicar num bloco de semana seleciona aquela semana', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    const { container } = render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    // Primeiro bloco do calendário de setembro/2026 (mês começa numa terça) —
+    // primeiro dia real é 01/09, no passado em relação a "hoje" (09/09).
+    const blocos = container.querySelectorAll('.uso-semana-bloco');
+    fireEvent.click(blocos[0]);
+
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+    const [escalaChamada, refChamado] = usoHistoricoMock.mock.calls[1];
+    expect(escalaChamada).toBe('semana');
+    expect(refChamado).toBe('2026-09-01');
+  });
+
+  it('trocar para "Dia" mostra a semana do dia selecionado como uma faixa única', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    const { container } = render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dia' }));
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="uso-dia-grafico"]')).toBeTruthy();
+    });
+
+    // Zoom progressivo: "Dia" mostra a semana (7 colunas esticadas), não o
+    // mês inteiro em blocos — nada de `.uso-semana-bloco` nem de mais de um
+    // rodapé de total.
+    expect(container.querySelectorAll('.uso-dia-col').length).toBe(7);
+    expect(container.querySelectorAll('.uso-semana-bloco').length).toBe(0);
+    expect(container.querySelectorAll('.uso-semana-rodape').length).toBe(1);
+
+    // Semana de 07–13/09, com 6h40 em cada um de dois dias = 13h20 — mesma
+    // conta de "o total por semana aparece com o valor certo" abaixo.
+    expect(screen.getByText('07 – 13')).toBeTruthy();
+    expect(screen.getByText('13h20')).toBeTruthy();
+  });
+
+  it('escala "Dia": o cabeçalho descreve o dia selecionado, não a semana nem o mês', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+    const [, refInicial] = usoHistoricoMock.mock.calls[0];
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dia' }));
+
+    expect(await screen.findByText(descricaoJanela('dia', refInicial))).toBeTruthy();
+  });
+
+  it('escala "Dia": ‹ navega 1 dia por vez, não 1 semana', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dia' }));
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+    const [, refAntesDeNavegar] = usoHistoricoMock.mock.calls[1];
+
+    fireEvent.click(screen.getByRole('button', { name: 'Período anterior' }));
+
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(3));
+    const [escalaChamada, refChamado] = usoHistoricoMock.mock.calls[2];
+    expect(escalaChamada).toBe('dia');
+    expect(refChamado).toBe(moverPeriodo('dia', refAntesDeNavegar, -1));
+  });
+
+  it('escala "Dia": clicar numa barra da semana seleciona aquele dia', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dia' }));
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+
+    // Semana em foco é 07–13/09 (contém 07 e 08, os dias com uso da fixture).
+    // 07/09/2026 é uma terça-feira no passado em relação a "hoje" (09/09) —
+    // clicável.
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar 07/09' }));
+
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(3));
+    const [escalaChamada, refChamado] = usoHistoricoMock.mock.calls[2];
+    expect(escalaChamada).toBe('dia');
+    expect(refChamado).toBe('2026-09-07');
+  });
+
+  it('escala "Dia": barra de um dia futuro vem desabilitada', async () => {
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dia' }));
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+
+    // 13/09/2026 (domingo da semana em foco) é depois de hoje (09/09).
+    const botaoFuturo = screen.getByRole('button', { name: 'Selecionar 13/09' }) as HTMLButtonElement;
+    expect(botaoFuturo.disabled).toBe(true);
+  });
+
   it('falha no gráfico anual mostra mensagem própria, sem travar o resto da tela', async () => {
     const { ApiError } = await import('../api/client');
     usoHistoricoMock.mockResolvedValue(BASE);
@@ -238,7 +379,7 @@ describe('MeuTempo', () => {
     await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
     const [segundaEscala, segundoRef] = usoHistoricoMock.mock.calls[1];
     expect(segundaEscala).toBe(primeiraEscala);
-    expect(segundoRef).toBe(moverJanela(primeiraEscala, primeiroRef, -1));
+    expect(segundoRef).toBe(moverPeriodo(primeiraEscala, primeiroRef, -1));
   });
 
   it('› fica desabilitado na janela corrente (não navega para o futuro)', async () => {

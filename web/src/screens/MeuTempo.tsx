@@ -1,23 +1,29 @@
-// Tela "Meu tempo de uso" — período selecionável (dia/semana/mês), navegação
-// por mês ou ano, gráfico do período (calendário do mês ou barras do ano) e
-// detalhamento por tela.
+// Tela "Meu tempo de uso" — período selecionável (dia/semana/mês) e
+// detalhamento por tela. Os botões ‹ › movem o **período selecionado** por
+// uma unidade da própria escala (um dia, uma semana, um mês — ver
+// `moverPeriodo` em format.ts); o mesmo efeito é alcançado clicando direto
+// numa barra/bloco do gráfico. O gráfico sempre mostra um nível de contexto
+// acima do período selecionado, nunca o período isolado — 7 barras minúsculas
+// pra destacar um único dia não ajudaria ninguém:
+//
+//   escala "dia"    → período = 1 dia    → gráfico = a semana daquele dia
+//   escala "semana" → período = 1 semana → gráfico = o mês daquela semana
+//   escala "mes"    → período = 1 mês    → gráfico = o ano daquele mês
 //
 // Consome GET /api/uso/historico?escala&ref (números do card + "Por tela") e,
 // só na escala "mes", também GET /api/uso/anual?ano (as doze barras do ano).
 // Ver app/api/routes/uso.py para a assimetria intencional: quando o período
 // de `escala` cruza a virada do mês, `total_aberto_s`/`total_ativo_s`/`rotas`
-// incluem os dois lados da fronteira, mas `dias` (o calendário) cobre só o
-// mês de `ref`. Não "corrigir" isso aqui — o gráfico é visão de mês (ou de
-// ano, na escala "mes"), os totais são visão de período.
+// incluem os dois lados da fronteira, mas `dias` (usado para montar o
+// calendário do mês e a semana em foco) cobre só o mês de `ref`. Não
+// "corrigir" isso aqui — o gráfico é visão de contexto, os totais são visão
+// de período.
 //
 // Por que não existe visão de hora do dia: a spec original previa a escala
 // "Dia" mostrando as 24 horas do dia corrente, mas o armazenamento no
 // backend agrega por `(usuário, dia, rota)` — sem granularidade de hora.
 // Mostrar isso exigiria mudar o formato em disco (ver app/api/uso_store.py),
-// o que ficou fora deste trabalho. "Dia" continua existindo como período —
-// números e "Por tela" refletem só aquele dia — mas o gráfico permanece
-// sendo o calendário do mês, com o dia destacado. Não tente "completar" a
-// visão de hora sem antes resolver isso no backend.
+// o que ficou fora deste trabalho.
 
 import { useEffect, useState } from 'react';
 
@@ -28,8 +34,9 @@ import {
   descricaoJanela,
   formatarDuracao,
   hojeISO,
-  janelaSeguinteEhFutura,
-  moverJanela,
+  moverPeriodo,
+  periodoEhFuturo,
+  periodoSeguinteEhFuturo,
 } from '../format';
 import type { DirecaoJanela } from '../format';
 import type { EscalaUso, UsoAnual, UsoDia, UsoHistorico, UsoRota } from '../types';
@@ -267,8 +274,21 @@ export function MeuTempo() {
   const maxDia = data ? Math.max(1, ...data.dias.map((d) => d.aberto_s)) : 1;
   const maxMesDoAno = anual ? Math.max(1, ...anual.meses.map((m) => m.aberto_s)) : 1;
   const ociosoS = data ? Math.max(0, data.total_aberto_s - data.total_ativo_s) : 0;
-  const proximaEhFutura = janelaSeguinteEhFutura(escala, ref);
+  const proximaEhFutura = periodoSeguinteEhFuturo(escala, ref);
   const mesDoRef = ref.slice(0, 7);
+
+  // Zoom progressivo: escala "dia" mostra só a semana que contém `ref`, não
+  // o mês inteiro — 30 barras minúsculas para destacar uma só não ajudava
+  // ninguém. `semanas` já cobre o mês inteiro (dado que já temos, sem nova
+  // requisição); aqui só recortamos o bloco cuja faixa `[inicio, fim]` do
+  // período contém algum dia real — sempre existe um, já que `data.inicio`
+  // cai dentro do mês de `ref` por construção do backend.
+  const semanaFoco: (UsoDia | null)[] =
+    data && escala === 'dia'
+      ? (semanas.find((semana) => semana.some((d) => d !== null && estaNoPeriodo(d, data))) ?? [])
+      : [];
+  const diasReaisFoco = semanaFoco.filter((d): d is UsoDia => d !== null);
+  const somaSemanaFoco = diasReaisFoco.reduce((soma, d) => soma + d.aberto_s, 0);
 
   // Domínio de cores do gráfico: o ano inteiro (doze barras) quando a escala
   // é "mes" **e** o ano já carregou; caso contrário, o mês inteiro do
@@ -287,7 +307,14 @@ export function MeuTempo() {
   const legenda = data ? montarLegenda(data.rotas, paletaGrafico) : [];
 
   function navegar(direcao: DirecaoJanela): void {
-    setRef((atual) => moverJanela(escala, atual, direcao));
+    setRef((atual) => moverPeriodo(escala, atual, direcao));
+  }
+
+  /** Seleciona um período direto — clique numa barra/bloco do gráfico, sem
+   * passar pelos botões ‹ ›. `escala` não muda: só troca qual dia, semana ou
+   * mês está selecionado dentro da escala atual. */
+  function selecionar(novoRef: string): void {
+    setRef(novoRef);
   }
 
   return (
@@ -387,10 +414,17 @@ export function MeuTempo() {
                   </div>
                 ) : anual ? (
                   <div className="uso-ano-grafico" data-testid="uso-ano-grafico">
-                    {anual.meses.map((m) => (
-                      <div
+                    {anual.meses.map((m) => {
+                      const refDoMes = `${m.mes}-01`;
+                      const futuro = periodoEhFuturo('mes', refDoMes);
+                      return (
+                      <button
                         key={m.mes}
+                        type="button"
                         className="uso-ano-col"
+                        disabled={futuro}
+                        onClick={() => selecionar(refDoMes)}
+                        aria-label={`Selecionar ${MESES_ABREV[Number(m.mes.slice(5, 7)) - 1]} de ${m.mes.slice(0, 4)}`}
                         title={`${MESES_ABREV[Number(m.mes.slice(5, 7)) - 1]} — ${formatarDuracao(m.aberto_s)}`}
                       >
                         <div className="uso-ano-barra-track">
@@ -407,7 +441,7 @@ export function MeuTempo() {
                               <div
                                 key={seg.rota}
                                 className="uso-ano-barra-seg"
-                                style={{ flexGrow: seg.segundos, flexBasis: 0, minHeight: 0, background: seg.cor }}
+                                style={{ flexGrow: seg.segundos, flexBasis: 0, minHeight: 2, background: seg.cor }}
                                 title={`${seg.nome} — ${formatarDuracao(seg.segundos)}`}
                               />
                             ))}
@@ -416,19 +450,96 @@ export function MeuTempo() {
                         <span className="uso-ano-mes-lbl">
                           {MESES_ABREV[Number(m.mes.slice(5, 7)) - 1]}
                         </span>
-                      </div>
-                    ))}
+                      </button>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="samid-muted">Carregando gráfico…</p>
                 )
+              ) : escala === 'dia' ? (
+                // Uma faixa só, esticada na largura inteira — mesmo
+                // tratamento das doze barras do ano acima (`.uso-ano-*`),
+                // com 7 colunas no lugar de 12. Nada de blocos de semana
+                // aqui: aquele layout é da escala "semana" (mês inteiro).
+                <>
+                  <div className="uso-dia-grafico" data-testid="uso-dia-grafico">
+                    {semanaFoco.map((dia, j) =>
+                      dia ? (
+                        <button
+                          key={j}
+                          type="button"
+                          className={`uso-dia-col${estaNoPeriodo(dia, data) ? ' uso-dia-col-destaque' : ''}`}
+                          disabled={periodoEhFuturo('dia', dia.dia)}
+                          onClick={() => selecionar(dia.dia)}
+                          aria-label={`Selecionar ${formatarDataCurta(dia.dia)}`}
+                          title={`${formatarDataCurta(dia.dia)} — ${formatarDuracao(dia.aberto_s)}`}
+                        >
+                          <div className="uso-dia-barra-track">
+                            <div
+                              className={`uso-barra-pilha${
+                                estaNoPeriodo(dia, data) ? ' uso-barra-pilha-destaque' : ''
+                              }${dia.aberto_s === 0 ? ' uso-barra-pilha-vestigial' : ''}`}
+                              style={{
+                                height:
+                                  dia.aberto_s === 0
+                                    ? '6%'
+                                    : `${Math.max(4, (dia.aberto_s / maxDia) * 100)}%`,
+                              }}
+                            >
+                              {montarSegmentos(dia.por_rota, rankingGrafico, paletaGrafico).map((seg) => (
+                                <div
+                                  key={seg.rota}
+                                  className="uso-barra-seg"
+                                  style={{
+                                    flexGrow: seg.segundos,
+                                    flexBasis: 0,
+                                    minHeight: 2,
+                                    background: seg.cor,
+                                  }}
+                                  title={`${seg.nome} — ${formatarDuracao(seg.segundos)}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <span className="uso-dia-lbl">{LETRAS_DIA_SEMANA[j]}</span>
+                        </button>
+                      ) : (
+                        <div key={j} className="uso-dia-col">
+                          <div className="uso-dia-barra-track" />
+                          <span className="uso-dia-lbl">{LETRAS_DIA_SEMANA[j]}</span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                  {diasReaisFoco.length > 0 && (
+                    <div className="uso-semana-rodape">
+                      <span className="uso-semana-intervalo">
+                        {diaDoMes(diasReaisFoco[0].dia)} – {diaDoMes(diasReaisFoco[diasReaisFoco.length - 1].dia)}
+                      </span>
+                      <span className="mono uso-semana-total">{formatarDuracao(somaSemanaFoco)}</span>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="uso-semanas" data-testid="uso-semanas">
                   {semanas.map((semana, i) => {
                     const diasReais = semana.filter((d): d is UsoDia => d !== null);
                     const somaSemana = diasReais.reduce((soma, d) => soma + d.aberto_s, 0);
+                    // Todo bloco tem pelo menos um dia real por construção de
+                    // `agruparEmSemanas` (só as pontas do mês ganham `null`).
+                    const futuro = periodoEhFuturo('semana', diasReais[0].dia);
                     return (
-                      <div key={i} className="uso-semana-bloco">
+                      <button
+                        key={i}
+                        type="button"
+                        className="uso-semana-bloco"
+                        disabled={futuro}
+                        onClick={() => selecionar(diasReais[0].dia)}
+                        aria-label={`Selecionar semana de ${diaDoMes(diasReais[0].dia)} a ${diaDoMes(
+                          diasReais[diasReais.length - 1].dia,
+                        )}`}
+                      >
                         {/* Eixo de letras por bloco — com as semanas lado a
                             lado (não mais empilhadas), um cabeçalho único
                             acima de tudo não se alinharia com cada grade de
@@ -466,7 +577,7 @@ export function MeuTempo() {
                                       style={{
                                         flexGrow: seg.segundos,
                                         flexBasis: 0,
-                                        minHeight: 0,
+                                        minHeight: 2,
                                         background: seg.cor,
                                       }}
                                       title={`${seg.nome} — ${formatarDuracao(seg.segundos)}`}
@@ -487,7 +598,7 @@ export function MeuTempo() {
                             <span className="mono uso-semana-total">{formatarDuracao(somaSemana)}</span>
                           </div>
                         )}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>

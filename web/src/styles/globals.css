@@ -532,7 +532,29 @@ a:focus-visible { outline-offset: 2px; }
 /* `min-width` evita que, num mês de 6 semanas numa janela estreita, cada
    bloco encolha a ponto de as 7 colunas virarem fios — abaixo disso o
    `overflow-x` do pai assume e passa a rolar. */
-.uso-semana-bloco { flex: 1 1 0; min-width: 170px; }
+/* É um `<button>` (clicar num bloco seleciona aquela semana) — resets pra
+   não herdar aparência de botão do navegador, e cursor/estado de foco de
+   quem é de fato clicável. `disabled` (semana inteiramente futura) volta ao
+   cursor default e apaga o hover, sem exigir uma classe própria. */
+.uso-semana-bloco {
+  flex: 1 1 0; min-width: 170px;
+  background: none; border: none; padding: 6px; margin: 0; font: inherit; color: inherit;
+  text-align: inherit; border-radius: 8px; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.uso-semana-bloco:hover:not(:disabled) { background: var(--bg-sunken); }
+/* Mesmo raciocínio de `.uso-ano-col`: o destaque de cada dia dentro do
+   bloco é `.uso-barra-col-destaque`/`.uso-barra-pilha-destaque`, em
+   elementos internos — o cinza do hover no botão (este elemento) nunca
+   cobre o fundo/contorno deles. Sem bug a corrigir aqui; confirmado nos
+   quatro estados. */
+.uso-semana-bloco:disabled { cursor: default; }
+/* `:focus-visible` (não `:focus`): o anel aparece navegando por teclado, não
+   num clique de mouse — mesmo critério de `.samid-competencia-select` e
+   `.samid-rules-search`. `--shadow-focus` já é o anel de foco do app; aqui
+   ele contorna o bloco inteiro (bem mais largo que os 12px de uma barra),
+   então não precisa de ajuste de raio/deslocamento como as barras abaixo. */
+.uso-semana-bloco:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
 .uso-dias-letras {
   display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
   margin: 0 0 6px;
@@ -556,13 +578,16 @@ a:focus-visible { outline-offset: 2px; }
    decidir, em JS, qual segmento é "o de cima" — isso muda de coluna pra
    coluna. O fundo cinza é o que aparece se `por_rota` vier vazio sem o dia
    estar marcado vestigial (não deveria acontecer, mas não deixa buraco).
-   Largura relativa (não mais 16px fixos): a coluna agora divide o bloco da
-   semana, então a barra engorda numa tela larga — o ponto de tirar as
-   semanas do empilhamento vertical. `max-width` trava o exagero num monitor
-   ultrawide; `min-width` evita sumir quando o bloco é espremido perto do
-   `min-width` de `.uso-semana-bloco`. */
+   Largura travada num traço fino (12px), não um percentual da coluna: a
+   primeira versão fluida (`60%`) parecia certa isolada, mas com a coluna
+   inteira disponível numa tela larga a barra engordava até virar bloco —
+   o oposto do traço esguio, bem espaçado, que a referência (Screen Time)
+   usa. `width: 100%` com `max-width: 12px` deixa a coluna (agora fluida)
+   controlar o espaçamento entre barras, não a espessura de cada uma; a
+   coluna centraliza a barra (`justify-content: center` em `.uso-barra-col`).
+   `min-width` só evita sumir de vez numa coluna absurdamente estreita. */
 .uso-barra-pilha {
-  width: 60%; max-width: 34px; min-width: 8px; min-height: 3px;
+  width: 100%; max-width: 12px; min-width: 6px; min-height: 3px;
   border-radius: 3px 3px 0 0; overflow: hidden;
   display: flex; flex-direction: column-reverse; background: var(--border-subtle);
 }
@@ -585,6 +610,54 @@ a:focus-visible { outline-offset: 2px; }
 }
 .uso-semana-intervalo { font-size: 12px; color: var(--fg-3); }
 .uso-semana-total { font-size: 13px; font-weight: 700; color: var(--fg-1); }
+/* Escala "dia": uma faixa só com as 7 colunas da semana selecionada,
+   esticada na largura inteira — mesmo tratamento das doze barras do ano
+   (`.uso-ano-*` abaixo), só que com menos colunas e por isso cada uma bem
+   mais larga. Altura maior que as barras do ano (120px) de propósito: numa
+   faixa de ~1340px sete colunas ficam com ~180px cada, e uma barra tão larga
+   assim precisa de mais altura para não virar uma tarja achatada. */
+.uso-dia-grafico {
+  display: flex; align-items: end; gap: 14px; height: 200px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+.uso-dia-col { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 8px; min-width: 40px; height: 100%; }
+/* Dia sem dado (semana cruzando a virada do mês) continua um `<div>` — não
+   há o que selecionar. Só o dia real vira `<button>` (clicar seleciona
+   aquele dia); os resets e o cursor de "isso é clicável" ficam qualificados
+   por elemento, senão o `<div>` vazio herdaria a mesma aparência clicável. */
+button.uso-dia-col {
+  background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  border-radius: 6px; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+button.uso-dia-col:hover:not(:disabled) { background: var(--bg-sunken); }
+.uso-dia-col-destaque { background: var(--jp-red-lt); border-radius: 6px; }
+/* Hover nunca apaga a seleção: sem esta regra, `:hover:not(:disabled)` acima
+   — mais específico que `.uso-dia-col-destaque` sozinho (duas pseudo-classes
+   contra nenhuma) — venceria e trocaria o vermelho pelo cinza neutro bem na
+   barra que a pessoa está apontando. Em vez de disputar isso com
+   `!important`, a combinação de duas classes (`.uso-dia-col.uso-dia-col-
+   destaque`) tem especificidade maior que o hover genérico (uma classe só) —
+   o hover soma ao destaque intensificando o próprio tom vermelho, em vez de
+   substituí-lo pelo cinza. */
+button.uso-dia-col.uso-dia-col-destaque:hover:not(:disabled) {
+  background: rgba(225, 37, 27, 0.22);
+}
+button.uso-dia-col:disabled { cursor: default; }
+/* `:focus-visible`, não `:focus`: o anel só aparece navegando por teclado —
+   mesmo critério de `.samid-competencia-select`/`.samid-rules-search`
+   (tokens.css, `--shadow-focus`). Aplicado no botão — a coluna inteira, bem
+   mais larga que os 12px da barra em si — para não ficar apertado num traço
+   fino. Convive com o contorno de destaque porque este vive na pilha interna
+   (`.uso-barra-pilha`), um elemento diferente: uma barra selecionada e
+   focada por teclado mostra as duas coisas ao mesmo tempo. */
+button.uso-dia-col:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.uso-dia-barra-track { flex: 1; display: flex; align-items: flex-end; justify-content: center; width: 100%; }
+/* Reaproveita `.uso-barra-pilha` (pilha empilhada, destaque, vestigial) sem
+   override de largura — o traço fino de 12px é o mesmo em toda escala (ver
+   `.uso-barra-pilha`), para a silhueta não mudar de família ao trocar o
+   seletor Dia/Semana/Mês. Só a coluna é mais larga aqui; a barra, não. */
+.uso-dia-lbl { font-size: 11px; font-weight: 700; color: var(--fg-3); }
 /* Barras anuais (escala "mes"): mesma ideia das barras diárias, uma coluna
    por mês do ano, com rótulo abreviado embaixo. */
 .uso-ano-grafico {
@@ -594,12 +667,34 @@ a:focus-visible { outline-offset: 2px; }
 /* `flex: 1 1 0` faz as doze colunas dividirem a largura inteira do card —
    sem isso (mesmo bug das semanas antes do F6-01) elas ficam do tamanho do
    próprio conteúdo, espremidas à esquerda com o resto do card vazio. */
-.uso-ano-col { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 6px; min-width: 28px; height: 100%; }
-.uso-ano-barra-track { flex: 1; display: flex; align-items: flex-end; }
-/* Mesma pilha empilhada das barras diárias, só que mais larga — ver
-   `.uso-barra-pilha` acima para a explicação de `column-reverse`. */
+/* Sempre um `<button>` — o ano nunca tem "mês sem dado" (diferente da
+   pilha diária, que pode ter dia fora do mês numa semana de fronteira) —
+   então os resets valem direto na classe, sem qualificar por elemento. */
+.uso-ano-col {
+  display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 6px; min-width: 28px; height: 100%;
+  background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  border-radius: 6px; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.uso-ano-col:hover:not(:disabled) { background: var(--bg-sunken); }
+/* Sem regra de "hover apaga o destaque" pra corrigir aqui, ao contrário de
+   `.uso-dia-col`: o destaque do mês selecionado é só o contorno em
+   `.uso-ano-barra-pilha-destaque` (pilha interna), não um fundo neste botão
+   — então o cinza do hover, que pinta só o fundo deste elemento, nunca cobre
+   o contorno de um elemento diferente. Confirmado visualmente nos quatro
+   estados (normal, hover, selecionado, selecionado+hover). */
+.uso-ano-col:disabled { cursor: default; }
+/* `:focus-visible`: mesmo tratamento e mesmo motivo de `.uso-dia-col`
+   acima. */
+.uso-ano-col:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.uso-ano-barra-track { flex: 1; display: flex; align-items: flex-end; justify-content: center; }
+/* Mesmo traço fino de `.uso-barra-pilha` (12px, largura relativa à coluna,
+   não mais fixa) — a silhueta da barra tem que ser a mesma família em toda
+   escala; só o número de colunas muda. Ver `.uso-barra-pilha` acima para a
+   explicação de `column-reverse`. */
 .uso-ano-barra-pilha {
-  width: 20px; min-height: 3px; border-radius: 3px 3px 0 0; overflow: hidden;
+  width: 100%; max-width: 12px; min-width: 6px; min-height: 3px;
+  border-radius: 3px 3px 0 0; overflow: hidden;
   display: flex; flex-direction: column-reverse; background: var(--border-subtle);
 }
 .uso-ano-barra-seg { width: 100%; }
