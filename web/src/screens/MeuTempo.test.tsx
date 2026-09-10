@@ -11,7 +11,7 @@
 // chamada — pela mesma razão.
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '../api/client';
 import { descricaoJanela, moverPeriodo } from '../format';
@@ -561,5 +561,120 @@ describe('MeuTempo', () => {
     render(<MeuTempo />);
 
     expect(await screen.findByText('sem uso registrado no período')).toBeTruthy();
+  });
+});
+
+// DEFEITO 2 (F6-01): a tela ficava parada enquanto aberta — buscava só na
+// montagem e na troca de escala/ref, sem acompanhar a mesma cadência de 60s
+// do `UsoMini` da sidebar. Só `setInterval`/`clearInterval` são fakeados
+// (`toFake`): `waitFor`/`findBy*` da Testing Library continuam usando o
+// `setTimeout` real por baixo para fazer polling, então não travam.
+describe('MeuTempo — atualização periódica', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('refaz a busca de histórico depois do intervalo de 60s', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+    expect(usoHistoricoMock).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(60_000);
+
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('não busca de novo enquanto a aba está oculta', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    usoHistoricoMock.mockResolvedValue(BASE);
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+    expect(usoHistoricoMock).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(60_000);
+    await Promise.resolve(); // dá chance a qualquer microtask pendente
+
+    expect(usoHistoricoMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('mantém os dados anteriores visíveis durante o refresh, sem voltar para "Carregando…"', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    let resolverSegunda: (valor: UsoHistorico) => void = () => {};
+    usoHistoricoMock
+      .mockResolvedValueOnce(BASE)
+      .mockImplementationOnce(
+        () =>
+          new Promise<UsoHistorico>((resolve) => {
+            resolverSegunda = resolve;
+          }),
+      );
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+    expect(screen.getByTestId('uso-total').textContent).toBe('2h00');
+
+    vi.advanceTimersByTime(60_000);
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+
+    // A segunda busca ainda está pendente (a promise não foi resolvida) — a
+    // tela não pode voltar para o skeleton de carregamento nem perder o
+    // número já exibido.
+    expect(screen.queryByText(/carregando/i)).toBeNull();
+    expect(screen.getByTestId('uso-total').textContent).toBe('2h00');
+
+    resolverSegunda({ ...BASE, total_aberto_s: 7260 }); // 2h01
+    await waitFor(() => expect(screen.getByTestId('uso-total').textContent).toBe('2h01'));
+  });
+
+  it('o gráfico anual também refaz a busca depois do intervalo de 60s', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    usoHistoricoMock.mockResolvedValue(BASE);
+    usoAnualMock.mockResolvedValue(ANO_FIXTURE);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+    fireEvent.click(screen.getByRole('button', { name: 'Mês' }));
+    await waitFor(() => expect(usoAnualMock).toHaveBeenCalledTimes(1));
+
+    vi.advanceTimersByTime(60_000);
+
+    await waitFor(() => expect(usoAnualMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('cancela o timer ao desmontar — nenhuma busca depois disso', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    const { unmount } = render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+    unmount();
+
+    vi.advanceTimersByTime(120_000);
+    await Promise.resolve();
+
+    expect(usoHistoricoMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('trocar de escala cancela o timer anterior — sem duplicar a busca periódica', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    usoHistoricoMock.mockResolvedValue(BASE);
+
+    render(<MeuTempo />);
+    await screen.findByTestId('uso-total');
+    expect(usoHistoricoMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dia' }));
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+
+    vi.advanceTimersByTime(60_000);
+
+    // Se o timer da escala anterior não tivesse sido cancelado no cleanup do
+    // efeito, este avanço geraria 2 chamadas a mais (uma de cada timer), não 1.
+    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(3));
   });
 });

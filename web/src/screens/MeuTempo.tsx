@@ -12,6 +12,11 @@
 //
 // Consome GET /api/uso/historico?escala&ref (números do card + "Por tela") e,
 // só na escala "mes", também GET /api/uso/anual?ano (as doze barras do ano).
+// As duas buscas se repetem a cada 60s (mesma cadência do `UsoMini` da
+// sidebar) enquanto a aba está visível, para os dois números da página
+// andarem juntos — sem isso, quem deixa a tela aberta via a sidebar subir e
+// esta tela parada. O refresh é silencioso: mantém os dados anteriores na
+// tela em vez de voltar para "Carregando…" a cada tick.
 // Ver app/api/routes/uso.py para a assimetria intencional: quando o período
 // de `escala` cruza a virada do mês, `total_aberto_s`/`total_ativo_s`/`rotas`
 // incluem os dois lados da fronteira, mas `dias` (usado para montar o
@@ -41,6 +46,12 @@ import {
 } from '../format';
 import type { DirecaoJanela } from '../format';
 import type { EscalaUso, UsoAnual, UsoDia, UsoHistorico, UsoRota } from '../types';
+
+// Mesma cadência de 60s do `UsoMini` (badge da sidebar) — sem isso, os dois
+// números da mesma página andam em velocidades diferentes: a sidebar sobe a
+// cada minuto, mas esta tela ficava parada até a próxima troca de
+// escala/ref, dando a impressão de que a tela "travou" enquanto aberta.
+const INTERVALO_ATUALIZACAO_MS = 60_000;
 
 const ESCALAS: { valor: EscalaUso; rotulo: string }[] = [
   { valor: 'dia', rotulo: 'Dia' },
@@ -227,29 +238,60 @@ export function MeuTempo() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Busca inicial (ou de troca de escala/ref) mais um refresh silencioso a
+  // cada 60s — mesma cadência do `UsoMini` na sidebar, para os dois números
+  // da página andarem juntos enquanto a tela fica aberta.
+  //
+  // `comCarregamento` distingue as duas: só a busca inicial mostra o
+  // skeleton de "Carregando…" e troca o banner de erro — o refresh
+  // periódico atualiza `data` em silêncio e, se falhar, preserva o que já
+  // estava na tela em vez de piscar para o estado de erro (uma falha de
+  // rede de 60 em 60s não pode virar um banner piscando).
   useEffect(() => {
     let cancelado = false;
-    setBusy(true);
-    setError(null);
-    api
-      .usoHistorico(escala, ref)
-      .then((resposta) => {
-        if (!cancelado) setData(resposta);
-      })
-      .catch((err: unknown) => {
-        if (!cancelado) {
-          // Descarta o resultado anterior — mesma razão de Entregas.tsx:
-          // sem isto, uma falha ao trocar de escala ou navegar deixaria os
-          // controles no valor novo mas os números no período antigo.
-          setData(null);
-          setError(err instanceof ApiError ? err.userMessage : 'Erro ao carregar o tempo de uso.');
-        }
-      })
-      .finally(() => {
-        if (!cancelado) setBusy(false);
-      });
+
+    function buscar(comCarregamento: boolean): void {
+      if (comCarregamento) {
+        setBusy(true);
+        setError(null);
+      }
+      api
+        .usoHistorico(escala, ref)
+        .then((resposta) => {
+          if (!cancelado) {
+            setData(resposta);
+            setError(null);
+          }
+        })
+        .catch((err: unknown) => {
+          if (!cancelado && comCarregamento) {
+            // Descarta o resultado anterior — mesma razão de Entregas.tsx:
+            // sem isto, uma falha ao trocar de escala ou navegar deixaria os
+            // controles no valor novo mas os números no período antigo.
+            setData(null);
+            setError(err instanceof ApiError ? err.userMessage : 'Erro ao carregar o tempo de uso.');
+          }
+          // Refresh silencioso que falha não mexe em `data`/`error` — a tela
+          // continua mostrando o último dado bom até a próxima tentativa.
+        })
+        .finally(() => {
+          if (!cancelado && comCarregamento) setBusy(false);
+        });
+    }
+
+    buscar(true);
+
+    const timer = window.setInterval(() => {
+      // Aba oculta: sem usuário olhando, o refresh é só desperdício de
+      // requisição — `document.visibilityState` é o mesmo sinal que
+      // `useTempoUso` já usa para pausar o heartbeat quando a aba não está à
+      // vista.
+      if (document.visibilityState === 'visible') buscar(false);
+    }, INTERVALO_ATUALIZACAO_MS);
+
     return () => {
       cancelado = true;
+      window.clearInterval(timer);
     };
   }, [escala, ref]);
 
@@ -261,6 +303,10 @@ export function MeuTempo() {
   // nunca resolve fica presa em "Carregando gráfico…" para sempre — o tipo
   // de coisa que vira chamado de suporte dizendo que a tela travou. Por isso
   // o gráfico guarda seu próprio `anualError`, mostrado só ali, sem banner.
+  // Mesmo tratamento de "busca inicial vs. refresh silencioso" do efeito
+  // acima, aplicado ao gráfico anual — ele também precisa acompanhar a
+  // cadência de 60s, sem piscar para "Carregando gráfico…" nem para a
+  // mensagem de falha a cada tick.
   useEffect(() => {
     if (escala !== 'mes') {
       setAnual(null);
@@ -268,21 +314,38 @@ export function MeuTempo() {
       return;
     }
     let cancelado = false;
-    setAnualError(null);
     const ano = Number(ref.slice(0, 4));
-    api
-      .usoAnual(ano)
-      .then((resposta) => {
-        if (!cancelado) setAnual(resposta);
-      })
-      .catch(() => {
-        if (!cancelado) {
-          setAnual(null);
-          setAnualError('Não foi possível carregar o gráfico do ano.');
-        }
-      });
+
+    function buscar(comCarregamento: boolean): void {
+      if (comCarregamento) setAnualError(null);
+      api
+        .usoAnual(ano)
+        .then((resposta) => {
+          if (!cancelado) {
+            setAnual(resposta);
+            setAnualError(null);
+          }
+        })
+        .catch(() => {
+          if (!cancelado && comCarregamento) {
+            setAnual(null);
+            setAnualError('Não foi possível carregar o gráfico do ano.');
+          }
+          // Refresh silencioso que falha preserva as doze barras já
+          // desenhadas — sem isso, uma falha transitória de rede apagaria o
+          // gráfico e mostraria a mensagem de erro por cima dele sozinha.
+        });
+    }
+
+    buscar(true);
+
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') buscar(false);
+    }, INTERVALO_ATUALIZACAO_MS);
+
     return () => {
       cancelado = true;
+      window.clearInterval(timer);
     };
   }, [escala, ref, tentativaAnual]);
 
