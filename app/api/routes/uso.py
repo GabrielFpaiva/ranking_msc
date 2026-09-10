@@ -116,6 +116,13 @@ def get_uso_historico(
 ) -> UsoHistoricoOut:
     """Monta o payload da tela "Meu tempo de uso".
 
+    Inclui a parcela do buffer em memória (``ACUMULADOR.espiar()``) que cai
+    dentro do período consultado — do mesmo jeito que ``/api/uso/hoje`` já
+    faz para o dia corrente. Sem isso, os dois números da mesma página
+    (sidebar e esta tela) discordavam entre si por até um ciclo de flush (5
+    minutos), e o tempo gasto na própria tela ``/uso`` nunca aparecia
+    enquanto ela estava aberta.
+
     ``dias`` cobre o mês inteiro de ``ref`` com zeros preenchidos, para o front
     desenhar as semanas agrupadas sob o cabeçalho do mês numa requisição só.
     ``rotas`` e os totais referem-se apenas ao período de ``escala``.
@@ -140,7 +147,7 @@ def get_uso_historico(
 
     ref_normalizado = referencia.isoformat()
     agregado, inicio, fim = agregado_do_periodo(
-        absolute_uso_dir(), escala, ref_normalizado, usuario
+        absolute_uso_dir(), escala, ref_normalizado, usuario, buffer=ACUMULADOR.espiar()
     )
 
     # Série diária: mês inteiro de ref, com zeros preenchidos.
@@ -196,6 +203,11 @@ def get_uso_anual(
     com uma escala nova porque o formato de resposta é outro: aqui não há
     ``dias`` nem ``rotas``, só doze totais mensais sempre completos.
 
+    Inclui a parcela do buffer em memória no mês em que ela cair — só o mês
+    corrente pode ter buffer pendente, mas ``agregado_do_ano`` não assume
+    isso e filtra por mês mesmo assim. Ver ``get_uso_historico`` para o
+    porquê.
+
     Raises:
         HTTPException 422: se ``ano`` estiver fora do intervalo plausível —
             antes de ``ANO_MINIMO`` (o app não tem dado anterior a isso) ou
@@ -215,7 +227,9 @@ def get_uso_anual(
             ativo_s=tempo.ativo_s,
             por_rota=tempo.por_rota,
         )
-        for ano_mes, tempo in agregado_do_ano(absolute_uso_dir(), ano, usuario)
+        for ano_mes, tempo in agregado_do_ano(
+            absolute_uso_dir(), ano, usuario, buffer=ACUMULADOR.espiar()
+        )
     ]
 
     return UsoAnualOut(

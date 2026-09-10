@@ -745,3 +745,154 @@ class TestAgregadoDoAno:
         resultado = dict(agregado_do_ano(tmp_path, 2025, "gabriel"))
 
         assert resultado["2025-01"].por_rota == {}
+
+
+class TestSobreporBuffer:
+    def test_soma_entrada_do_buffer_dentro_do_periodo(self) -> None:
+        """Balde do buffer dentro de `[inicio, fim]` entra na chave certa."""
+        from app.api.uso_store import ChaveUso, TempoUso, sobrepor_buffer
+
+        agregado = {("2026-09-09", "/caixa"): TempoUso(aberto_s=100, ativo_s=80)}
+        buffer = {ChaveUso("gabriel", "2026-09-09", "/caixa"): TempoUso(aberto_s=60, ativo_s=45)}
+
+        resultado = sobrepor_buffer(agregado, buffer, "gabriel", "2026-09-07", "2026-09-13")
+
+        assert resultado[("2026-09-09", "/caixa")].aberto_s == 160
+        assert resultado[("2026-09-09", "/caixa")].ativo_s == 125
+
+    def test_cria_chave_nova_quando_o_disco_ainda_nao_tem_a_rota(self) -> None:
+        """Rota só presente no buffer (ainda não gravada) ganha entrada nova."""
+        from app.api.uso_store import ChaveUso, TempoUso, sobrepor_buffer
+
+        buffer = {ChaveUso("gabriel", "2026-09-09", "/uso"): TempoUso(aberto_s=30, ativo_s=20)}
+
+        resultado = sobrepor_buffer({}, buffer, "gabriel", "2026-09-09", "2026-09-09")
+
+        assert resultado[("2026-09-09", "/uso")].aberto_s == 30
+        assert resultado[("2026-09-09", "/uso")].ativo_s == 20
+
+    def test_ignora_buffer_de_outro_usuario(self) -> None:
+        """Balde de outro usuário não vaza para o agregado consultado."""
+        from app.api.uso_store import ChaveUso, TempoUso, sobrepor_buffer
+
+        buffer = {ChaveUso("maria", "2026-09-09", "/caixa"): TempoUso(aberto_s=999, ativo_s=999)}
+
+        resultado = sobrepor_buffer({}, buffer, "gabriel", "2026-09-09", "2026-09-09")
+
+        assert resultado == {}
+
+    def test_ignora_buffer_fora_do_periodo(self) -> None:
+        """Balde de um dia fora de `[inicio, fim]` não entra — mesmo do usuário certo."""
+        from app.api.uso_store import ChaveUso, TempoUso, sobrepor_buffer
+
+        buffer = {ChaveUso("gabriel", "2026-08-20", "/caixa"): TempoUso(aberto_s=500, ativo_s=400)}
+
+        resultado = sobrepor_buffer({}, buffer, "gabriel", "2026-09-01", "2026-09-30")
+
+        assert resultado == {}
+
+    def test_nao_muta_o_agregado_recebido_nem_seus_tempouso(self) -> None:
+        """A entrada original permanece intacta — o resultado é uma estrutura nova.
+
+        Este é o cuidado crítico do defeito: `agregado` pode ser (ou derivar
+        rasamente de) o dict cacheado por referência em `_CACHE_MES` para um
+        mês fechado. Mutar um `TempoUso` dali corromperia o cache para toda
+        chamada futura, silenciosamente, até o próximo restart.
+        """
+        from app.api.uso_store import ChaveUso, TempoUso, sobrepor_buffer
+
+        tempo_original = TempoUso(aberto_s=100, ativo_s=80)
+        agregado = {("2026-09-09", "/caixa"): tempo_original}
+        buffer = {ChaveUso("gabriel", "2026-09-09", "/caixa"): TempoUso(aberto_s=60, ativo_s=45)}
+
+        resultado = sobrepor_buffer(agregado, buffer, "gabriel", "2026-09-09", "2026-09-09")
+
+        assert tempo_original.aberto_s == 100
+        assert tempo_original.ativo_s == 80
+        assert resultado[("2026-09-09", "/caixa")] is not tempo_original
+
+    def test_buffer_vazio_devolve_copia_equivalente(self) -> None:
+        """Sem contribuição do buffer, os valores originais são preservados."""
+        from app.api.uso_store import TempoUso, sobrepor_buffer
+
+        agregado = {("2026-09-09", "/caixa"): TempoUso(aberto_s=100, ativo_s=80)}
+
+        resultado = sobrepor_buffer(agregado, {}, "gabriel", "2026-09-09", "2026-09-09")
+
+        assert resultado[("2026-09-09", "/caixa")].aberto_s == 100
+        assert resultado is not agregado
+
+
+class TestAgregadoDoPeriodoComBuffer:
+    def test_buffer_do_dia_corrente_entra_no_periodo(self, tmp_path: Path) -> None:
+        """`agregado_do_periodo` soma o buffer quando ele cai dentro do período pedido."""
+        from app.api.uso_store import ChaveUso, TempoUso, agregado_do_periodo
+
+        buffer = {ChaveUso("gabriel", "2026-09-09", "/uso"): TempoUso(aberto_s=45, ativo_s=30)}
+
+        agregado, inicio, fim = agregado_do_periodo(
+            tmp_path, "dia", "2026-09-09", "gabriel", buffer=buffer
+        )
+
+        assert inicio == fim == "2026-09-09"
+        assert agregado[("2026-09-09", "/uso")].aberto_s == 45
+
+    def test_sem_buffer_comportamento_e_identico_ao_anterior(self, tmp_path: Path) -> None:
+        """`buffer=None` (default) não sobrepõe nada — compatível com os testes já existentes."""
+        from app.api.uso_store import agregado_do_periodo
+
+        agregado, _, _ = agregado_do_periodo(tmp_path, "dia", "2026-09-09", "gabriel")
+
+        assert agregado == {}
+
+
+class TestAgregadoDoAnoComBuffer:
+    def _gravar(self, uso_dir: Path, dia: str, rota: str, aberto_s: int, ativo_s: int) -> None:
+        from app.api.uso_store import Acumulador, escrever_flush
+
+        acc = Acumulador()
+        acc.registrar("gabriel", rota, aberto_s, ativo_s, dia=dia)
+        escrever_flush(uso_dir, acc.drenar())
+
+    def test_buffer_do_mes_corrente_soma_no_mes_certo(self, tmp_path: Path) -> None:
+        """Balde do buffer entra só no mês a que o dia pertence."""
+        from app.api.uso_store import ChaveUso, TempoUso, agregado_do_ano
+
+        buffer = {ChaveUso("gabriel", "2025-03-10", "/uso"): TempoUso(aberto_s=45, ativo_s=30)}
+
+        resultado = dict(agregado_do_ano(tmp_path, 2025, "gabriel", buffer=buffer))
+
+        assert resultado["2025-03"].aberto_s == 45
+        assert resultado["2025-03"].por_rota == {"/uso": 45}
+        assert resultado["2025-04"].aberto_s == 0
+
+    def test_buffer_de_outro_usuario_nao_vaza_no_ano(self, tmp_path: Path) -> None:
+        """Mesma checagem de `sobrepor_buffer`, agora através de `agregado_do_ano`."""
+        from app.api.uso_store import ChaveUso, TempoUso, agregado_do_ano
+
+        buffer = {ChaveUso("maria", "2025-03-10", "/uso"): TempoUso(aberto_s=999, ativo_s=999)}
+
+        resultado = dict(agregado_do_ano(tmp_path, 2025, "gabriel", buffer=buffer))
+
+        assert resultado["2025-03"].aberto_s == 0
+
+    def test_mes_fechado_servido_do_cache_nao_e_corrompido_pela_sobreposicao(
+        self, tmp_path: Path
+    ) -> None:
+        """Chamar duas vezes com buffer não dobra o total do mês fechado.
+
+        `2025-07` é mês fechado em relação ao relógio real do processo — vem
+        do cache em `_CACHE_MES`. Se `sobrepor_buffer` mutasse os `TempoUso`
+        do cache em vez de devolver objetos novos, a segunda chamada veria o
+        total já inflado pela primeira sobreposição e dobraria de novo.
+        """
+        from app.api.uso_store import ChaveUso, TempoUso, agregado_do_ano
+
+        self._gravar(tmp_path, "2025-07-04", "/caixa", 100, 80)
+        buffer = {ChaveUso("gabriel", "2025-07-04", "/caixa"): TempoUso(aberto_s=50, ativo_s=40)}
+
+        primeiro = dict(agregado_do_ano(tmp_path, 2025, "gabriel", buffer=buffer))
+        segundo = dict(agregado_do_ano(tmp_path, 2025, "gabriel", buffer=buffer))
+
+        assert primeiro["2025-07"].aberto_s == 150
+        assert segundo["2025-07"].aberto_s == 150

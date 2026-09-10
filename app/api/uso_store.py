@@ -539,11 +539,72 @@ def intervalo(escala: str, ref: str) -> tuple[str, str]:
     raise ValueError(f"Escala desconhecida: {escala!r}. Use 'dia', 'semana' ou 'mes'.")
 
 
+def sobrepor_buffer(
+    agregado: dict[tuple[str, str], TempoUso],
+    buffer: dict[ChaveUso, TempoUso],
+    usuario: str,
+    inicio: str,
+    fim: str,
+) -> dict[tuple[str, str], TempoUso]:
+    """Soma ao agregado a parcela do buffer em memória de ``usuario`` dentro de ``[inicio, fim]``.
+
+    Existe para que ``/api/uso/historico`` e ``/api/uso/anual`` enxerguem o
+    mesmo número que ``/api/uso/hoje`` já enxerga para o dia corrente: sem
+    isto, o buffer (até 5 minutos de heartbeats ainda não gravados em disco)
+    aparece na sidebar mas não na tela — dois números da mesma página se
+    contradizendo, e o tempo gasto na própria tela ``/uso`` nunca aparece
+    enquanto ela está aberta.
+
+    Função pura: não lê nem escreve ``ACUMULADOR`` — recebe o resultado de
+    ``ACUMULADOR.espiar()`` já pronto em ``buffer``. Quem chama decide se e
+    quando sobrepor.
+
+    **Sempre devolve um dict novo, com ``TempoUso`` novos** — nunca o
+    ``agregado`` recebido, nem os objetos dentro dele, são mutados. Isso
+    importa porque ``agregado`` pode ser (ou derivar rasamente de, como
+    ``agregado_do_periodo`` monta) o dict cacheado por referência em
+    ``_CACHE_MES`` para um mês fechado; mutar um ``TempoUso`` ali corromperia
+    o cache para toda chamada futura, silenciosamente, até o próximo restart
+    do servidor — ver o aviso na docstring de ``agregado_do_mes``.
+
+    Só entram entradas do buffer cujo ``usuario`` bate e cujo ``dia`` cai
+    dentro de ``[inicio, fim]`` (inclusive) — o buffer normalmente só contém
+    o dia corrente, mas nada aqui assume isso.
+
+    Args:
+        agregado: mapa ``(dia, rota)`` → ``TempoUso``, já lido do disco.
+        buffer: conteúdo do ``Acumulador`` (``ACUMULADOR.espiar()``).
+        usuario: username do JWT — filtra o buffer, que pode conter baldes de
+            outros usuários.
+        inicio: primeiro dia do período, ``YYYY-MM-DD``, inclusive.
+        fim: último dia do período, ``YYYY-MM-DD``, inclusive.
+
+    Returns:
+        Novo mapa ``(dia, rota)`` → ``TempoUso`` — o conteúdo de ``agregado``
+        mais a contribuição filtrada do buffer, em chaves existentes ou
+        novas.
+    """
+    resultado: dict[tuple[str, str], TempoUso] = {
+        chave: TempoUso(tempo.aberto_s, tempo.ativo_s) for chave, tempo in agregado.items()
+    }
+    for chave_buffer, tempo_buffer in buffer.items():
+        if chave_buffer.usuario != usuario:
+            continue
+        if not (inicio <= chave_buffer.dia <= fim):
+            continue
+        chave = (chave_buffer.dia, chave_buffer.rota)
+        tempo = resultado.setdefault(chave, TempoUso())
+        tempo.aberto_s += tempo_buffer.aberto_s
+        tempo.ativo_s += tempo_buffer.ativo_s
+    return resultado
+
+
 def agregado_do_periodo(
     uso_dir: Path,
     escala: str,
     ref: str,
     usuario: str,
+    buffer: dict[ChaveUso, TempoUso] | None = None,
 ) -> tuple[dict[tuple[str, str], TempoUso], str, str]:
     """Agregado combinado do período de ``escala`` que contém ``ref``, mais o intervalo.
 
@@ -565,7 +626,10 @@ def agregado_do_periodo(
     Isso **não** estende à mutação de atributo de um ``TempoUso`` dentro do
     dict — a cópia é rasa, então os valores de um mês fechado ainda são os
     mesmos objetos guardados em ``_CACHE_MES``. Vale a mesma ressalva de
-    ``agregado_do_mes``: trate o resultado como somente leitura.
+    ``agregado_do_mes``: trate o resultado como somente leitura. Quando
+    ``buffer`` é passado, ``sobrepor_buffer`` cuida disso — devolve um dict
+    com ``TempoUso`` novos, então o retorno desta função deixa de compartilhar
+    qualquer objeto com o cache.
 
     Args:
         uso_dir: diretório de tempo de uso.
@@ -573,6 +637,11 @@ def agregado_do_periodo(
         ref: data de referência, em qualquer variante aceita por
             ``date.fromisoformat`` — não precisa vir pré-normalizada.
         usuario: username do JWT.
+        buffer: conteúdo do ``Acumulador`` (``ACUMULADOR.espiar()``) a
+            sobrepor ao agregado, restrito a ``usuario`` e ao intervalo
+            ``[inicio, fim]`` resultante — ver ``sobrepor_buffer``. Se
+            ``None`` (default) ou vazio, nenhuma sobreposição ocorre; é o que
+            os testes que querem só o disco usam.
 
     Returns:
         Tupla ``(agregado, inicio, fim)`` — ``agregado`` é o mapa combinado de
@@ -595,10 +664,18 @@ def agregado_do_periodo(
     if ano_mes_fim != ano_mes:
         agregado.update(agregado_do_mes(uso_dir, ano_mes_fim, usuario))
 
+    if buffer:
+        agregado = sobrepor_buffer(agregado, buffer, usuario, inicio, fim)
+
     return agregado, inicio, fim
 
 
-def agregado_do_ano(uso_dir: Path, ano: int, usuario: str) -> list[tuple[str, TotalComRotas]]:
+def agregado_do_ano(
+    uso_dir: Path,
+    ano: int,
+    usuario: str,
+    buffer: dict[ChaveUso, TempoUso] | None = None,
+) -> list[tuple[str, TotalComRotas]]:
     """Totais mensais de ``ano`` para um usuário — doze meses, sempre completos.
 
     Sustenta ``GET /api/uso/anual``: doze chamadas a ``/api/uso/historico``
@@ -610,11 +687,20 @@ def agregado_do_ano(uso_dir: Path, ano: int, usuario: str) -> list[tuple[str, To
     por ``agregado_do_mes`` para um mês fechado, que é compartilhado com
     ``_CACHE_MES`` por referência. Somar direto num objeto do cache
     corromperia o total do mês para toda chamada futura, silenciosamente.
+    Quando ``buffer`` sobrepõe um mês (via ``sobrepor_buffer``, que também
+    devolve estruturas novas), a soma seguinte lê do resultado dessa
+    sobreposição — nunca do dict do cache diretamente —, então o mesmo
+    cuidado se aplica lá.
 
     Args:
         uso_dir: diretório de tempo de uso.
         ano: ano consultado (``YYYY``).
         usuario: username do JWT.
+        buffer: conteúdo do ``Acumulador`` (``ACUMULADOR.espiar()``) a
+            sobrepor a cada mês, restrito a ``usuario`` e aos limites daquele
+            mês (primeiro ao último dia). Se ``None`` (default) ou vazio,
+            nenhuma sobreposição ocorre — meses fechados nunca têm buffer
+            relevante de qualquer forma, só o mês corrente pode.
 
     Returns:
         Lista de doze pares ``(YYYY-MM, TotalComRotas)``, de janeiro a
@@ -624,8 +710,18 @@ def agregado_do_ano(uso_dir: Path, ano: int, usuario: str) -> list[tuple[str, To
     resultado: list[tuple[str, TotalComRotas]] = []
     for mes in range(1, 13):
         ano_mes = f"{ano:04d}-{mes:02d}"
+        agregado_mes = agregado_do_mes(uso_dir, ano_mes, usuario)
+        if buffer:
+            ultimo_dia_num = calendar.monthrange(ano, mes)[1]
+            agregado_mes = sobrepor_buffer(
+                agregado_mes,
+                buffer,
+                usuario,
+                f"{ano_mes}-01",
+                f"{ano_mes}-{ultimo_dia_num:02d}",
+            )
         total = TotalComRotas()
-        for (_dia, rota), tempo in agregado_do_mes(uso_dir, ano_mes, usuario).items():
+        for (_dia, rota), tempo in agregado_mes.items():
             total.aberto_s += tempo.aberto_s
             total.ativo_s += tempo.ativo_s
             total.por_rota[rota] = total.por_rota.get(rota, 0) + tempo.aberto_s
