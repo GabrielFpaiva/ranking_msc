@@ -46,12 +46,13 @@ interface Balde {
 
 export class RelogioUso {
   private rota: string;
-  private visivel = true;
+  private visivel: boolean;
   private ultimoTick: number;
   private ultimaInteracao: number;
   private baldes = new Map<string, Balde>();
 
-  constructor(rota: string, agora: number) {
+  constructor(rota: string, agora: number, visivel = true) {
+    this.visivel = visivel;
     this.rota = rota;
     this.ultimoTick = agora;
     this.ultimaInteracao = agora;

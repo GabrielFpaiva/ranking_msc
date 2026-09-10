@@ -36,6 +36,7 @@ from app.api.schemas import (
 )
 from app.api.uso_store import (
     ACUMULADOR,
+    LOCK_USO,
     ROTAS_VALIDAS,
     agregado_do_ano,
     agregado_do_periodo,
@@ -90,16 +91,16 @@ def get_uso_hoje(usuario: str = Depends(get_current_user)) -> UsoHojeOut:  # noq
     Sem a parcela do buffer, o número mostrado na sidebar ficaria até um ciclo
     de flush (5 minutos) atrás do relógio que roda no browser.
     """
-    hoje = dia_local()
-    gravado = ler_mes(absolute_uso_dir(), hoje[:7], usuario)
+    with LOCK_USO:
+        hoje = dia_local()
+        gravado = ler_mes(absolute_uso_dir(), hoje[:7], usuario)
 
-    aberto_s = sum(tempo.aberto_s for (dia, _), tempo in gravado.items() if dia == hoje)
-    ativo_s = sum(tempo.ativo_s for (dia, _), tempo in gravado.items() if dia == hoje)
-
-    for chave, tempo in ACUMULADOR.espiar().items():
-        if chave.usuario == usuario and chave.dia == hoje:
-            aberto_s += tempo.aberto_s
-            ativo_s += tempo.ativo_s
+        aberto_s = sum(tempo.aberto_s for (dia, _), tempo in gravado.items() if dia == hoje)
+        ativo_s = sum(tempo.ativo_s for (dia, _), tempo in gravado.items() if dia == hoje)
+        for chave, tempo in ACUMULADOR.espiar().items():
+            if chave.usuario == usuario and chave.dia == hoje:
+                aberto_s += tempo.aberto_s
+                ativo_s += tempo.ativo_s
 
     return UsoHojeOut(aberto_s=aberto_s, ativo_s=ativo_s)
 
@@ -146,9 +147,10 @@ def get_uso_historico(
         ) from exc
 
     ref_normalizado = referencia.isoformat()
-    agregado, inicio, fim = agregado_do_periodo(
-        absolute_uso_dir(), escala, ref_normalizado, usuario, buffer=ACUMULADOR.espiar()
-    )
+    with LOCK_USO:
+        agregado, inicio, fim = agregado_do_periodo(
+            absolute_uso_dir(), escala, ref_normalizado, usuario, buffer=ACUMULADOR.espiar()
+        )
 
     # Série diária: mês inteiro de ref, com zeros preenchidos.
     ultimo_dia = calendar.monthrange(referencia.year, referencia.month)[1]
@@ -220,17 +222,18 @@ def get_uso_anual(
             detail=f"Ano fora do intervalo permitido ({ANO_MINIMO}–{ano_maximo}): {ano!r}.",
         )
 
-    meses = [
-        UsoMesOut(
-            mes=ano_mes,
-            aberto_s=tempo.aberto_s,
-            ativo_s=tempo.ativo_s,
-            por_rota=tempo.por_rota,
-        )
-        for ano_mes, tempo in agregado_do_ano(
-            absolute_uso_dir(), ano, usuario, buffer=ACUMULADOR.espiar()
-        )
-    ]
+    with LOCK_USO:
+        meses = [
+            UsoMesOut(
+                mes=ano_mes,
+                aberto_s=tempo.aberto_s,
+                ativo_s=tempo.ativo_s,
+                por_rota=tempo.por_rota,
+            )
+            for ano_mes, tempo in agregado_do_ano(
+                absolute_uso_dir(), ano, usuario, buffer=ACUMULADOR.espiar()
+            )
+        ]
 
     return UsoAnualOut(
         ano=ano,

@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.api.uso_store import MAX_SEGUNDOS_POR_HEARTBEAT
 
@@ -408,6 +408,14 @@ class HeartbeatIn(BaseModel):
     ativo_s: int = Field(
         ..., ge=0, le=MAX_SEGUNDOS_POR_HEARTBEAT, description="Segundos com interação"
     )
+
+    @field_validator("ativo_s")
+    @classmethod
+    def ativo_nao_excede_aberto(cls, valor: int, info: ValidationInfo) -> int:
+        """Garante que tempo ativo seja subconjunto do tempo aberto."""
+        if "aberto_s" in info.data and valor > info.data["aberto_s"]:
+            raise ValueError("Tempo ativo não pode ser maior que o tempo aberto.")
+        return valor
 
 
 class UsoHojeOut(BaseModel):

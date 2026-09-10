@@ -3,7 +3,7 @@
 // Montado uma única vez, no Layout — que só renderiza para rotas autenticadas,
 // então /login nunca conta.
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useLocation } from 'react-router-dom';
 
@@ -13,18 +13,20 @@ import { RelogioUso } from './relogioUso';
 const INTERVALO_HEARTBEAT_MS = 60_000;
 const EVENTOS_DE_INTERACAO = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
 
-export function useTempoUso(): void {
+export function useTempoUso(): () => void {
   const { pathname } = useLocation();
+  const rota = pathname.replace(/\/+$/, '').toLowerCase() || '/inicio';
+  const encerrarRef = useRef<(() => void) | null>(null);
   const relogioRef = useRef<RelogioUso | null>(null);
 
   if (relogioRef.current === null) {
-    relogioRef.current = new RelogioUso(pathname, Date.now());
+    relogioRef.current = new RelogioUso(rota, Date.now(), document.visibilityState === 'visible');
   }
 
   // Troca de rota fecha o balde anterior.
   useEffect(() => {
-    relogioRef.current?.setRota(pathname, Date.now());
-  }, [pathname]);
+    relogioRef.current?.setRota(rota, Date.now());
+  }, [rota]);
 
   useEffect(() => {
     const relogio = relogioRef.current;
@@ -67,6 +69,7 @@ export function useTempoUso(): void {
     }
     document.addEventListener('visibilitychange', aoTrocarVisibilidade);
     window.addEventListener('pagehide', aoDescarregar);
+    encerrarRef.current = () => { relogio.setVisivel(false, Date.now()); enviar(); };
 
     return () => {
       window.clearInterval(timer);
@@ -76,6 +79,8 @@ export function useTempoUso(): void {
       document.removeEventListener('visibilitychange', aoTrocarVisibilidade);
       window.removeEventListener('pagehide', aoDescarregar);
       enviar();
+      encerrarRef.current = null;
     };
   }, []);
+  return useCallback(() => encerrarRef.current?.(), []);
 }

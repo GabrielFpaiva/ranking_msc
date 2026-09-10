@@ -16,11 +16,11 @@ export function Layout() {
     setNavOpen(false);
   }, [pathname]);
 
-  useTempoUso();
+  const encerrarUso = useTempoUso();
 
   return (
     <div className="samid-app">
-      <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
+      <Sidebar onBeforeLogout={encerrarUso} open={navOpen} onClose={() => setNavOpen(false)} />
       {navOpen && (
         <button
           type="button"

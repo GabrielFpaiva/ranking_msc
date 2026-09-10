@@ -49,17 +49,19 @@ function userInitials(name: string | null): string {
 }
 
 interface SidebarProps {
+  onBeforeLogout?: () => void;
   /** Indica se o drawer mobile está aberto. */
   open?: boolean;
   /** Fecha o drawer mobile (acionado ao navegar ou tocar fora). */
   onClose?: () => void;
 }
 
-export function Sidebar({ open = false, onClose }: SidebarProps) {
+export function Sidebar({ open = false, onClose, onBeforeLogout }: SidebarProps) {
   const user = authStore.getUser();
   const navigate = useNavigate();
 
   function handleLogout() {
+    onBeforeLogout?.();
     authStore.clearToken();
     onClose?.();
     void navigate('/login', { replace: true });

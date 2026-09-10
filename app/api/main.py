@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -40,6 +40,7 @@ from app.api.routes import superavit as superavit_routes
 from app.api.routes import uso as uso_routes
 from app.api.uso_store import (
     ACUMULADOR,
+    LOCK_USO,
     compactar_meses_pendentes,
     dia_local,
     escrever_flush,
@@ -70,10 +71,22 @@ def _flush_agora() -> None:
     virada do mês precisam chegar ao disco antes que a compactação dobre
     aquele mês em `.agg.jsonl`.
     """
-    ano_mes_corrente = dia_local()[:7]
-    uso_dir = absolute_uso_dir()
-    escrever_flush(uso_dir, ACUMULADOR.drenar())
-    if compactar_meses_pendentes(uso_dir, ano_mes_corrente):
+    with LOCK_USO:
+        ano_mes_corrente = dia_local()[:7]
+        uso_dir = absolute_uso_dir()
+        pendentes = ACUMULADOR.drenar()
+        try:
+            for mes in sorted({chave.dia[:7] for chave in pendentes}):
+                lote = {
+                    chave: tempo for chave, tempo in pendentes.items() if chave.dia[:7] == mes
+                }
+                escrever_flush(uso_dir, lote)
+                for chave in lote:
+                    pendentes.pop(chave, None)
+            compactar_meses_pendentes(uso_dir, ano_mes_corrente)
+        except OSError:
+            ACUMULADOR.restaurar(pendentes)
+            raise
         limpar_cache()
 
 
@@ -95,7 +108,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         tarefa.cancel()
-        _flush_agora()
+        with suppress(asyncio.CancelledError):
+            await tarefa
+        await asyncio.to_thread(_flush_agora)
 
 
 app = FastAPI(

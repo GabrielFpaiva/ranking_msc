@@ -109,7 +109,11 @@ function formatarISO(d: Date): string {
  * (perto da meia-noite local, viraria o dia seguinte em vez do anterior).
  */
 export function hojeISO(): string {
-  return formatarISO(new Date());
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Recife', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)?.value;
+  return `${value('year')}-${value('month')}-${value('day')}`;
 }
 
 /** Segunda-feira (meia-noite local) da semana que contém `d` — mesma

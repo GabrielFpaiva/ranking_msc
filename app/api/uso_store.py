@@ -35,6 +35,7 @@ from zoneinfo import ZoneInfo
 logger = logging.getLogger("ranking_msc")
 
 FUSO = ZoneInfo("America/Recife")
+LOCK_USO = threading.RLock()
 
 # Rotas conhecidas do SPA. O heartbeat vem do cliente, então a rota passa por
 # allowlist — sem isso, um front bugado (ou o DevTools de um curioso) escreve
@@ -121,7 +122,7 @@ class Acumulador:
 
     def __init__(self) -> None:
         self._dados: dict[ChaveUso, TempoUso] = {}
-        self._lock = threading.Lock()
+        self._lock = LOCK_USO
 
     def registrar(
         self,
@@ -149,8 +150,8 @@ class Acumulador:
                 o apaga como se fosse lixo de crash — sem erro, sem log
                 distinguível, dado perdido em silêncio.
         """
-        chave = ChaveUso(usuario=usuario, dia=dia or dia_local(), rota=rota)
         with self._lock:
+            chave = ChaveUso(usuario=usuario, dia=dia or dia_local(), rota=rota)
             tempo = self._dados.setdefault(chave, TempoUso())
             tempo.aberto_s += aberto_s
             tempo.ativo_s += ativo_s
@@ -161,6 +162,14 @@ class Acumulador:
             dados = self._dados
             self._dados = {}
             return dados
+
+    def restaurar(self, dados: dict[ChaveUso, TempoUso]) -> None:
+        """Reincorpora deltas cuja persistência falhou."""
+        with self._lock:
+            for chave, delta in dados.items():
+                atual = self._dados.setdefault(chave, TempoUso())
+                atual.aberto_s += delta.aberto_s
+                atual.ativo_s += delta.ativo_s
 
     def espiar(self) -> dict[ChaveUso, TempoUso]:
         """Cópia do buffer atual, sem esvaziá-lo.
@@ -313,12 +322,11 @@ def ler_mes(uso_dir: Path, ano_mes: str, usuario: str) -> dict[tuple[str, str], 
     Returns:
         Mapa de ``(dia, rota)`` para ``TempoUso``. Vazio se o mês não existe.
     """
-    caminho = _caminho_mes(uso_dir, ano_mes)
-    if caminho is None:
-        return {}
-
     agregado: dict[tuple[str, str], TempoUso] = {}
     with _LOCK_ARQUIVO:
+        caminho = _caminho_mes(uso_dir, ano_mes)
+        if caminho is None:
+            return {}
         for chave, tempo_lido in _parse_linhas_uso(caminho):
             if chave.usuario != usuario:
                 continue

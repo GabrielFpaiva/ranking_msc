@@ -253,6 +253,7 @@ export function MeuTempo() {
     function buscar(comCarregamento: boolean): void {
       if (comCarregamento) {
         setBusy(true);
+        setData(null);
         setError(null);
       }
       api
