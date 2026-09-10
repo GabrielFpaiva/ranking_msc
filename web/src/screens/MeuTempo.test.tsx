@@ -284,10 +284,12 @@ describe('MeuTempo', () => {
     expect(blocos.length).toBe(6);
     blocos.forEach((bloco) => {
       // Cada bloco, mesmo o último (com um único dia real e o resto vazio),
-      // continua com seu próprio eixo de letras e barras vestigiais visíveis
-      // (não some do layout por não ter uso).
+      // preserva o eixo e os espaços dos dias, sem barras nem destaques
+      // que poderiam sugerir uso onde não houve nenhum.
       expect(bloco.querySelectorAll('.uso-dias-letras .uso-dia-letra').length).toBe(7);
-      expect(bloco.querySelectorAll('.uso-barra-pilha-vestigial').length).toBeGreaterThan(0);
+      expect(bloco.querySelectorAll('.uso-barra-col').length).toBe(7);
+      expect(bloco.querySelectorAll('.uso-barra-pilha').length).toBe(0);
+      expect(bloco.querySelectorAll('.uso-barra-col-destaque').length).toBe(0);
     });
   });
 
@@ -560,7 +562,7 @@ describe('MeuTempo', () => {
 
     render(<MeuTempo />);
 
-    expect(await screen.findByText('sem uso registrado no período')).toBeTruthy();
+    expect(await screen.findByText('Sem uso registrado neste período')).toBeTruthy();
   });
 });
 

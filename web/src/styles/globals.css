@@ -482,7 +482,7 @@ a:focus-visible { outline-offset: 2px; }
 }
 .uso-mini-txt { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; }
 .uso-mini-val {
-  font-family: var(--font-mono); font-size: 17px;
+  font-family: var(--font-body); font-variant-numeric: tabular-nums; font-size: 17px;
   font-weight: 600; color: var(--fg-1); line-height: 1.1;
 }
 .uso-mini-lbl {
@@ -493,8 +493,10 @@ a:focus-visible { outline-offset: 2px; }
 .uso-mini:hover .uso-mini-arrow { color: var(--jp-red); }
 
 /* ===== Tempo de uso — tela "Meu tempo de uso" ===== */
+.uso-screen { --font-display: var(--font-body); }
+.uso-duration { font-family: var(--font-body); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .uso-escala-chips { display: flex; gap: 8px; }
-.uso-total { font-size: 40px; font-weight: 700; color: var(--fg-1); line-height: 1; }
+.uso-total { font-size: 40px; font-weight: 600; color: var(--fg-1); line-height: 1; }
 /* Número grande e o trio aberto/ativo/ocioso lado a lado, não mais
    empilhados — o ponto deste redesenho é usar espaço horizontal (F6-01);
    manter o trio abaixo do número deixaria a largura ganha sem uso aqui. */
@@ -578,16 +580,9 @@ a:focus-visible { outline-offset: 2px; }
    decidir, em JS, qual segmento é "o de cima" — isso muda de coluna pra
    coluna. O fundo cinza é o que aparece se `por_rota` vier vazio sem o dia
    estar marcado vestigial (não deveria acontecer, mas não deixa buraco).
-   Largura travada num traço fino (12px), não um percentual da coluna: a
-   primeira versão fluida (`60%`) parecia certa isolada, mas com a coluna
-   inteira disponível numa tela larga a barra engordava até virar bloco —
-   o oposto do traço esguio, bem espaçado, que a referência (Screen Time)
-   usa. `width: 100%` com `max-width: 12px` deixa a coluna (agora fluida)
-   controlar o espaçamento entre barras, não a espessura de cada uma; a
-   coluna centraliza a barra (`justify-content: center` em `.uso-barra-col`).
-   `min-width` só evita sumir de vez numa coluna absurdamente estreita. */
+   A largura acompanha a coluna, preservando espaço entre as barras. */
 .uso-barra-pilha {
-  width: 100%; max-width: 12px; min-width: 6px; min-height: 3px;
+  width: 92%; min-width: 0; min-height: 3px;
   border-radius: 3px 3px 0 0; overflow: hidden;
   display: flex; flex-direction: column-reverse; background: var(--border-subtle);
 }
@@ -647,16 +642,11 @@ button.uso-dia-col:disabled { cursor: default; }
 /* `:focus-visible`, não `:focus`: o anel só aparece navegando por teclado —
    mesmo critério de `.samid-competencia-select`/`.samid-rules-search`
    (tokens.css, `--shadow-focus`). Aplicado no botão — a coluna inteira, bem
-   mais larga que os 12px da barra em si — para não ficar apertado num traço
-   fino. Convive com o contorno de destaque porque este vive na pilha interna
+   mais larga que a barra em si — para manter o foco visível. Convive com o contorno de destaque porque este vive na pilha interna
    (`.uso-barra-pilha`), um elemento diferente: uma barra selecionada e
    focada por teclado mostra as duas coisas ao mesmo tempo. */
 button.uso-dia-col:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
 .uso-dia-barra-track { flex: 1; display: flex; align-items: flex-end; justify-content: center; width: 100%; }
-/* Reaproveita `.uso-barra-pilha` (pilha empilhada, destaque, vestigial) sem
-   override de largura — o traço fino de 12px é o mesmo em toda escala (ver
-   `.uso-barra-pilha`), para a silhueta não mudar de família ao trocar o
-   seletor Dia/Semana/Mês. Só a coluna é mais larga aqui; a barra, não. */
 .uso-dia-lbl { font-size: 11px; font-weight: 700; color: var(--fg-3); }
 /* Barras anuais (escala "mes"): mesma ideia das barras diárias, uma coluna
    por mês do ano, com rótulo abreviado embaixo. */
@@ -687,13 +677,10 @@ button.uso-dia-col:focus-visible { outline: none; box-shadow: var(--shadow-focus
 /* `:focus-visible`: mesmo tratamento e mesmo motivo de `.uso-dia-col`
    acima. */
 .uso-ano-col:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
-.uso-ano-barra-track { flex: 1; display: flex; align-items: flex-end; justify-content: center; }
-/* Mesmo traço fino de `.uso-barra-pilha` (12px, largura relativa à coluna,
-   não mais fixa) — a silhueta da barra tem que ser a mesma família em toda
-   escala; só o número de colunas muda. Ver `.uso-barra-pilha` acima para a
-   explicação de `column-reverse`. */
+.uso-ano-barra-track { width: 100%; flex: 1; display: flex; align-items: flex-end; justify-content: center; }
+/* Barras mensais mais largas, proporcionais ao espaço da coluna. */
 .uso-ano-barra-pilha {
-  width: 100%; max-width: 12px; min-width: 6px; min-height: 3px;
+  width: 92%; min-width: 0; min-height: 3px;
   border-radius: 3px 3px 0 0; overflow: hidden;
   display: flex; flex-direction: column-reverse; background: var(--border-subtle);
 }
@@ -717,31 +704,26 @@ button.uso-dia-col:focus-visible { outline: none; box-shadow: var(--shadow-focus
    `auto-fill`/`minmax` resolve "várias por linha em tela larga, menos
    conforme estreita" sem precisar de breakpoint dedicado. */
 .uso-legenda {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 4px 16px; margin-top: 8px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: 12px 24px; margin-top: 16px;
 }
 .uso-legenda-item {
-  display: flex; align-items: center; gap: 8px; min-width: 0;
-  padding: 8px 4px; border-bottom: 1px solid var(--border-subtle);
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 14px 4px; border-bottom: 1px solid var(--border-subtle);
 }
-.uso-legenda-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.uso-legenda-corpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.uso-legenda-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.uso-legenda-corpo { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; }
 .uso-legenda-nome {
-  color: var(--fg-1); font-family: var(--font-display); font-size: 14px; font-weight: 600;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--fg-1); font-family: var(--font-display); font-size: 18px; font-weight: 600;
+  line-height: 1.35; overflow-wrap: anywhere;
 }
-.uso-legenda-linha2 { display: flex; align-items: baseline; gap: 6px; }
-.uso-legenda-tempo { font-size: 13px; font-weight: 700; color: var(--fg-1); }
-.uso-legenda-pct { font-size: 12px; color: var(--fg-3); }
-/* Ativo/ocioso por tela: barrinha fina de duas tonalidades da própria cor da
-   categoria (cheia = ativo, esmaecida por opacidade = ocioso) + o valor do
-   ativo em texto pequeno. Só 3px de altura de propósito — o objetivo é caber
-   sem engordar o chip que os ajustes anteriores deixaram compacto; se algum
-   dia isso não couber mais, o texto do ativo sozinho (sem a barra) é o plano
-   B descrito no pedido original, não uma barra maior. */
+.uso-legenda-linha2 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
+.uso-legenda-tempo { font-size: 18px; font-weight: 600; color: var(--fg-1); }
+.uso-legenda-pct { font-size: 15px; color: var(--fg-2); }
+/* Ativo/ocioso: duas tonalidades da categoria com barra e valor legíveis. */
 .uso-legenda-linha3 { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
 .uso-legenda-track {
-  flex: 1; min-width: 24px; height: 3px; border-radius: 2px; overflow: hidden;
+  flex: 1; min-width: 24px; height: 6px; border-radius: 3px; overflow: hidden;
   display: flex; background: var(--bg-sunken);
 }
 .uso-legenda-track-ativo { height: 100%; }
@@ -749,15 +731,25 @@ button.uso-dia-col:focus-visible { outline: none; box-shadow: var(--shadow-focus
    categoria (são cinco + "Outras") sem precisar de um tom "esmaecido"
    dedicado para cada uma. */
 .uso-legenda-track-ocioso { height: 100%; opacity: 0.32; }
-.uso-legenda-ativo-tempo { font-size: 11px; color: var(--fg-3); flex-shrink: 0; }
-/* "Total" fecha a grade, como no Screen Time do iPhone — sem bolinha de cor
-   (não é uma categoria) e com o nome discreto, para não competir com as
-   telas de verdade. */
-.uso-legenda-total { border-bottom: none; }
-.uso-legenda-total .uso-legenda-nome {
-  color: var(--fg-2); text-transform: uppercase; font-size: 12px; letter-spacing: 0.08em;
+.uso-legenda-ativo-tempo { font-size: 14px; color: var(--fg-2); flex-shrink: 0; }
+/* Total do período no canto superior direito do card "Por tela". */
+.uso-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 220px; padding: 32px 16px; gap: 10px; text-align: center;
 }
-.uso-legenda-total .uso-legenda-tempo { font-size: 14px; }
+.uso-empty-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; margin-bottom: 6px; border-radius: 50%;
+  background: var(--bg-sunken); color: var(--fg-2);
+}
+.uso-empty h3 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.4; color: var(--fg-1); }
+.uso-empty p { margin: 0; max-width: 360px; font-size: 15px; line-height: 1.6; color: var(--fg-2); }
+.uso-por-tela-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.uso-legenda-total { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
+.uso-legenda-total .uso-legenda-nome {
+  color: var(--fg-2); text-transform: uppercase; font-size: 14px; letter-spacing: 0.08em;
+}
+.uso-legenda-total .uso-legenda-tempo { font-size: 20px; }
 
 /* ===== Responsividade ===== */
 

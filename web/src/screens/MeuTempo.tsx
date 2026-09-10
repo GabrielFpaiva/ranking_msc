@@ -417,7 +417,7 @@ export function MeuTempo() {
   }
 
   return (
-    <div className="samid-stack">
+    <div className="samid-stack uso-screen">
       <section className="samid-card">
         <div className="samid-card-head">
           <div>
@@ -451,26 +451,26 @@ export function MeuTempo() {
         {data && (
           <>
             <div className="uso-header-row">
-              <div className="uso-total mono" data-testid="uso-total">
+              <div className="uso-total uso-duration" data-testid="uso-total">
                 {formatarDuracao(data.total_aberto_s)}
               </div>
 
               <div className="uso-resumo">
                 <div className="uso-resumo-item">
                   <div className="samid-eyebrow">Aberto</div>
-                  <div className="mono uso-resumo-val" data-testid="uso-aberto">
+                  <div className="uso-duration uso-resumo-val" data-testid="uso-aberto">
                     {formatarDuracao(data.total_aberto_s)}
                   </div>
                 </div>
                 <div className="uso-resumo-item">
                   <div className="samid-eyebrow">Ativo</div>
-                  <div className="mono uso-resumo-val" data-testid="uso-ativo">
+                  <div className="uso-duration uso-resumo-val" data-testid="uso-ativo">
                     {formatarDuracao(data.total_ativo_s)}
                   </div>
                 </div>
                 <div className="uso-resumo-item">
                   <div className="samid-eyebrow">Ocioso</div>
-                  <div className="mono uso-resumo-val" data-testid="uso-ocioso">
+                  <div className="uso-duration uso-resumo-val" data-testid="uso-ocioso">
                     {formatarDuracao(ociosoS)}
                   </div>
                 </div>
@@ -616,7 +616,7 @@ export function MeuTempo() {
                       <span className="uso-semana-intervalo">
                         {diaDoMes(diasReaisFoco[0].dia)} – {diaDoMes(diasReaisFoco[diasReaisFoco.length - 1].dia)}
                       </span>
-                      <span className="mono uso-semana-total">{formatarDuracao(somaSemanaFoco)}</span>
+                      <span className="uso-duration uso-semana-total">{formatarDuracao(somaSemanaFoco)}</span>
                     </div>
                   )}
                 </>
@@ -655,34 +655,33 @@ export function MeuTempo() {
                             dia ? (
                               <div
                                 key={j}
-                                className={`uso-barra-col${estaNoPeriodo(dia, data) ? ' uso-barra-col-destaque' : ''}`}
+                                className={`uso-barra-col${dia.aberto_s > 0 && estaNoPeriodo(dia, data) ? ' uso-barra-col-destaque' : ''}`}
                                 title={`${formatarDataCurta(dia.dia)} — ${formatarDuracao(dia.aberto_s)}`}
                               >
-                                <div
-                                  className={`uso-barra-pilha${
-                                    estaNoPeriodo(dia, data) ? ' uso-barra-pilha-destaque' : ''
-                                  }${dia.aberto_s === 0 ? ' uso-barra-pilha-vestigial' : ''}`}
-                                  style={{
-                                    height:
-                                      dia.aberto_s === 0
-                                        ? '6%'
-                                        : `${Math.max(4, (dia.aberto_s / maxDia) * 100)}%`,
-                                  }}
-                                >
-                                  {montarSegmentos(dia.por_rota, rankingGrafico, paletaGrafico).map((seg) => (
-                                    <div
-                                      key={seg.rota}
-                                      className="uso-barra-seg"
-                                      style={{
-                                        flexGrow: seg.segundos,
-                                        flexBasis: 0,
-                                        minHeight: 2,
-                                        background: seg.cor,
-                                      }}
-                                      title={`${seg.nome} — ${formatarDuracao(seg.segundos)}`}
-                                    />
-                                  ))}
-                                </div>
+                                {dia.aberto_s > 0 && (
+                                  <div
+                                    className={`uso-barra-pilha${
+                                      estaNoPeriodo(dia, data) ? ' uso-barra-pilha-destaque' : ''
+                                    }`}
+                                    style={{
+                                      height: `${Math.max(4, (dia.aberto_s / maxDia) * 100)}%`,
+                                    }}
+                                  >
+                                    {montarSegmentos(dia.por_rota, rankingGrafico, paletaGrafico).map((seg) => (
+                                      <div
+                                        key={seg.rota}
+                                        className="uso-barra-seg"
+                                        style={{
+                                          flexGrow: seg.segundos,
+                                          flexBasis: 0,
+                                          minHeight: 2,
+                                          background: seg.cor,
+                                        }}
+                                        title={`${seg.nome} — ${formatarDuracao(seg.segundos)}`}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div key={j} className="uso-barra-col uso-barra-col-vazia" />
@@ -694,7 +693,7 @@ export function MeuTempo() {
                             <span className="uso-semana-intervalo">
                               {diaDoMes(diasReais[0].dia)} – {diaDoMes(diasReais[diasReais.length - 1].dia)}
                             </span>
-                            <span className="mono uso-semana-total">{formatarDuracao(somaSemana)}</span>
+                            <span className="uso-duration uso-semana-total">{formatarDuracao(somaSemana)}</span>
                           </div>
                         )}
                       </button>
@@ -708,9 +707,28 @@ export function MeuTempo() {
       </section>
 
       <section className="samid-card">
-        <div className="samid-eyebrow">Por tela</div>
+        <div className="uso-por-tela-header">
+          <div className="samid-eyebrow">Por tela</div>
+          {data && (
+            <div className="uso-legenda-total">
+              <span className="uso-legenda-nome">Total aberto</span>
+              <span className="uso-duration uso-legenda-tempo">
+                {formatarDuracao(data.total_aberto_s)}
+              </span>
+            </div>
+          )}
+        </div>
         {data && data.rotas.length === 0 && (
-          <p className="samid-muted">sem uso registrado no período</p>
+          <div className="uso-empty" role="status">
+            <span className="uso-empty-icon" aria-hidden="true">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+            </span>
+            <h3>Sem uso registrado neste período</h3>
+            <p>Escolha outro período para consultar seu histórico de uso.</p>
+          </div>
         )}
         {data && data.rotas.length > 0 && (
           <div className="uso-legenda">
@@ -726,7 +744,7 @@ export function MeuTempo() {
                   <span className="uso-legenda-corpo">
                     <span className="uso-legenda-nome">{item.nome}</span>
                     <span className="uso-legenda-linha2">
-                      <span className="mono uso-legenda-tempo">
+                      <span className="uso-duration uso-legenda-tempo">
                         {formatarDuracao(minutosLegenda[i] * 60)}
                       </span>
                       <span className="uso-legenda-pct">{percentuaisLegenda[i]}%</span>
@@ -753,7 +771,7 @@ export function MeuTempo() {
                           style={{ width: `${100 - pctAtivo}%`, background: item.cor }}
                         />
                       </span>
-                      <span className="mono uso-legenda-ativo-tempo">
+                      <span className="uso-duration uso-legenda-ativo-tempo">
                         {formatarDuracao(minutosAtivoLegenda[i] * 60)}
                       </span>
                     </span>
@@ -761,18 +779,7 @@ export function MeuTempo() {
                 </div>
               );
             })}
-            {/* "Aberto", não só "Total": a tela também mostra "Ocioso" logo
-                acima, e sem dizer do que esta faixa é a decomposição, é fácil
-                tentar reconciliar as duas — são recortes diferentes (tela vs.
-                qualidade do tempo), não deveriam bater. */}
-            <div className="uso-legenda-item uso-legenda-total">
-              <span className="uso-legenda-corpo">
-                <span className="uso-legenda-nome">Total aberto</span>
-                <span className="uso-legenda-linha2">
-                  <span className="mono uso-legenda-tempo">{formatarDuracao(data.total_aberto_s)}</span>
-                </span>
-              </span>
-            </div>
+
           </div>
         )}
       </section>
