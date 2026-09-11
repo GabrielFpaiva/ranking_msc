@@ -408,7 +408,6 @@ export function MeuTempo() {
   // a soma dos minutos ativos exibidos fechar com `data.total_ativo_s`.
   const pesosAtivoLegenda = legenda.map((item) => item.ativoSegundos);
   const totalMinutosAtivoExibido = data ? Math.floor(data.total_ativo_s / 60) : 0;
-  const minutosAtivoLegenda = distribuirMaiorResto(pesosAtivoLegenda, totalMinutosAtivoExibido);
   const minutosAtivoLimitados = distribuirComLimites(
     pesosAtivoLegenda,
     totalMinutosAtivoExibido,
