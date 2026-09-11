@@ -10,6 +10,9 @@ Em prod: build do front é servido como StaticFiles em /
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -17,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.deps import PROJECT_ROOT, get_logger, get_settings
+from app.api.deps import PROJECT_ROOT, absolute_uso_dir, get_logger, get_settings
 from app.api.routes import auth as auth_routes
 from app.api.routes import caixa as caixa_routes
 from app.api.routes import compare as compare_routes
@@ -34,11 +37,90 @@ from app.api.routes import run as run_routes
 from app.api.routes import score as score_routes
 from app.api.routes import summary as summary_routes
 from app.api.routes import superavit as superavit_routes
+from app.api.routes import uso as uso_routes
+from app.api.uso_store import (
+    ACUMULADOR,
+    LOCK_USO,
+    compactar_meses_pendentes,
+    dia_local,
+    escrever_flush,
+    limpar_cache,
+)
+
+INTERVALO_FLUSH_S = 300
+
+
+def _flush_agora() -> None:
+    """Drena o acumulador para o disco e compacta meses fechados.
+
+    ``ano_mes_corrente`` é lido do relógio **uma única vez, aqui em cima,
+    antes de ``ACUMULADOR.drenar()``** — não depois da escrita. Uma revisão
+    de código pegou o caso de ler o relógio de novo depois do flush: isso
+    abre uma corrida na virada do mês, em que um heartbeat concorrente
+    calcula seu próprio `dia_local()` depois deste flush já ter drenado o
+    buffer mas antes da meia-noite real (se marcando com `2026-09-30`),
+    enquanto a segunda leitura do relógio deste flush já cruzou para
+    outubro. O retardatário seria então gravado, no próximo ciclo, num
+    `2026-09.jsonl` novo ao lado do `2026-09.agg.jsonl` já existente — que
+    `_caminho_mes` nunca lê (o compactado tem precedência) e que a próxima
+    varredura de compactação apaga como lixo de crash. Dado perdido em
+    silêncio. Uma única leitura do relógio, antes de drenar, fecha essa
+    janela por completo.
+
+    A ordem escrever → compactar também importa: deltas gravados perto da
+    virada do mês precisam chegar ao disco antes que a compactação dobre
+    aquele mês em `.agg.jsonl`.
+    """
+    with LOCK_USO:
+        ano_mes_corrente = dia_local()[:7]
+        uso_dir = absolute_uso_dir()
+        pendentes = ACUMULADOR.drenar()
+        try:
+            for mes in sorted({chave.dia[:7] for chave in pendentes}):
+                lote = {
+                    chave: tempo for chave, tempo in pendentes.items() if chave.dia[:7] == mes
+                }
+                escrever_flush(uso_dir, lote)
+                for chave in lote:
+                    pendentes.pop(chave, None)
+            compactar_meses_pendentes(uso_dir, ano_mes_corrente)
+        except OSError:
+            ACUMULADOR.restaurar(pendentes)
+            raise
+        finally:
+            # Mesmo com uma falha após a escrita, o cache fechado pode ter
+            # ficado obsoleto; nunca sirva a cópia anterior.
+            limpar_cache()
+
+
+async def _loop_flush() -> None:
+    """Dispara ``_flush_agora()`` a cada ``INTERVALO_FLUSH_S`` segundos."""
+    while True:
+        await asyncio.sleep(INTERVALO_FLUSH_S)
+        try:
+            await asyncio.to_thread(_flush_agora)
+        except OSError:
+            get_logger().error("Falha ao gravar tempo de uso", exc_info=True)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Sobe o loop de flush e garante uma última gravação no shutdown."""
+    tarefa = asyncio.create_task(_loop_flush())
+    try:
+        yield
+    finally:
+        tarefa.cancel()
+        with suppress(asyncio.CancelledError):
+            await tarefa
+        await asyncio.to_thread(_flush_agora)
+
 
 app = FastAPI(
     title="MCRA PMJP API",
     description="API que expõe o motor ranking_msc para o frontend MCRA.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.include_router(auth_routes.router)
@@ -57,6 +139,7 @@ app.include_router(exports_routes.router)
 app.include_router(recommendations_routes.router)
 app.include_router(log_routes.router)
 app.include_router(entregas_routes.router)
+app.include_router(uso_routes.router)
 
 # CORS: liberado para dev (Vite no :5173). Em prod o front é servido pelo
 # próprio FastAPI então same-origin elimina a necessidade.

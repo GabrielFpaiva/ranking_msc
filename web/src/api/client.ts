@@ -9,6 +9,7 @@ import type {
   ContaDetail,
   ContaList,
   EntregasResponse,
+  EscalaUso,
   Heatmap,
   LogPage,
   PendenciasPage,
@@ -21,6 +22,9 @@ import type {
   ScoreHistory,
   Summary,
   SuperavitData,
+  UsoAnual,
+  UsoHistorico,
+  UsoHoje,
 } from '../types';
 
 const BASE = '/api';
@@ -188,6 +192,48 @@ export const api = {
 
   rules: (): Promise<Rule[]> =>
     fetchAuth(`${BASE}/rules`).then((r) => jsonOrThrow<Rule[]>(r)),
+
+  // Telemetria de uso: nunca deve interromper o usuário, então a promise
+  // sempre resolve — mas um status não-2xx (ex: payload inválido em dev)
+  // aparece no console em vez de desaparecer em silêncio.
+  //
+  // `manterVivo` liga `fetch(..., { keepalive: true })` — só para o envio de
+  // saída disparado por `pagehide` (ver useTempoUso.ts). Sem isso, um fetch
+  // iniciado depois que a página começa a descarregar pode ser abortado pelo
+  // browser antes de completar, perdendo o último intervalo. Não é
+  // `navigator.sendBeacon`: `sendBeacon` não aceita header customizado, e
+  // este endpoint exige `Authorization` (JWT) — `keepalive` resolve o mesmo
+  // problema de sobrevivência ao unload sem abrir mão do header. Fica
+  // desligado por padrão porque `keepalive` tem teto de corpo por navegador
+  // (~64kB somados) e o caminho normal (intervalo, `visibilitychange`) não
+  // precisa dessa garantia.
+  usoHeartbeat: (
+    rota: string,
+    aberto_s: number,
+    ativo_s: number,
+    opcoes: { manterVivo?: boolean } = {},
+  ): Promise<void> =>
+    fetchAuth(`${BASE}/uso/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rota, aberto_s, ativo_s }),
+      ...(opcoes.manterVivo ? { keepalive: true } : {}),
+    }).then((r) => {
+      if (!r.ok) {
+        console.warn(`[uso] heartbeat falhou (${r.status}) para rota=${rota}`);
+      }
+    }),
+
+  usoHoje: (): Promise<UsoHoje> =>
+    fetchAuth(`${BASE}/uso/hoje`).then((r) => jsonOrThrow<UsoHoje>(r)),
+
+  usoHistorico: (escala: EscalaUso, ref: string): Promise<UsoHistorico> =>
+    fetchAuth(`${BASE}/uso/historico${qs({ escala, ref })}`).then((r) =>
+      jsonOrThrow<UsoHistorico>(r),
+    ),
+
+  usoAnual: (ano: number): Promise<UsoAnual> =>
+    fetchAuth(`${BASE}/uso/anual${qs({ ano })}`).then((r) => jsonOrThrow<UsoAnual>(r)),
 
   rule: (ruleId: string): Promise<RuleDetail> =>
     fetchAuth(`${BASE}/rules/${encodeURIComponent(ruleId)}`).then((r) => jsonOrThrow<RuleDetail>(r)),

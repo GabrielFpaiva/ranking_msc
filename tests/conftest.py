@@ -29,8 +29,8 @@ def _hermetic_settings(tmp_path_factory: pytest.TempPathFactory) -> Generator[No
     temporário e aponta RANKING_MSC_CONFIG para ela, de modo que load_settings()
     e app.api.deps.get_settings() usem sempre a mesma config em qualquer máquina.
 
-    ``paths.data_dir``, ``snapshots_dir``, ``reports_dir`` e ``logs_dir``
-    também são redirecionados para um tmp de sessão: são campos
+    ``paths.data_dir``, ``snapshots_dir``, ``reports_dir``, ``logs_dir`` e
+    ``uso_dir`` também são redirecionados para um tmp de sessão: são campos
     *independentes* em ``PathsSettings`` (não derivados de ``data_dir``), e
     qualquer rota/CLI que escreva sob eles gravaria no `data/` real do
     repositório, com testes dependendo de ordem de execução. ``ref_dir`` fica
@@ -52,6 +52,7 @@ def _hermetic_settings(tmp_path_factory: pytest.TempPathFactory) -> Generator[No
             f'reports_dir: "{(data_dir / "reports").as_posix()}"',
         ),
         ('logs_dir: "./data/logs"', f'logs_dir: "{(data_dir / "logs").as_posix()}"'),
+        ('uso_dir: "./data/uso"', f'uso_dir: "{(data_dir / "uso").as_posix()}"'),
     ):
         assert antigo in conteudo, f"settings.yaml.example mudou — não encontrei {antigo!r}"
         conteudo = conteudo.replace(antigo, novo)

@@ -15,6 +15,7 @@ paths:
   reports_dir: "./data/reports"
   logs_dir: "./data/logs"
   ref_dir: "./ref"                    # tabelas de referência (PCASP, domínios)
+  uso_dir: "./data/uso"               # tempo de uso por usuário (JSONL mensal)
 
 rules:
   # 78 regras habilitadas — motor completo (Fase 4 concluída)

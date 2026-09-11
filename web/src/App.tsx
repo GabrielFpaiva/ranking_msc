@@ -10,6 +10,7 @@ import { Execucao } from './screens/Execucao';
 import { Executivo } from './screens/Executivo';
 import { Home } from './screens/Home';
 import { Login } from './screens/Login';
+import { MeuTempo } from './screens/MeuTempo';
 import { Passivos } from './screens/Passivos';
 import { Pendencias } from './screens/Pendencias';
 import { Regras } from './screens/Regras';
@@ -46,6 +47,7 @@ export function App() {
         <Route path="superavit" element={<Superavit />} />
         <Route path="comparar" element={<Comparar />} />
         <Route path="entregas" element={<Entregas />} />
+        <Route path="uso" element={<MeuTempo />} />
         <Route path="*" element={<Navigate to="/inicio" replace />} />
       </Route>
     </Routes>
