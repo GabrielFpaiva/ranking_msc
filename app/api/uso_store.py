@@ -301,6 +301,11 @@ def _parse_linhas_uso(caminho: Path) -> Iterator[tuple[ChaveUso, TempoUso]]:
                 continue
             try:
                 registro = json.loads(linha_bytes.decode("utf-8"))
+                if not isinstance(registro, dict) or not all(
+                    isinstance(registro.get(campo), str)
+                    for campo in ("usuario", "dia", "rota")
+                ):
+                    raise TypeError("chaves de uso precisam ser texto")
                 chave = ChaveUso(
                     usuario=registro["usuario"],
                     dia=registro["dia"],

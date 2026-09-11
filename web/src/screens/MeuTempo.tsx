@@ -408,6 +408,9 @@ export function MeuTempo() {
   const pesosAtivoLegenda = legenda.map((item) => item.ativoSegundos);
   const totalMinutosAtivoExibido = data ? Math.floor(data.total_ativo_s / 60) : 0;
   const minutosAtivoLegenda = distribuirMaiorResto(pesosAtivoLegenda, totalMinutosAtivoExibido);
+  const minutosAtivoLimitados = minutosAtivoLegenda.map((valor, i) =>
+    Math.min(valor, minutosLegenda[i] ?? 0),
+  );
 
   function navegar(direcao: DirecaoJanela): void {
     setRef((atual) => moverPeriodo(escala, atual, direcao));
@@ -487,6 +490,7 @@ export function MeuTempo() {
                   type="button"
                   className="uso-nav-btn"
                   aria-label="Período anterior"
+                  disabled={escala === 'mes' && ref.slice(0, 7) <= '2020-01'}
                   onClick={() => navegar(-1)}
                 >
                   ‹
@@ -761,7 +765,7 @@ export function MeuTempo() {
                         continua sendo o aberto, na linha de cima. */}
                     <span
                       className="uso-legenda-linha3"
-                      title={`${formatarDuracao(minutosAtivoLegenda[i] * 60)} de uso ativo, de ${formatarDuracao(
+                      title={`${formatarDuracao(minutosAtivoLimitados[i] * 60)} de uso ativo, de ${formatarDuracao(
                         minutosLegenda[i] * 60,
                       )} de tela aberta`}
                     >
@@ -776,7 +780,7 @@ export function MeuTempo() {
                         />
                       </span>
                       <span className="uso-duration uso-legenda-ativo-tempo">
-                        {formatarDuracao(minutosAtivoLegenda[i] * 60)}
+                        {formatarDuracao(minutosAtivoLimitados[i] * 60)}
                       </span>
                     </span>
                   </span>
