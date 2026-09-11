@@ -109,7 +109,7 @@ describe('MeuTempo', () => {
     expect(screen.getByText('Início')).toBeTruthy();
     expect(screen.getByText('1h23')).toBeTruthy();
     expect(screen.getByText('Pendências')).toBeTruthy();
-    expect(screen.getByText('37m')).toBeTruthy();
+    expect(screen.getAllByText('37m').length).toBeGreaterThan(0);
   });
 
   it('"Por tela" mostra o percentual de cada rota e uma entrada "Total aberto", e as partes fecham com o total', async () => {

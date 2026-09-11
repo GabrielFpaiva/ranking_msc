@@ -87,7 +87,10 @@ def _flush_agora() -> None:
         except OSError:
             ACUMULADOR.restaurar(pendentes)
             raise
-        limpar_cache()
+        finally:
+            # Mesmo com uma falha após a escrita, o cache fechado pode ter
+            # ficado obsoleto; nunca sirva a cópia anterior.
+            limpar_cache()
 
 
 async def _loop_flush() -> None:
