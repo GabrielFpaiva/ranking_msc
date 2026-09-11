@@ -77,6 +77,25 @@ export function distribuirMaiorResto(pesos: number[], total: number): number[] {
   return resultado;
 }
 
+/** Distribui unidades com maior resto, sem ultrapassar o limite de cada item. */
+export function distribuirComLimites(pesos: number[], total: number, limites: number[]): number[] {
+  const resultado = pesos.map(() => 0);
+  let restante = Math.max(0, total);
+  const ativos = new Set(pesos.map((_, i) => i).filter((i) => limites[i] > 0 && pesos[i] > 0));
+  while (restante > 0 && ativos.size > 0) {
+    const soma = [...ativos].reduce((s, i) => s + pesos[i], 0);
+    const ordem = [...ativos].sort((a, b) => (pesos[b] / soma) - (pesos[a] / soma));
+    let distribuiu = false;
+    for (const i of ordem) {
+      if (restante <= 0) break;
+      if (resultado[i] < limites[i]) { resultado[i] += 1; restante -= 1; distribuiu = true; }
+    }
+    if (!distribuiu) break;
+    for (const i of [...ativos]) if (resultado[i] >= limites[i]) ativos.delete(i);
+  }
+  return resultado;
+}
+
 /**
  * Interpreta uma data "YYYY-MM-DD" como meia-noite local, nunca UTC.
  *

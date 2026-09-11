@@ -94,7 +94,7 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
       <div className="samid-topbar-actions">
         {/* "Meu tempo de uso" não tem competência nem exportação — o seletor
             de período dela é interno ao card, não acoplado à TopBar. */}
-        {pathname !== '/uso' && (
+        {pathname.replace(/\/+$/, '') !== '/uso' && (
           <>
             {exportError && (
               <span className="samid-topbar-export-error" role="alert">

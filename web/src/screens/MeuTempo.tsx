@@ -37,6 +37,7 @@ import { ROUTE_TITLES } from '../routeTitles';
 import {
   agruparEmSemanas,
   descricaoJanela,
+  distribuirComLimites,
   distribuirMaiorResto,
   formatarDuracao,
   hojeISO,
@@ -408,8 +409,10 @@ export function MeuTempo() {
   const pesosAtivoLegenda = legenda.map((item) => item.ativoSegundos);
   const totalMinutosAtivoExibido = data ? Math.floor(data.total_ativo_s / 60) : 0;
   const minutosAtivoLegenda = distribuirMaiorResto(pesosAtivoLegenda, totalMinutosAtivoExibido);
-  const minutosAtivoLimitados = minutosAtivoLegenda.map((valor, i) =>
-    Math.min(valor, minutosLegenda[i] ?? 0),
+  const minutosAtivoLimitados = distribuirComLimites(
+    pesosAtivoLegenda,
+    totalMinutosAtivoExibido,
+    minutosLegenda,
   );
 
   function navegar(direcao: DirecaoJanela): void {
