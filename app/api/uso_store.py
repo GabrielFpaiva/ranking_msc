@@ -25,6 +25,9 @@ from __future__ import annotations
 import calendar
 import json
 import logging
+import os
+import shutil
+import tempfile
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -246,8 +249,22 @@ def escrever_flush(uso_dir: Path, dados: dict[ChaveUso, TempoUso]) -> int:
     with _LOCK_ARQUIVO:
         for ano_mes, linhas in por_mes.items():
             caminho = uso_dir / f"{ano_mes}.jsonl"
-            with caminho.open("a", encoding="utf-8") as arquivo:
-                arquivo.write("\n".join(linhas) + "\n")
+            temporario: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    dir=uso_dir, suffix=".tmp", delete=False
+                ) as arquivo:
+                    temporario = Path(arquivo.name)
+                    if caminho.exists():
+                        with caminho.open("rb") as anterior:
+                            shutil.copyfileobj(anterior, arquivo)
+                    arquivo.write(("\n".join(linhas) + "\n").encode("utf-8"))
+                    arquivo.flush()
+                    os.fsync(arquivo.fileno())
+                temporario.replace(caminho)
+            finally:
+                if temporario is not None:
+                    temporario.unlink(missing_ok=True)
             total += len(linhas)
     return total
 

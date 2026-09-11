@@ -56,7 +56,9 @@ export function useTempoUso(): () => void {
     function aoTrocarVisibilidade(): void {
       const visivel = document.visibilityState === 'visible';
       relogio?.setVisivel(visivel, Date.now());
-      if (!visivel) enviar();
+      // A aba pode estar iniciando o descarregamento: use keepalive já no
+      // primeiro evento para que o pagehide não encontre baldes colhidos.
+      if (!visivel) enviar(true);
     }
 
     function aoDescarregar(): void {

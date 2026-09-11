@@ -318,7 +318,10 @@ export function MeuTempo() {
     const ano = Number(ref.slice(0, 4));
 
     function buscar(comCarregamento: boolean): void {
-      if (comCarregamento) setAnualError(null);
+      if (comCarregamento) {
+        setAnual(null);
+        setAnualError(null);
+      }
       api
         .usoAnual(ano)
         .then((resposta) => {
