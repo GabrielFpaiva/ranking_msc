@@ -14,6 +14,12 @@ qualquer import da aplicação, e só então o servidor sobe. O loader de
 configuração lê a variável no momento da carga; exportá-la depois não tem
 efeito.
 
+Qualquer exceção entre a preparação da config e o arranque do servidor —
+``ImportError`` de ``hiddenimport`` faltando no PyInstaller, ``ConfigError``
+de template ausente no pacote — é capturada em ``main()``, registrada com
+traceback completo em ``desktop.log`` e faz o processo sair com código 1, em
+vez de estourar sem deixar rastro no subsistema GUI do Windows.
+
 Uso:
     python -m desktop.launcher
     python -m desktop.launcher --headless   # sem janela, para smoke test
@@ -98,20 +104,32 @@ def _configurar_logging(home: Path) -> Path:
 def main(argv: list[str] | None = None) -> int:
     """Prepara o ambiente, sobe o servidor e abre a janela.
 
+    Qualquer exceção entre a configuração do log e o fim desta função é
+    capturada, registrada em ``desktop.log`` com o traceback completo (via
+    ``logger.exception``) e faz a função devolver 1 — sem isso, uma falha no
+    subsistema GUI do Windows (``console=False`` no ``mcra.spec``, sem console
+    anexado) não deixaria rastro nenhum. ``KeyboardInterrupt`` e ``SystemExit``
+    continuam se propagando normalmente, sem passar por aqui.
+
     Returns:
-        0 em caso de sucesso, 1 se o servidor não respondeu a tempo.
+        0 em caso de sucesso, 1 se a preparação da config, o arranque do
+        servidor ou a checagem de saúde falharem.
     """
     args = parse_args(argv)
 
     home = data_home()
     log_path = _configurar_logging(home)
 
-    config_path = preparar_config(home, root=resolve_root())
-    os.environ["RANKING_MSC_CONFIG"] = str(config_path)
-
-    servidor = ServidorLocal(porta_livre())
-    servidor.iniciar()
+    servidor: ServidorLocal | None = None
+    etapa = "preparação da configuração"
     try:
+        config_path = preparar_config(home, root=resolve_root())
+        os.environ["RANKING_MSC_CONFIG"] = str(config_path)
+
+        etapa = "arranque do servidor local"
+        servidor = ServidorLocal(porta_livre())
+        servidor.iniciar()
+
         if not servidor.esperar_saude():
             logger.error("O servidor local não respondeu. Consulte o log em %s", log_path)
             return 1
@@ -123,8 +141,12 @@ def main(argv: list[str] | None = None) -> int:
         webview.create_window(_TITULO, servidor.url, width=1440, height=900)
         webview.start()
         return 0
+    except Exception:
+        logger.exception("Falha na etapa de %s. Consulte o log em %s", etapa, log_path)
+        return 1
     finally:
-        servidor.parar()
+        if servidor is not None:
+            servidor.parar()
 
 
 if __name__ == "__main__":

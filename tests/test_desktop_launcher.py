@@ -6,8 +6,10 @@ import logging
 import os
 from pathlib import Path
 
+import desktop.launcher as launcher_module
 from desktop.launcher import main
 
+from ranking_msc.exceptions import ConfigError
 from ranking_msc.outputs.logs import setup_logging
 
 
@@ -92,3 +94,48 @@ def test_headless_depois_setup_logging_ainda_anexa_handler_jsonl(
             if h not in handlers_antes:
                 logger.removeHandler(h)
                 h.close()
+
+
+def test_headless_falha_no_iniciar_grava_traceback_no_log(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Falha em ServidorLocal.iniciar() (ex.: hiddenimport faltando no PyInstaller) vai
+    para o desktop.log com traceback completo, e main() devolve 1 em vez de estourar.
+    """
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.delenv("RANKING_MSC_CONFIG", raising=False)
+
+    def _iniciar_com_falha(self: object) -> None:
+        raise ImportError("simulado")
+
+    monkeypatch.setattr(launcher_module.ServidorLocal, "iniciar", _iniciar_com_falha)
+
+    assert main(["--headless"]) == 1
+
+    log_path = tmp_path / "MCRA" / "data" / "logs" / "desktop.log"
+    conteudo = log_path.read_text(encoding="utf-8")
+    assert "ImportError" in conteudo
+    assert "simulado" in conteudo
+
+
+def test_headless_falha_no_preparar_config_grava_no_log_sem_quebrar_finally(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Falha em preparar_config() (ex.: template ausente no pacote) vai para o
+    desktop.log, main() devolve 1, e o finally não tenta parar um servidor que nunca
+    chegou a ser criado — se tentasse, main() estouraria em vez de devolver 1.
+    """
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.delenv("RANKING_MSC_CONFIG", raising=False)
+
+    def _preparar_config_com_falha(home: Path, *, root: Path) -> Path:
+        raise ConfigError("template ausente simulado")
+
+    monkeypatch.setattr(launcher_module, "preparar_config", _preparar_config_com_falha)
+
+    assert main(["--headless"]) == 1
+
+    log_path = tmp_path / "MCRA" / "data" / "logs" / "desktop.log"
+    conteudo = log_path.read_text(encoding="utf-8")
+    assert "ConfigError" in conteudo
+    assert "template ausente simulado" in conteudo
