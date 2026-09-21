@@ -8,6 +8,9 @@
 #endif
 
 [Setup]
+; AppId identifica a instalação para atualizações e desinstalação. Nunca troque:
+; com máquinas já instaladas, um AppId novo vira um segundo programa instalado.
+AppId={{E21FEC9C-A233-4EC3-B6F6-50F6A9D7760F}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 DefaultDirName={autopf}\MCRA
@@ -33,6 +36,10 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 Source: "..\dist\MCRA\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
+[InstallDelete]
+; Reinstalação por cima: apaga as bibliotecas da versão anterior antes de copiar as novas.
+Type: filesandordirs; Name: "{app}\_internal"
+
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -40,8 +47,11 @@ Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 [Run]
 Filename: "{tmp}\MicrosoftEdgeWebview2Setup.exe"; Parameters: "/silent /install"; \
   Check: WebView2Ausente; StatusMsg: "Instalando o componente de exibicao..."
+; runasoriginaluser é o padrão documentado do Inno para entradas postinstall; runascurrentuser
+; herdaria as credenciais de administrador do Setup e abriria o app elevado, o que quebra o
+; WebView2. Não troque de volta.
 Filename: "{app}\{#MyAppExeName}"; Description: "Abrir o {#MyAppName}"; \
-  Flags: nowait postinstall skipifsilent runascurrentuser
+  Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [Code]
 function WebView2Ausente: Boolean;
