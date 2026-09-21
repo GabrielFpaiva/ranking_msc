@@ -149,11 +149,16 @@ processo rodando exposto em rede.
 
 A entrega para a equipe da prefeitura é um instalador Windows,
 `MCRA-Setup-<versão>.exe`, gerado pelo workflow `Release desktop` do GitHub
-Actions a partir de uma tag `v*` (ou disparo manual). Ele instala o
+Actions a partir de uma tag `v*` (ou disparo manual). O workflow só anexa o
+instalador como artefato da execução (`upload-artifact`), para baixar na aba
+Actions; ele não cria Release no GitHub. O instalador instala o
 aplicativo em Arquivos de Programas, cria atalho no menu iniciar e na área de
 trabalho, e verifica/instala o Edge WebView2 se faltar.
 
 ```bash
+# Uma vez: instala pywebview e PyInstaller (extra "desktop"), que os dois alvos exigem
+pip install -e ".[desktop]"
+
 # Rodar o aplicativo desktop em desenvolvimento, sem gerar instalador
 make desktop-run
 
@@ -183,7 +188,7 @@ O arquivo real de configuração é `config/settings.yaml`.
 Se ele não existir:
 
 - `make bootstrap` copia `config/settings.yaml.example`;
-- no aplicativo desktop, o instalador seeda `%LOCALAPPDATA%\MCRA\config\settings.yaml` a partir de um template embutido no primeiro uso;
+- no aplicativo desktop, o próprio aplicativo cria `%LOCALAPPDATA%\MCRA\config\settings.yaml` no primeiro arranque, a partir de um template embutido;
 - o material de container Docker (aposentado em 21/09/2026) também fazia isso — ver `doc/legacy/`.
 
 Estrutura suportada hoje:
@@ -267,14 +272,14 @@ Variáveis efetivamente suportadas hoje:
 | Variável | Onde funciona | Default | Efeito |
 |---|---|---|---|
 | `PORT` | mecanismo do entrypoint Docker, aposentado em 21/09/2026 — ver `doc/legacy/` | `8000` | porta do `uvicorn` no entrypoint (sem uso no fluxo atual) |
-| `RANKING_MSC_CONFIG` | loader Python quando `load_settings()` é chamado sem path explícito | `config/settings.yaml` | afeta uso programático sem path explícito e a CLI `scripts/benchmark.py` |
+| `RANKING_MSC_CONFIG` | API web (`app/api/deps.py::get_config_path()`) e loader Python quando `load_settings()` é chamado sem path explícito | `config/settings.yaml` | escolhe o `settings.yaml` da API (o aplicativo desktop depende disso), do uso programático sem path explícito e da CLI `scripts/benchmark.py` |
 
 Limitações atuais de resolução de config:
 
-- `app/api/deps.py` carrega explicitamente `PROJECT_ROOT / config/settings.yaml`;
+- `app/api/deps.py::get_config_path()` usa `RANKING_MSC_CONFIG` quando definida e, sem ela, `PROJECT_ROOT / config/settings.yaml`; é assim que o aplicativo desktop aponta a API para `%LOCALAPPDATA%\MCRA\config\settings.yaml`;
 - `scripts/run_pipeline.py`, `scripts/run_batch.py` e `scripts/compare_periods.py` resolvem `config/settings.yaml` ou `--config` antes de chamar `load_settings()`;
 - `scripts/benchmark.py` chama `load_settings()` sem path explícito e, portanto, **respeita** `RANKING_MSC_CONFIG`;
-- portanto, a variável `RANKING_MSC_CONFIG` **não altera** a configuração da API web nem o comportamento padrão dessas três CLIs operacionais, mas afeta `scripts/benchmark.py`;
+- portanto, a variável `RANKING_MSC_CONFIG` **altera** a configuração da API web e de `scripts/benchmark.py`, mas **não** o comportamento padrão dessas três CLIs operacionais;
 - para mudar a configuração da API fora do instalador (dev/self-hosted manual), edite `config/settings.yaml` na raiz do projeto; no aplicativo desktop, edite `%LOCALAPPDATA%\MCRA\config\settings.yaml`;
 - para mudar a configuração de `run_pipeline.py`, `run_batch.py` e `compare_periods.py`, use `--config /caminho/para/settings.yaml`.
 
@@ -284,7 +289,7 @@ Limitações atuais de resolução de config:
 |---|---|---|---|
 | Dev local | `config/settings.yaml` na raiz do repo | `./data/*` | `make bootstrap` já cria tudo |
 | CLI local | `config/settings.yaml` ou `--config` | `./data/*`, `--output-dir/*` (pipeline/batch) ou diretório custom de Excel consolidado (compare) | `compare_periods` usa `--snapshots-dir`; `benchmark.py` é a exceção que respeita `RANKING_MSC_CONFIG` |
-| Aplicativo desktop | `%LOCALAPPDATA%\MCRA\config\settings.yaml`, seedado no primeiro uso | `%LOCALAPPDATA%\MCRA\data\*` | sem servidor central; cada máquina tem os seus |
+| Aplicativo desktop | `%LOCALAPPDATA%\MCRA\config\settings.yaml`, criado pelo aplicativo no primeiro arranque (via `RANKING_MSC_CONFIG`) | `%LOCALAPPDATA%\MCRA\data\*` | sem servidor central; cada máquina tem os seus |
 | Docker Compose | `/app/config/settings.yaml` via volume | `/app/data/*` mapeado de `./data` | aposentado em 21/09/2026 — ver `doc/legacy/` |
 
 #### Checklist mínimo antes de distribuir uma versão
