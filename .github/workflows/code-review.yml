@@ -27,6 +27,11 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Modelo fixo de proposito. Sem esta linha a acao escolhe sozinha a
+          # variante de 1M de contexto (`claude-opus-5[1m]`), que exige acesso
+          # proprio: em 21/09/2026 o job morria em 432ms, com custo zero e sem
+          # nenhuma chamada ao modelo.
+          claude_args: "--model claude-sonnet-5"
           prompt: |
             Review this PR as a senior Python developer.
             Focus on:
