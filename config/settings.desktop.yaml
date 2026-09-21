@@ -1,3 +1,4 @@
+config_version: 1
 app:
   title: Ranking MSC — Validação Contábil
   debug: false

@@ -151,3 +151,20 @@ def test_gravacao_nao_deixa_temporario_na_pasta(tmp_path: Path) -> None:
     """A escrita atômica não deixa arquivo .tmp para trás."""
     preparar_config(tmp_path, root=_ROOT)
     assert [p.name for p in (tmp_path / "config").iterdir()] == ["settings.yaml"]
+
+
+def test_template_tem_config_version_e_carrega(tmp_path: Path) -> None:
+    """O marcador de versão fica no topo, sobrevive ao bootstrap e o loader aceita."""
+    from ranking_msc.config.settings import load_settings
+
+    template = yaml.safe_load(
+        (_ROOT / "config" / "settings.desktop.yaml").read_text(encoding="utf-8")
+    )
+    assert next(iter(template)) == "config_version"
+    assert template["config_version"] == 1
+
+    destino = preparar_config(tmp_path, root=_ROOT)
+
+    assert yaml.safe_load(destino.read_text(encoding="utf-8"))["config_version"] == 1
+    settings = load_settings(destino)
+    assert len(settings.security.users) == 3
