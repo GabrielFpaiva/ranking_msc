@@ -25,10 +25,10 @@ jobs:
       # herméticos (tests/conftest.py gera a config a partir do example).
       # Rodar sem o cp garante que um clone limpo passa.
       - name: Ruff
-        run: ruff check src tests app
+        run: ruff check src tests app desktop
 
       - name: Mypy
-        run: mypy src app/api
+        run: mypy src app/api desktop
 
       - name: Pytest (com gate de cobertura)
         # Cobertura atual: 95% — gate em 90 segura regressões sem ser frágil.
