@@ -54,7 +54,7 @@ describe('Login', () => {
     apiLoginMock.mockResolvedValue(undefined);
     renderLogin();
 
-    await fillAndSubmit({ 'Usuário': 'admin', 'Senha': 'senha-forte' }, 'Entrar');
+    await fillAndSubmit({ 'E-mail': 'admin', 'Senha': 'senha-forte' }, 'Entrar');
 
     expect(apiLoginMock).toHaveBeenCalledWith('admin', 'senha-forte');
     expect(await screen.findByText('TELA INICIO')).toBeTruthy();
@@ -64,10 +64,10 @@ describe('Login', () => {
     apiLoginMock.mockRejectedValue(new ApiError(401, 'Unauthorized'));
     renderLogin();
 
-    await fillAndSubmit({ 'Usuário': 'admin', 'Senha': 'errada-123' }, 'Entrar');
+    await fillAndSubmit({ 'E-mail': 'admin', 'Senha': 'errada-123' }, 'Entrar');
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe('Usuário ou senha inválidos.');
+    expect(alert.textContent).toBe('E-mail ou senha inválidos.');
     expect(screen.queryByText('TELA INICIO')).toBeNull();
   });
 
@@ -75,7 +75,7 @@ describe('Login', () => {
     apiLoginMock.mockRejectedValue(new ApiError(500, 'Internal Server Error'));
     renderLogin();
 
-    await fillAndSubmit({ 'Usuário': 'admin', 'Senha': 'senha-forte' }, 'Entrar');
+    await fillAndSubmit({ 'E-mail': 'admin', 'Senha': 'senha-forte' }, 'Entrar');
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe(
@@ -107,7 +107,7 @@ describe('Login — primeiro acesso', () => {
 
     await fillAndSubmit(
       {
-        'Usuário': 'admin',
+        'E-mail': 'admin',
         'Senha': 'senha-forte-123',
         'Confirmar senha': 'senha-forte-123',
       },
@@ -125,7 +125,7 @@ describe('Login — primeiro acesso', () => {
 
     await fillAndSubmit(
       {
-        'Usuário': 'admin',
+        'E-mail': 'admin',
         'Senha': 'senha-forte-123',
         'Confirmar senha': 'outra-coisa-123',
       },
@@ -142,7 +142,7 @@ describe('Login — primeiro acesso', () => {
     await screen.findByLabelText('Confirmar senha');
 
     await fillAndSubmit(
-      { 'Usuário': 'admin', 'Senha': 'curta', 'Confirmar senha': 'curta' },
+      { 'E-mail': 'admin', 'Senha': 'curta', 'Confirmar senha': 'curta' },
       'Criar administrador',
     );
 
@@ -158,7 +158,7 @@ describe('Login — primeiro acesso', () => {
 
     await fillAndSubmit(
       {
-        'Usuário': 'admin',
+        'E-mail': 'admin',
         'Senha': 'senha-forte-123',
         'Confirmar senha': 'senha-forte-123',
       },
