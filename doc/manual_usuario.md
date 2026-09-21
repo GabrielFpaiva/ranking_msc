@@ -18,8 +18,8 @@ prioriza riscos para a equipe revisar.
 
 ## Acesso
 
-1. Abra a URL disponibilizada pela TI ou pela controladoria.
-2. Informe usuario e senha.
+1. Abra o aplicativo pelo atalho do menu iniciar ou da area de trabalho.
+2. Informe e-mail e senha.
 3. A tela inicial sera aberta em **Inicio**.
 
 Se o login expirar, o sistema volta para a tela de login. Entre novamente e
@@ -260,7 +260,7 @@ com `ERRO` e dimensoes mais fracas.
 
 | Situacao | O que fazer |
 |---|---|
-| Login nao entra | Conferir usuario/senha com o operador do sistema. |
+| Login nao entra | Conferir e-mail/senha com o responsavel tecnico. |
 | Arquivo vazio | Exportar novamente o CSV da MSC. |
 | Erro de formato | Conferir metadata, separador e cabecalho do CSV. |
 | Sem historico para comparar | Processar as competencias anteriores. |
