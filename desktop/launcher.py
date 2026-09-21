@@ -85,7 +85,9 @@ def _avisar_falha(log_path: Path) -> None:
         f"{log_path}"
     )
     try:
-        ctypes.windll.user32.MessageBoxW(None, mensagem, _TITULO, _MB_ICONERROR)
+        # windll só existe no ctypes do Windows; o mypy do CI roda em Linux.
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined,unused-ignore]
+        user32.MessageBoxW(None, mensagem, _TITULO, _MB_ICONERROR)
     except Exception:
         logger.warning("Não foi possível mostrar a caixa de erro.", exc_info=True)
 
