@@ -74,7 +74,7 @@ def test_parar_com_thread_viva_loga_warning(caplog) -> None:  # type: ignore[no-
 
 
 def test_servidor_sobe_sem_stdout_nem_stderr(monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    """No exe GUI do Windows (console=False) stdout e stderr são None; o servidor sobe mesmo assim."""
+    """No exe GUI do Windows (console=False) stdout e stderr são None; o servidor sobe igual."""
     import sys
 
     monkeypatch.setattr(sys, "stdout", None)
