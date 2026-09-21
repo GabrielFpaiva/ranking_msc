@@ -65,6 +65,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Nome da variável de ambiente que contém a senha (uso não interativo).",
     )
     parser.add_argument(
+        "--secret-key-env",
+        required=False,
+        help=(
+            "Nome da variável de ambiente com um secret_key fixo. Sem disco "
+            "persistente (ex.: Render free), evita gerar uma chave nova a "
+            "cada reinício e derrubar as sessões já logadas."
+        ),
+    )
+    parser.add_argument(
         "--config",
         required=False,
         help="Caminho do settings.yaml (padrão: config/settings.yaml do projeto).",
@@ -96,6 +105,24 @@ def _resolve_password(args: argparse.Namespace) -> str:
     return password
 
 
+def _resolve_secret_key(args: argparse.Namespace) -> str | None:
+    """Obtém o secret_key fixo de ``--secret-key-env``, se informado.
+
+    Raises:
+        ConfigError: se ``--secret-key-env`` foi passado mas a variável de
+            ambiente correspondente está vazia/inexistente.
+    """
+    if not args.secret_key_env:
+        return None
+
+    value = os.environ.get(args.secret_key_env, "")
+    if not value:
+        raise ConfigError(
+            f"Variável de ambiente '{args.secret_key_env}' vazia ou inexistente."
+        )
+    return value
+
+
 def run_cli(argv: list[str] | None = None) -> int:
     """Executa a CLI com tratamento padronizado de erros.
 
@@ -112,7 +139,14 @@ def run_cli(argv: list[str] | None = None) -> int:
 
     try:
         password = _resolve_password(args)
-        provision_user(config_path, args.username, password, example_path=_EXAMPLE_PATH)
+        secret_key = _resolve_secret_key(args)
+        provision_user(
+            config_path,
+            args.username,
+            password,
+            example_path=_EXAMPLE_PATH,
+            secret_key=secret_key,
+        )
         # Valida o resultado com o loader oficial — falha aqui indica bug.
         load_settings(config_path)
     except ConfigError as exc:
