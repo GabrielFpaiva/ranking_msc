@@ -59,7 +59,12 @@ Campos criticos:
 
 No instalador do aplicativo desktop (`MCRA-Setup-<versao>.exe`) os tres
 usuarios da equipe ja vem cadastrados; as senhas sao entregues pessoalmente
-pelo responsavel tecnico. O que segue vale para quem roda a API fora do
+pelo responsavel tecnico. Senha esquecida no aplicativo desktop: feche o
+aplicativo e apague `%LOCALAPPDATA%\MCRA\config\settings.yaml`; no proximo
+arranque ele recria a configuracao com as senhas originais, e os dados
+(snapshots, relatorios, logs) ficam onde estavam.
+
+O que segue vale para quem roda a API fora do
 instalador (desenvolvimento local), onde nao ha passo manual de hash:
 
 1. **Navegador (recomendado)**: com o app no ar e nenhum usuario configurado,
@@ -176,10 +181,10 @@ cd ..
 Subir FastAPI servindo API e SPA:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn app.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Acesse `http://localhost:8000`.
+Acesse `http://127.0.0.1:8000`.
 
 ---
 
@@ -378,7 +383,8 @@ stack) fica preservado em `doc/legacy/`, caso a decisao seja revista.
 
 O workflow `Release desktop` do GitHub Actions builda o instalador Windows
 (`MCRA-Setup-<versao>.exe`) a partir de uma tag `v*` (ou disparo manual) e o
-publica como artefato/release. O instalador:
+anexa como artefato da execucao (`upload-artifact`), para baixar na aba
+Actions; o workflow nao cria Release no GitHub. O instalador:
 
 - instala o aplicativo em Arquivos de Programas;
 - cria atalho no menu iniciar e na area de trabalho;
@@ -388,7 +394,8 @@ publica como artefato/release. O instalador:
 
 Para empacotar localmente (sem passar pelo CI): `make desktop-build`. Para
 rodar o app desktop em desenvolvimento, sem gerar instalador: `make
-desktop-run`.
+desktop-run`. Os dois alvos exigem antes `pip install -e ".[desktop]"`
+(pywebview e PyInstaller ficam fora do `.[dev]`).
 
 ### Assinatura de codigo
 
