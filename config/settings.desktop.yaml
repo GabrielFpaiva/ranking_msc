@@ -98,7 +98,7 @@ security:
     hashed_password: $2b$12$Qy6u4b/IX1l2uy1XNu6xje7qJ4CnD5cMeQMsdoG5SRIqTaPiDig9G
   - username: laeliajoyce@gmail.com
     hashed_password: $2b$12$ECNvajO1xM6lFiMTH.gFlePW0Z/hDJYC.Qae8MDH.Yy0BHjoMjbla
-  - username: Thialle.soli@gmail.com
+  - username: thialle.soli@gmail.com
     hashed_password: $2b$12$fs./cIlp01AObVc/ZEnR7.cvZOQn1cYy9l5CaSTlIpkuUJhv/58Eu
 siconfi:
   id_ente: 2507507

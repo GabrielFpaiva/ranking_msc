@@ -64,7 +64,8 @@ def seed(destino: Path, emails: list[str], *, example_path: Path) -> dict[str, s
 
     Args:
         destino: arquivo YAML a criar ou sobrescrever.
-        emails: e-mails que viram ``username``, na ordem informada.
+        emails: e-mails que viram ``username``, na ordem informada. São gravados
+            com ``.strip().casefold()``, igual à comparação do login.
         example_path: template base, usado quando o destino não existe.
 
     Returns:
@@ -73,6 +74,7 @@ def seed(destino: Path, emails: list[str], *, example_path: Path) -> dict[str, s
     Raises:
         ValueError: se a lista estiver vazia ou tiver e-mail repetido.
     """
+    emails = [email.strip().casefold() for email in emails]
     if not emails:
         raise ValueError("Nenhum e-mail informado.")
     if len(set(emails)) != len(emails):

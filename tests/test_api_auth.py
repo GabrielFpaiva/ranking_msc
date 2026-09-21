@@ -102,6 +102,64 @@ class TestAuthToken:
         assert response.status_code == 422
 
 
+class TestLoginIgnoraCaixaEEspacos:
+    """O username é e-mail: maiúsculas e espaços nas pontas não podem dar 401."""
+
+    @pytest.mark.parametrize(
+        "digitado",
+        ["THIALLE.SOLI@GMAIL.COM", "  thialle.soli@gmail.com  ", "Thialle.soli@gmail.com"],
+    )
+    def test_authenticate_user_normaliza_username(self, digitado: str) -> None:
+        """authenticate_user acha o usuário com caixa e espaços diferentes."""
+        from app.api.auth import authenticate_user
+
+        security = _make_settings_with_user("thialle.soli@gmail.com", "senha-da-thialle")
+        user = authenticate_user(security, digitado, "senha-da-thialle")
+        assert user is not None
+        assert user.username == "thialle.soli@gmail.com"
+
+    @pytest.mark.parametrize("digitado", ["THIALLE.SOLI@GMAIL.COM", "  thialle.soli@gmail.com  "])
+    def test_endpoint_token_aceita_email_em_outra_caixa(
+        self, digitado: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """POST /api/auth/token devolve 200 e o /me devolve o username cadastrado."""
+        import app.api.deps as deps_module
+        import app.api.routes.auth as auth_routes_module
+
+        from ranking_msc.config.settings import Settings
+
+        settings = Settings(
+            security=_make_settings_with_user("thialle.soli@gmail.com", "senha-da-thialle")
+        )
+        monkeypatch.setattr(deps_module, "get_settings", lambda: settings)
+        monkeypatch.setattr(auth_routes_module, "get_settings", lambda: settings)
+        app.dependency_overrides.pop(get_current_user, None)
+        try:
+            client = TestClient(app)
+            resposta = client.post(
+                "/api/auth/token",
+                data={"username": digitado, "password": "senha-da-thialle"},
+            )
+            assert resposta.status_code == 200, resposta.text
+            token = resposta.json()["access_token"]
+            me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+            assert me.status_code == 200
+            assert me.json()["username"] == "thialle.soli@gmail.com"
+        finally:
+            app.dependency_overrides[get_current_user] = lambda: "test-user"
+
+    def test_template_desktop_so_tem_usernames_em_minusculas(self) -> None:
+        """O template entregue grava os e-mails já normalizados."""
+        from pathlib import Path
+
+        import yaml
+
+        template = Path(__file__).resolve().parents[1] / "config" / "settings.desktop.yaml"
+        users = yaml.safe_load(template.read_text(encoding="utf-8"))["security"]["users"]
+        for user in users:
+            assert user["username"] == user["username"].strip().casefold()
+
+
 # ---------------------------------------------------------------------------
 # GET /api/auth/me
 # ---------------------------------------------------------------------------

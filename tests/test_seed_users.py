@@ -51,3 +51,20 @@ def test_seed_recusa_email_duplicado(tmp_path: Path) -> None:
     destino = tmp_path / "settings.desktop.yaml"
     with pytest.raises(ValueError):
         seed(destino, ["a@exemplo.com", "a@exemplo.com"], example_path=_EXAMPLE)
+
+
+def test_seed_grava_email_em_minusculas_sem_espacos(tmp_path: Path) -> None:
+    """E-mail digitado com maiúscula ou espaço vira username normalizado."""
+    destino = tmp_path / "settings.desktop.yaml"
+    senhas = seed(destino, ["  Fulana.Silva@Exemplo.com "], example_path=_EXAMPLE)
+
+    raw = yaml.safe_load(destino.read_text(encoding="utf-8"))
+    assert [u["username"] for u in raw["security"]["users"]] == ["fulana.silva@exemplo.com"]
+    assert list(senhas) == ["fulana.silva@exemplo.com"]
+
+
+def test_seed_recusa_email_duplicado_so_na_caixa(tmp_path: Path) -> None:
+    """``A@x`` e ``a@x`` são o mesmo login; a lista é recusada."""
+    destino = tmp_path / "settings.desktop.yaml"
+    with pytest.raises(ValueError):
+        seed(destino, ["A@exemplo.com", "a@exemplo.com"], example_path=_EXAMPLE)
