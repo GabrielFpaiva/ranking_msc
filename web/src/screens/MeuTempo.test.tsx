@@ -448,17 +448,30 @@ describe('MeuTempo', () => {
   });
 
   it('escala "Dia": barra de um dia futuro vem desabilitada', async () => {
-    usoHistoricoMock.mockResolvedValue(BASE);
+    // Este teste, ao contrário dos demais do arquivo, depende de "hoje" ser
+    // antes de 13/09/2026 (ver comparação em periodoEhFuturo/MeuTempo.tsx
+    // contra o relógio real) — sem congelar o relógio aqui, o teste quebra
+    // sozinho assim que a data real do sistema ultrapassa 13/09/2026.
+    // Só o relógio (Date) é congelado — faking setTimeout/setInterval
+    // também travaria o polling assíncrono do waitFor/findByTestId abaixo.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-09T12:00:00'));
 
-    render(<MeuTempo />);
-    await screen.findByTestId('uso-total');
+    try {
+      usoHistoricoMock.mockResolvedValue(BASE);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dia' }));
-    await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+      render(<MeuTempo />);
+      await screen.findByTestId('uso-total');
 
-    // 13/09/2026 (domingo da semana em foco) é depois de hoje (09/09).
-    const botaoFuturo = screen.getByRole('button', { name: 'Selecionar 13/09' }) as HTMLButtonElement;
-    expect(botaoFuturo.disabled).toBe(true);
+      fireEvent.click(screen.getByRole('button', { name: 'Dia' }));
+      await waitFor(() => expect(usoHistoricoMock).toHaveBeenCalledTimes(2));
+
+      // 13/09/2026 (domingo da semana em foco) é depois de hoje (09/09).
+      const botaoFuturo = screen.getByRole('button', { name: 'Selecionar 13/09' }) as HTMLButtonElement;
+      expect(botaoFuturo.disabled).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('falha no gráfico anual mostra mensagem própria, sem travar o resto da tela', async () => {
