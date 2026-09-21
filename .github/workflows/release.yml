@@ -1,0 +1,80 @@
+name: Release desktop
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build do frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+
+      - name: Instalar dependências
+        run: pip install -e ".[dev,desktop]"
+
+      - name: Empacotar
+        run: pyinstaller mcra.spec --noconfirm
+
+      - name: Smoke do executável
+        shell: pwsh
+        run: |
+          $proc = Start-Process -FilePath "dist\MCRA\MCRA.exe" -ArgumentList "--headless" -PassThru -Wait
+          if ($proc.ExitCode -ne 0) { throw "launcher headless retornou $($proc.ExitCode)" }
+        timeout-minutes: 3
+
+      - name: Mostrar log do smoke em caso de falha
+        if: failure()
+        shell: pwsh
+        run: |
+          $logPath = Join-Path $env:LOCALAPPDATA "MCRA\data\logs\desktop.log"
+          if (Test-Path $logPath) {
+            Write-Host "----- desktop.log -----"
+            Get-Content $logPath
+          } else {
+            Write-Host "Log não encontrado em $logPath"
+          }
+
+      - name: Resolver versão
+        id: versao
+        shell: bash
+        run: |
+          V=$(python -c "import sys; sys.path.insert(0,'src'); import ranking_msc; print(ranking_msc.__version__)")
+          echo "valor=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Baixar o bootstrapper do WebView2
+        run: |
+          curl -L -o installer\MicrosoftEdgeWebview2Setup.exe https://go.microsoft.com/fwlink/p/?LinkId=2124703
+
+      - name: Verificar idioma do Inno Setup
+        shell: pwsh
+        run: |
+          $islPath = "${env:ProgramFiles(x86)}\Inno Setup 6\Languages\BrazilianPortuguese.isl"
+          if (-not (Test-Path $islPath)) {
+            throw "Arquivo de idioma não encontrado no runner: $islPath"
+          }
+
+      - name: Gerar o instalador
+        run: iscc installer\mcra.iss /DMyAppVersion=${{ steps.versao.outputs.valor }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MCRA-Setup
+          path: installer/Output/*.exe
