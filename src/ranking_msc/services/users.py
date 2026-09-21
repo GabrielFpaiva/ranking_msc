@@ -53,26 +53,19 @@ def provision_user(
     password: str,
     *,
     example_path: Path,
-    secret_key: str | None = None,
 ) -> Path:
     """Cadastra/atualiza o usuário no YAML, gerando hash e secret_key.
 
     Se o arquivo de configuração não existir, ele é criado a partir do
     ``settings.yaml.example``. Se o ``secret_key`` atual for o placeholder
-    inseguro, é substituído por ``secret_key`` (quando informado) ou por um
-    valor gerado com ``secrets.token_hex(32)``. Um usuário com o mesmo
-    ``username`` é substituído (troca de senha), nunca duplicado.
+    inseguro, um novo é gerado com ``secrets.token_hex(32)``. Um usuário com
+    o mesmo ``username`` é substituído (troca de senha), nunca duplicado.
 
     Args:
         config_path: caminho do settings.yaml a atualizar.
         username: nome do usuário a cadastrar/atualizar.
         password: senha em texto plano (apenas o hash bcrypt é gravado).
         example_path: template usado quando o config ainda não existe.
-        secret_key: chave fixa para gravar quando a atual for insegura. Sem
-            disco persistente (ex.: Render free), cada reinício recria o
-            settings.yaml do zero; sem um valor fixo aqui, um novo
-            secret_key aleatório seria gerado a cada boot, invalidando todo
-            JWT emitido antes — os usuários ficam deslogados a cada restart.
 
     Returns:
         Path do arquivo de configuração gravado.
@@ -98,12 +91,8 @@ def provision_user(
     security: dict[str, Any] = dict(raw.get("security") or {})
 
     if str(security.get("secret_key", "")) in _INSECURE_SECRETS:
-        if secret_key:
-            security["secret_key"] = secret_key
-            logger.info("secret_key inseguro/ausente — chave fixa aplicada.")
-        else:
-            security["secret_key"] = secrets.token_hex(32)
-            logger.info("secret_key inseguro/ausente — novo secret_key gerado.")
+        security["secret_key"] = secrets.token_hex(32)
+        logger.info("secret_key inseguro/ausente — novo secret_key gerado.")
 
     hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("ascii")
     users: list[dict[str, str]] = [

@@ -29,32 +29,18 @@ export function Login() {
   const [needsSetup, setNeedsSetup] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [slowConnection, setSlowConnection] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    // No plano free do Render o serviço "dorme" após inatividade e a
-    // primeira requisição após acordar pode levar dezenas de segundos.
-    // Sem este aviso, o fetch de setup-status fica pendurado em silêncio e
-    // a tela parece travada — o timer só liga o aviso se realmente demorar.
-    const slowTimer = setTimeout(() => {
-      if (!cancelled) setSlowConnection(true);
-    }, 2500);
-
     apiSetupStatus()
       .then((needs) => {
         if (!cancelled) setNeedsSetup(needs);
       })
       .catch(() => {
         // API indisponível ou versão antiga: mantém o login normal.
-      })
-      .finally(() => {
-        if (!cancelled) setSlowConnection(false);
       });
-
     return () => {
       cancelled = true;
-      clearTimeout(slowTimer);
     };
   }, []);
 
@@ -123,12 +109,6 @@ export function Login() {
                 : 'Sistema de validação contábil'}
             </p>
           </div>
-
-          {slowConnection && (
-            <p className="samid-login-hint" role="status">
-              Conectando ao servidor… pode levar até 1 minuto se o sistema estava inativo.
-            </p>
-          )}
 
           <label className="samid-login-field">
             <span className="samid-login-label">Usuário</span>

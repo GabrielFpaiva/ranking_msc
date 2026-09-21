@@ -73,21 +73,6 @@ class TestProvisionUser:
         assert secret != "change-me-in-production"
         assert len(secret) == 64  # token_hex(32)
 
-    def test_secret_key_fixo_e_aplicado_quando_inseguro(self, tmp_path: Path) -> None:
-        """secret_key passado por parâmetro substitui o placeholder inseguro."""
-        config_path = tmp_path / "settings.yaml"
-
-        provision_user(
-            config_path,
-            "admin",
-            "senha-forte",
-            example_path=_EXAMPLE,
-            secret_key="chave-fixa-do-deploy",
-        )
-
-        raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-        assert raw["security"]["secret_key"] == "chave-fixa-do-deploy"
-
     def test_secret_key_existente_e_preservado(self, tmp_path: Path) -> None:
         """secret_key já configurado não é regenerado (não invalida tokens)."""
         config_path = tmp_path / "settings.yaml"
@@ -181,54 +166,3 @@ class TestRunCli:
         assert exit_code == 0
         settings = load_settings(config_path)
         assert settings.security.users[0].username == "admin"
-
-    def test_secret_key_env_ausente_retorna_codigo_2(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """--secret-key-env apontando para variável vazia falha com código 2."""
-        monkeypatch.setenv("SENHA_TESTE_XYZ", "senha-do-deploy")
-        monkeypatch.delenv("SECRET_TESTE_XYZ", raising=False)
-
-        exit_code = cli.run_cli(
-            [
-                "--username",
-                "admin",
-                "--password-env",
-                "SENHA_TESTE_XYZ",
-                "--secret-key-env",
-                "SECRET_TESTE_XYZ",
-                "--config",
-                str(tmp_path / "settings.yaml"),
-            ]
-        )
-
-        assert exit_code == 2
-
-    def test_fluxo_nao_interativo_com_secret_key_env(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """Fluxo do entrypoint Docker: secret_key fixo via env var aplicado."""
-        monkeypatch.setenv("SENHA_TESTE_XYZ", "senha-do-deploy")
-        monkeypatch.setenv("SECRET_TESTE_XYZ", "chave-fixa-do-deploy")
-        config_path = tmp_path / "settings.yaml"
-
-        exit_code = cli.run_cli(
-            [
-                "--username",
-                "admin",
-                "--password-env",
-                "SENHA_TESTE_XYZ",
-                "--secret-key-env",
-                "SECRET_TESTE_XYZ",
-                "--config",
-                str(config_path),
-            ]
-        )
-
-        assert exit_code == 0
-        settings = load_settings(config_path)
-        assert settings.security.secret_key == "chave-fixa-do-deploy"
