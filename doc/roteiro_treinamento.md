@@ -25,8 +25,8 @@ Documentos de apoio: `doc/manual_usuario.md` (fluxo de uso) e
 - Projetor ou tela compartilhada.
 
 Antes de comecar, abrir o aplicativo numa das maquinas e confirmar que a tela de
-login aparece. O numero de regras esperado (78) fica visivel na tela inicial
-apos o login.
+login aparece. Depois do login, abrir a tela `Regras` e conferir o cabecalho
+"78 regras registradas".
 
 ---
 
@@ -104,7 +104,7 @@ Apresentar cada etapa fazendo ao vivo e explicando o "porque", nao so o "como".
 
 ## Checklist do facilitador
 
-- [ ] Aplicativo instalado e tela de login testada em pelo menos uma maquina, com as 78 regras visiveis apos o login
+- [ ] Aplicativo instalado e tela de login testada em pelo menos uma maquina, com "78 regras registradas" na tela `Regras` apos o login
 - [ ] E-mail e senha de demonstracao testados antes da sessao
 - [ ] CSV MSC de exemplo carregado e validado
 - [ ] Excel e PDF gerando sem erro
