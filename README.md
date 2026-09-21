@@ -452,6 +452,7 @@ rules:
 | Snapshots Parquet | `data/snapshots/<SICONFI>/<YYYY-MM>/` |
 | Relatórios Excel | `data/reports/` |
 | Logs de execução | `data/logs/ranking_msc.jsonl` |
+| Tempo de uso por usuário | `data/uso/<YYYY-MM>.jsonl` (mês corrente), `<YYYY-MM>.agg.jsonl` (mês fechado) |
 | Config da aplicação | `config/settings.yaml` |
 
 ---
@@ -495,6 +496,9 @@ rules:
 | GET | `/api/log` | Tail do log JSONL |
 | GET | `/api/exports/excel` | Download do relatório Excel |
 | GET | `/api/exports/pdf` | Download do relatório executivo em PDF |
+| POST | `/api/uso/heartbeat` | Registra tempo de uso do usuário autenticado |
+| GET | `/api/uso/hoje` | Totais do dia corrente do usuário autenticado |
+| GET | `/api/uso/historico` | Série diária/semanal/mensal de tempo de uso |
 | GET | `/api/health` | Healthcheck |
 
 > `Ranking Regional` permanece fora da superfície pública até a integração de uma

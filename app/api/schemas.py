@@ -14,7 +14,9 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
+
+from app.api.uso_store import MAX_SEGUNDOS_POR_HEARTBEAT
 
 Severidade = Literal["ERRO", "ALERTA", "INFO"]
 Banda = Literal["A", "B", "C", "D", "E"]
@@ -382,3 +384,102 @@ class EntregasOut(BaseModel):
     )
     resumo: ResumoEntregasOut
     entregas: list[EntregaOut]
+
+
+# ---------------------------------------------------------------------------
+# Tempo de uso por usuário (F6)
+# ---------------------------------------------------------------------------
+
+
+class HeartbeatIn(BaseModel):
+    """Batida de relógio enviada pelo front a cada ~60 s.
+
+    O teto de ``MAX_SEGUNDOS_POR_HEARTBEAT`` é deliberado: o heartbeat é de
+    60 s, e sem limite qualquer cliente se daria horas de uso com uma
+    requisição forjada. Esta é a fonte canônica do valor no servidor — o
+    browser espelha o mesmo número em ``LIMITE_SERVIDOR_S``
+    (``web/src/store/relogioUso.ts``), e os dois precisam mudar juntos.
+    """
+
+    rota: str
+    aberto_s: int = Field(
+        ..., ge=0, le=MAX_SEGUNDOS_POR_HEARTBEAT, description="Segundos com a aba visível"
+    )
+    ativo_s: int = Field(
+        ..., ge=0, le=MAX_SEGUNDOS_POR_HEARTBEAT, description="Segundos com interação"
+    )
+
+    @field_validator("ativo_s")
+    @classmethod
+    def ativo_nao_excede_aberto(cls, valor: int, info: ValidationInfo) -> int:
+        """Garante que tempo ativo seja subconjunto do tempo aberto."""
+        if "aberto_s" in info.data and valor > info.data["aberto_s"]:
+            raise ValueError("Tempo ativo não pode ser maior que o tempo aberto.")
+        return valor
+
+
+class UsoHojeOut(BaseModel):
+    """Totais do dia corrente para o usuário autenticado."""
+
+    aberto_s: int
+    ativo_s: int
+
+
+class UsoDiaOut(BaseModel):
+    """Total de um dia dentro do mês consultado."""
+
+    dia: str = Field(..., description="YYYY-MM-DD")
+    aberto_s: int
+    ativo_s: int
+    por_rota: dict[str, int] = Field(
+        default_factory=dict,
+        description="rota → segundos de aba aberta naquele dia",
+    )
+
+
+class UsoRotaOut(BaseModel):
+    """Total de uma tela dentro do período selecionado."""
+
+    rota: str
+    aberto_s: int
+    ativo_s: int
+
+
+class UsoMesOut(BaseModel):
+    """Total de um mês dentro do ano consultado."""
+
+    mes: str = Field(..., description="YYYY-MM")
+    aberto_s: int
+    ativo_s: int
+    por_rota: dict[str, int] = Field(
+        default_factory=dict,
+        description="rota → segundos de aba aberta naquele mês",
+    )
+
+
+class UsoAnualOut(BaseModel):
+    """Resposta de /api/uso/anual — doze meses, sempre completos e em ordem."""
+
+    ano: int
+    total_aberto_s: int
+    total_ativo_s: int
+    meses: list[UsoMesOut]
+
+
+class UsoHistoricoOut(BaseModel):
+    """Resposta de /api/uso/historico.
+
+    ``dias`` cobre sempre o **mês inteiro** de ``ref``, com zeros preenchidos,
+    para o front desenhar as semanas agrupadas sob o cabeçalho do mês sem
+    precisar de várias requisições. ``rotas`` e os totais referem-se apenas ao
+    período selecionado por ``escala``.
+    """
+
+    escala: Literal["dia", "semana", "mes"]
+    ref: str
+    inicio: str
+    fim: str
+    total_aberto_s: int
+    total_ativo_s: int
+    dias: list[UsoDiaOut]
+    rotas: list[UsoRotaOut]

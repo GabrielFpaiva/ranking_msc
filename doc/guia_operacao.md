@@ -18,8 +18,8 @@ executar checks, revisar logs e operar os arquivos gerados pelo Ranking MSC.
 - Frontend: React/Vite em `web`.
 - Configuracao: `config/settings.yaml`.
 - Referencias: `ref`.
-- Dados persistidos: `data/snapshots`, `data/reports`, `data/logs` (no
-  aplicativo desktop, dentro de `%LOCALAPPDATA%\MCRA\data`).
+- Dados persistidos: `data/snapshots`, `data/reports`, `data/logs`, `data/uso`
+  (no aplicativo desktop, dentro de `%LOCALAPPDATA%\MCRA\data`).
 
 ---
 
@@ -281,6 +281,82 @@ Em operacao normal, o lock e removido ao final da execucao. Se houver queda
 abrupta do processo, um arquivo `.lock` pode permanecer. Antes de remover um
 lock manualmente, confirme que nao existe execucao ativa para o mesmo
 SICONFI/competencia.
+
+---
+
+## Tempo de uso por usuario
+
+A API mede quanto tempo cada usuario passa no app (aba aberta e uso ativo),
+por rota, e guarda isso em `data/uso/`. Cada pessoa ve so o proprio tempo na
+tela `/uso`; nao ha consolidado de equipe.
+
+### Os arquivos
+
+- `data/uso/<YYYY-MM>.jsonl` — mes corrente, ainda recebendo escrita. Cada
+  linha e um **delta** (incremento de um ciclo de flush), nao um total
+  acumulado.
+- `data/uso/<YYYY-MM>.agg.jsonl` — mes ja fechado, compactado em uma linha
+  por `(usuario, dia, rota)`.
+
+A compactacao roda sozinha, sem intervencao: no primeiro flush de um mes
+novo, a API varre os meses anteriores ainda em formato bruto, compacta cada
+um e apaga o `.jsonl` bruto correspondente. Um mes fechado nunca mais muda.
+
+### Por que delta e nao total acumulado
+
+Se cada linha guardasse o total do dia, o servidor precisaria lembrar esse
+total entre reinicios. Um restart no meio do dia gravaria por cima do que ja
+existia e o contador andaria para tras. Com delta, agregar e so somar, e um
+restart nunca reduz o tempo ja registrado.
+
+### Janela de perda de dado
+
+O acumulador em memoria e gravado em disco a cada 5 minutos, mais uma vez no
+shutdown. Uma queda do processo entre dois flushes perde, no maximo, os
+ultimos 5 minutos de uso. Isso e deliberado: e telemetria de uso, nao dado
+contabil, e nao vale a complexidade de garantir zero perda.
+
+### Custo em disco
+
+Com 10 usuarios, um mes bruto fica em torno de 3,8 MB; depois da compactacao,
+o ano inteiro fica em torno de 2,4 MB. A compactacao existe justamente para
+manter esse numero baixo com o historico completo, sem expurgo.
+
+### Como apagar o historico de uma pessoa
+
+Nao existe endpoint para isso — e deliberado, para nao abrir uma rota capaz
+de apagar dado de uso de terceiros por engano ou abuso. O procedimento e
+manual:
+
+1. Parar a API (ou aceitar que o cache em memoria continua servindo o dado
+   antigo ate reiniciar — ver observacao abaixo).
+2. Remover as linhas do usuario nos arquivos `data/uso/*.jsonl` e
+   `data/uso/*.agg.jsonl` relevantes.
+3. **Reiniciar a API.** E obrigatorio: o agregado de mes fechado fica em
+   cache dentro do processo, e o cache so e reconstruido a partir do arquivo
+   quando o processo sobe de novo. Editar o arquivo sem reiniciar deixa o
+   dado removido ainda visivel, servido do cache.
+
+### Suposicao de worker unico
+
+O lock que protege a escrita no JSONL mensal so serializa threads dentro de
+**um** processo. Isso e seguro porque `docker/entrypoint.sh` sobe o
+`uvicorn` sem a flag `--workers` — hoje existe exatamente um processo da
+API. Se algum dia alguem adicionar `--workers` (ou qualquer forma de rodar
+mais de um processo da API ao mesmo tempo), esse lock deixa de proteger:
+dois processos podem intercalar escritas parciais no mesmo arquivo mensal e
+corromper o JSONL. Antes de adicionar `--workers`, e preciso trocar esse
+lock por um lock de arquivo de verdade (cross-process).
+
+### Privacidade
+
+O arquivo e texto puro no disco do servidor. Qualquer pessoa com acesso ao
+container consegue ler o tempo de uso de todo mundo com um `cat`, mesmo a
+interface so mostrando a cada um o proprio numero. Isso nao e uma falha do
+desenho — e consequencia direta de guardar historico permanente de dado
+pessoal de servidor publico. Trate `data/uso/` com o mesmo cuidado que
+`config/settings.yaml` (credenciais): acesso ao servidor implica acesso a
+esse dado.
 
 ---
 

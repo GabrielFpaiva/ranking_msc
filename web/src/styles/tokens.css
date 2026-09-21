@@ -42,6 +42,27 @@
   --samid-band-d: #D98B1C;
   --samid-band-e: #C02B2B;
 
+  /* ---------- Tempo de uso — paleta de categorias (por tela) ---------- */
+  /* Categórica, não semântica: a posição é rank de tempo de uso (rank 1 =
+     tela mais usada no período do gráfico), nunca o nome da rota — por isso
+     "cat-1".."cat-5", não "cat-caixa" etc. (ver `MeuTempo.tsx`, que monta o
+     ranking e atribui a cor pela posição). Cinco nomeadas antes de "outras":
+     acima disso as fatias do dia ficam finas demais para a cor carregar
+     significado, e a maioria dos dias reais tem 1–3 rotas com uso relevante —
+     ferramenta interna de prefeitura, não painel de 11 cores. `cat-1` é
+     sempre `--jp-red`: a tela mais usada tem que ler como "a cor da marca",
+     igual ao Screen Time do iPhone reserva a cor de destaque para o topo do
+     ranking. As demais reaproveitam matizes já usados alhures no app (info,
+     ok) para não multiplicar hues, mais um roxo e um âmbar dedicados — sem
+     overlap perceptível entre si nem com o vermelho da marca. "Outras" usa o
+     mesmo cinza-ardósia de `--fg-3`: neutro, nunca compete com as nomeadas. */
+  --uso-cat-1:      var(--jp-red);  /* rank 1 — sempre a cor da marca */
+  --uso-cat-2:      #1E5AA8;        /* azul — mesmo tom de --samid-info */
+  --uso-cat-3:      #2F8F5C;        /* verde — mesmo tom de --samid-ok */
+  --uso-cat-4:      #6B4FA0;        /* roxo — dedicado à paleta de uso */
+  --uso-cat-5:      #B4860B;        /* âmbar — dedicado à paleta de uso */
+  --uso-cat-outras: #8A8D96;        /* cinza-ardósia — mesmo tom de --fg-3 */
+
   /* ---------- Foreground aliases ---------- */
   --fg-1: var(--samid-ink);
   --fg-2: var(--samid-graphite);

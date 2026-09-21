@@ -8,6 +8,7 @@ paths:
   snapshots_dir: ./data/snapshots
   reports_dir: ./data/reports
   logs_dir: ./data/logs
+  uso_dir: ./data/uso
   ref_dir: ./ref
 rules:
   enabled:

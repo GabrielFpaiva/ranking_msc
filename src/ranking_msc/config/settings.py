@@ -15,6 +15,7 @@ Estrutura esperada do YAML (ver config/settings.yaml.example):
       reports_dir: "./data/reports"
       logs_dir: "./data/logs"
       ref_dir: "./ref"
+      uso_dir: "./data/uso"
     rules:
       enabled: ["R082", "R083", ...]     # lista de regras ativas
       fail_fast: false                    # interrompe ao primeiro ERRO?
@@ -69,12 +70,14 @@ class PathsSettings:
     reports_dir: str = "./data/reports"
     logs_dir: str = "./data/logs"
     ref_dir: str = "./ref"
+    uso_dir: str = "./data/uso"
 
     def ensure_dirs(self) -> None:
         """Cria diretórios se não existirem."""
         for dir_path in (
             self.data_dir, self.snapshots_dir,
             self.reports_dir, self.logs_dir, self.ref_dir,
+            self.uso_dir,
         ):
             Path(dir_path).mkdir(parents=True, exist_ok=True)
 

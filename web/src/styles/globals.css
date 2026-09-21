@@ -19,17 +19,17 @@ button { font-family: inherit; cursor: pointer; }
   position: sticky; top: 0; height: 100vh;
   border-right: 1px solid var(--border-default);
 }
-.samid-brand { display:flex; align-items:center; gap:12px; padding: 6px 8px 20px; border-bottom: 1px solid var(--border-default); margin-bottom: 16px; }
+.samid-brand { display:flex; align-items:center; gap:12px; padding: 4px 8px 14px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; }
 .samid-brand-mark { width:40px; height:40px; border-radius:9px; background: var(--jp-red); display:flex; align-items:center; justify-content:center; overflow:hidden; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
 .samid-brand-mark img { width:100%; height:100%; object-fit:cover; }
 .samid-brand-wm { font-family: var(--font-display); font-weight:800; font-size:20px; letter-spacing:0.01em; color: var(--jp-red); line-height:1; }
 .samid-brand-sub { font-family: var(--font-display); font-size:13px; color: var(--fg-2); letter-spacing: 0.12em; font-weight: 600; margin-top: 4px; }
 
-.samid-nav-section { font-family: var(--font-display); font-size:14px; font-weight:700; letter-spacing: 0.12em; color: var(--fg-3); padding: 12px 12px 6px; text-transform: uppercase;}
+.samid-nav-section { font-family: var(--font-display); font-size:14px; font-weight:700; letter-spacing: 0.12em; color: var(--fg-3); padding: 8px 12px 4px; text-transform: uppercase;}
 .samid-nav-item {
   display:flex; align-items:center; gap:12px;
   text-decoration: none;
-  width:100%; padding: 10px 12px; margin: 1px 0;
+  width:100%; padding: 9px 12px; margin: 1px 0;
   background: transparent; border: none;
   color: var(--fg-2); font-size:18px; font-weight:500;
   font-family: var(--font-display);
@@ -45,14 +45,20 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--jp-red); border-radius: 0 3px 3px 0;
 }
 
-.samid-sidebar-footer { margin-top:auto; padding-top:16px; border-top:1px solid var(--border-default); }
-.samid-user { display:flex; align-items:center; gap:10px; padding: 8px; }
+/* O nav é a única região que cede espaço: rola quando os grupos não cabem,
+   mantendo marca e rodapé sempre visíveis. `min-height: 0` é obrigatório —
+   item flex nasce com `min-height: auto` e se recusa a encolher abaixo do
+   próprio conteúdo, e foi por isso que o botão Sair passou a ser cortado
+   quando o bloco de tempo de uso somou altura ao rodapé. */
+.samid-sidebar > nav { flex: 1; min-height: 0; overflow-y: auto; }
+.samid-sidebar-footer { margin-top:auto; padding-top:10px; border-top:1px solid var(--border-default); flex-shrink: 0; }
+.samid-user { display:flex; align-items:center; gap:10px; padding: 5px 8px; }
 .samid-user-avatar { width:34px; height:34px; border-radius:50%; background: var(--jp-red); color: #fff; font-family: var(--font-display); font-weight:700; display:flex; align-items:center; justify-content:center; font-size:14px;}
 .samid-user-name { color: var(--fg-1); font-size:16px; font-weight:600; font-family: var(--font-display);}
 .samid-user-role { color: var(--fg-2); font-size:14px; font-family: var(--font-mono);}
 .samid-logout {
   display:flex; align-items:center; gap:12px;
-  width:100%; margin-top:8px; padding:10px 12px;
+  width:100%; margin-top:4px; padding:9px 12px;
   background: transparent; border:none; border-radius:8px; cursor:pointer;
   color: var(--fg-2); font-size:18px; font-weight:500; text-align:left;
   font-family: var(--font-display);
@@ -452,6 +458,298 @@ a:focus-visible { outline-offset: 2px; }
 }
 .samid-login-submit:disabled { cursor: not-allowed; opacity: 0.7; }
 .samid-login-submit:not(:disabled):hover { background: var(--jp-red-dk); }
+
+/* ===== Tempo de uso — bloco da sidebar ===== */
+/* Compacto de propósito: a sidebar é presa em 100vh e o rodapé precisa caber
+   junto com usuário e Sair sem gerar rolagem no menu. Número e rótulo dividem
+   a mesma linha — empilhados, o bloco custava ~65px e cortava o botão Sair. */
+.uso-mini {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%; padding: 9px 12px; margin-bottom: 9px;
+  background: var(--bg-canvas); border: 1px solid var(--border-default);
+  border-radius: 10px; text-decoration: none;
+  font-family: var(--font-display);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.uso-mini:hover { border-color: var(--jp-red); background: #fff; }
+.uso-mini.active { border-color: var(--jp-red); background: var(--jp-red-lt); }
+.uso-mini.active .uso-mini-val,
+.uso-mini.active .uso-mini-lbl,
+.uso-mini.active .uso-mini-arrow { color: var(--jp-red); }
+.uso-mini-clock {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--jp-red); flex-shrink: 0;
+}
+.uso-mini-txt { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+.uso-mini-val {
+  font-family: var(--font-body); font-variant-numeric: tabular-nums; font-size: 17px;
+  font-weight: 600; color: var(--fg-1); line-height: 1.1;
+}
+.uso-mini-lbl {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--fg-3);
+}
+.uso-mini-arrow { color: var(--fg-3); font-size: 16px; line-height: 1; flex-shrink: 0; }
+.uso-mini:hover .uso-mini-arrow { color: var(--jp-red); }
+
+/* ===== Tempo de uso — tela "Meu tempo de uso" ===== */
+.uso-screen { --font-display: var(--font-body); }
+.uso-duration { font-family: var(--font-body); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.uso-escala-chips { display: flex; gap: 8px; }
+.uso-total { font-size: 40px; font-weight: 600; color: var(--fg-1); line-height: 1; }
+/* Número grande e o trio aberto/ativo/ocioso lado a lado, não mais
+   empilhados — o ponto deste redesenho é usar espaço horizontal (F6-01);
+   manter o trio abaixo do número deixaria a largura ganha sem uso aqui. */
+.uso-header-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap; margin: 4px 0 20px;
+}
+.uso-resumo { display: flex; gap: 10px; flex-wrap: wrap; }
+.uso-resumo-item {
+  background: var(--bg-sunken); border: 1px solid var(--border-default);
+  border-radius: 10px; padding: 8px 14px; min-width: 92px;
+}
+.uso-resumo-val { font-size: 18px; font-weight: 600; color: var(--fg-1); margin-top: 2px; }
+.uso-grafico { margin-top: 8px; }
+.uso-grafico-nav {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  margin: 24px 0 10px;
+}
+.uso-nav-btn {
+  width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border-default);
+  background: var(--bg-canvas); color: var(--fg-2); font-size: 16px; line-height: 1;
+  cursor: pointer; transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.uso-nav-btn:hover:not(:disabled) { border-color: var(--jp-red); color: var(--jp-red); }
+.uso-nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+/* As semanas ficam lado a lado, cada bloco com fatia igual da largura —
+   antes eram uma faixa por linha, com colunas de 28px fixos que só ocupavam
+   os primeiros ~25% de uma tela larga. `overflow-x: auto` continua como
+   rede de segurança (telas muito estreitas com 5–6 semanas no mês), mas o
+   caminho normal agora é caber tudo numa linha só. */
+.uso-semanas {
+  display: flex; align-items: flex-start; gap: 12px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+/* `min-width` evita que, num mês de 6 semanas numa janela estreita, cada
+   bloco encolha a ponto de as 7 colunas virarem fios — abaixo disso o
+   `overflow-x` do pai assume e passa a rolar. */
+/* É um `<button>` (clicar num bloco seleciona aquela semana) — resets pra
+   não herdar aparência de botão do navegador, e cursor/estado de foco de
+   quem é de fato clicável. `disabled` (semana inteiramente futura) volta ao
+   cursor default e apaga o hover, sem exigir uma classe própria. */
+.uso-semana-bloco {
+  flex: 1 1 0; min-width: 170px;
+  background: none; border: none; padding: 6px; margin: 0; font: inherit; color: inherit;
+  text-align: inherit; border-radius: 8px; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.uso-semana-bloco:hover:not(:disabled) { background: var(--bg-sunken); }
+/* Mesmo raciocínio de `.uso-ano-col`: o destaque de cada dia dentro do
+   bloco é `.uso-barra-col-destaque`/`.uso-barra-pilha-destaque`, em
+   elementos internos — o cinza do hover no botão (este elemento) nunca
+   cobre o fundo/contorno deles. Sem bug a corrigir aqui; confirmado nos
+   quatro estados. */
+.uso-semana-bloco:disabled { cursor: default; }
+/* `:focus-visible` (não `:focus`): o anel aparece navegando por teclado, não
+   num clique de mouse — mesmo critério de `.samid-competencia-select` e
+   `.samid-rules-search`. `--shadow-focus` já é o anel de foco do app; aqui
+   ele contorna o bloco inteiro (bem mais largo que os 12px de uma barra),
+   então não precisa de ajuste de raio/deslocamento como as barras abaixo. */
+.uso-semana-bloco:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.uso-dias-letras {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  margin: 0 0 6px;
+}
+.uso-dia-letra { text-align: center; font-size: 11px; font-weight: 700; color: var(--fg-3); }
+.uso-semana {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  align-items: end; height: 140px;
+}
+.uso-barra-col { display: flex; align-items: flex-end; justify-content: center; height: 100%; border-radius: 6px; }
+.uso-barra-col-vazia { visibility: hidden; }
+/* Fundo de coluna destacada (semana/dia do ref, no calendário mensal): tom
+   claro da marca — a mesma combinação de `.uso-mini.active` (fundo claro +
+   acento vermelho sólido no conteúdo), já usada no rodapé da sidebar. */
+.uso-barra-col-destaque { background: var(--jp-red-lt); }
+/* Pilha empilhada por rota — substitui a barra sólida de antes do F6-01.
+   `column-reverse` é o que garante "rota mais usada embaixo": os segmentos
+   entram no DOM na ordem do ranking (rank 1 primeiro — ver `montarSegmentos`
+   em MeuTempo.tsx), e column-reverse desenha o primeiro filho no fundo da
+   pilha. `overflow: hidden` arredonda o topo visível da pilha sem precisar
+   decidir, em JS, qual segmento é "o de cima" — isso muda de coluna pra
+   coluna. O fundo cinza é o que aparece se `por_rota` vier vazio sem o dia
+   estar marcado vestigial (não deveria acontecer, mas não deixa buraco).
+   A largura acompanha a coluna, preservando espaço entre as barras. */
+.uso-barra-pilha {
+  width: 92%; min-width: 0; min-height: 3px;
+  border-radius: 3px 3px 0 0; overflow: hidden;
+  display: flex; flex-direction: column-reverse; background: var(--border-subtle);
+}
+.uso-barra-seg { width: 100%; }
+/* Seletor composto para vencer `.uso-ano-barra-pilha` na cascata não importa
+   a ordem no arquivo — mesma especificidade de outro modo. */
+.uso-barra-pilha.uso-barra-pilha-vestigial,
+.uso-ano-barra-pilha.uso-ano-barra-pilha-vestigial { background: var(--border-subtle); }
+/* Destaque (dia/semana do período selecionado, ou mês do ref): como a pilha
+   já carrega as cores reais de cada rota, recolorir tudo de vermelho sólido
+   como antes apagaria essa informação. O contorno marca o destaque sem
+   competir com as cores das fatias — o tom claro do fundo da coluna
+   (`.uso-barra-col-destaque`) já reforça o mesmo sinal. */
+.uso-barra-pilha.uso-barra-pilha-destaque,
+.uso-ano-barra-pilha.uso-ano-barra-pilha-destaque { box-shadow: 0 0 0 1px var(--jp-red) inset; }
+.uso-semana-rodape {
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--border-default); margin-top: 4px; padding-top: 4px;
+  width: 100%;
+}
+.uso-semana-intervalo { font-size: 12px; color: var(--fg-3); }
+.uso-semana-total { font-size: 13px; font-weight: 700; color: var(--fg-1); }
+/* Escala "dia": uma faixa só com as 7 colunas da semana selecionada,
+   esticada na largura inteira — mesmo tratamento das doze barras do ano
+   (`.uso-ano-*` abaixo), só que com menos colunas e por isso cada uma bem
+   mais larga. Altura maior que as barras do ano (120px) de propósito: numa
+   faixa de ~1340px sete colunas ficam com ~180px cada, e uma barra tão larga
+   assim precisa de mais altura para não virar uma tarja achatada. */
+.uso-dia-grafico {
+  display: flex; align-items: end; gap: 14px; height: 200px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+.uso-dia-col { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 8px; min-width: 40px; height: 100%; }
+/* Dia sem dado (semana cruzando a virada do mês) continua um `<div>` — não
+   há o que selecionar. Só o dia real vira `<button>` (clicar seleciona
+   aquele dia); os resets e o cursor de "isso é clicável" ficam qualificados
+   por elemento, senão o `<div>` vazio herdaria a mesma aparência clicável. */
+button.uso-dia-col {
+  background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  border-radius: 6px; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+button.uso-dia-col:hover:not(:disabled) { background: var(--bg-sunken); }
+.uso-dia-col-destaque { background: var(--jp-red-lt); border-radius: 6px; }
+/* Hover nunca apaga a seleção: sem esta regra, `:hover:not(:disabled)` acima
+   — mais específico que `.uso-dia-col-destaque` sozinho (duas pseudo-classes
+   contra nenhuma) — venceria e trocaria o vermelho pelo cinza neutro bem na
+   barra que a pessoa está apontando. Em vez de disputar isso com
+   `!important`, a combinação de duas classes (`.uso-dia-col.uso-dia-col-
+   destaque`) tem especificidade maior que o hover genérico (uma classe só) —
+   o hover soma ao destaque intensificando o próprio tom vermelho, em vez de
+   substituí-lo pelo cinza. */
+button.uso-dia-col.uso-dia-col-destaque:hover:not(:disabled) {
+  background: rgba(225, 37, 27, 0.22);
+}
+button.uso-dia-col:disabled { cursor: default; }
+/* `:focus-visible`, não `:focus`: o anel só aparece navegando por teclado —
+   mesmo critério de `.samid-competencia-select`/`.samid-rules-search`
+   (tokens.css, `--shadow-focus`). Aplicado no botão — a coluna inteira, bem
+   mais larga que a barra em si — para manter o foco visível. Convive com o contorno de destaque porque este vive na pilha interna
+   (`.uso-barra-pilha`), um elemento diferente: uma barra selecionada e
+   focada por teclado mostra as duas coisas ao mesmo tempo. */
+button.uso-dia-col:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.uso-dia-barra-track { flex: 1; display: flex; align-items: flex-end; justify-content: center; width: 100%; }
+.uso-dia-lbl { font-size: 11px; font-weight: 700; color: var(--fg-3); }
+/* Barras anuais (escala "mes"): mesma ideia das barras diárias, uma coluna
+   por mês do ano, com rótulo abreviado embaixo. */
+.uso-ano-grafico {
+  display: flex; align-items: end; gap: 10px; height: 120px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+/* `flex: 1 1 0` faz as doze colunas dividirem a largura inteira do card —
+   sem isso (mesmo bug das semanas antes do F6-01) elas ficam do tamanho do
+   próprio conteúdo, espremidas à esquerda com o resto do card vazio. */
+/* Sempre um `<button>` — o ano nunca tem "mês sem dado" (diferente da
+   pilha diária, que pode ter dia fora do mês numa semana de fronteira) —
+   então os resets valem direto na classe, sem qualificar por elemento. */
+.uso-ano-col {
+  display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 6px; min-width: 28px; height: 100%;
+  background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  border-radius: 6px; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.uso-ano-col:hover:not(:disabled) { background: var(--bg-sunken); }
+/* Sem regra de "hover apaga o destaque" pra corrigir aqui, ao contrário de
+   `.uso-dia-col`: o destaque do mês selecionado é só o contorno em
+   `.uso-ano-barra-pilha-destaque` (pilha interna), não um fundo neste botão
+   — então o cinza do hover, que pinta só o fundo deste elemento, nunca cobre
+   o contorno de um elemento diferente. Confirmado visualmente nos quatro
+   estados (normal, hover, selecionado, selecionado+hover). */
+.uso-ano-col:disabled { cursor: default; }
+/* `:focus-visible`: mesmo tratamento e mesmo motivo de `.uso-dia-col`
+   acima. */
+.uso-ano-col:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.uso-ano-barra-track { width: 100%; flex: 1; display: flex; align-items: flex-end; justify-content: center; }
+/* Barras mensais mais largas, proporcionais ao espaço da coluna. */
+.uso-ano-barra-pilha {
+  width: 92%; min-width: 0; min-height: 3px;
+  border-radius: 3px 3px 0 0; overflow: hidden;
+  display: flex; flex-direction: column-reverse; background: var(--border-subtle);
+}
+.uso-ano-barra-seg { width: 100%; }
+.uso-ano-mes-lbl { font-size: 11px; font-weight: 700; color: var(--fg-3); text-transform: uppercase; }
+/* Estado de falha do gráfico anual — contido, sem banner: uma falha no
+   gráfico secundário não pode ler como a tela inteira quebrada, mas também
+   não pode ficar em "Carregando…" para sempre (isso é pior que um erro
+   visível — vira chamado de suporte). */
+.uso-ano-falha { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 0 4px; }
+.uso-ano-falha p { margin: 0; font-size: 14px; color: var(--samid-erro); }
+.uso-ano-retry {
+  border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--fg-2);
+  border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: var(--font-display);
+  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.uso-ano-retry:hover { border-color: var(--jp-red); color: var(--jp-red); }
+/* "Por tela": grade horizontal (bolinha + nome + tempo + percentual), não
+   mais lista vertical de barras — o mesmo motivo do `.uso-header-row` acima.
+   `auto-fill`/`minmax` resolve "várias por linha em tela larga, menos
+   conforme estreita" sem precisar de breakpoint dedicado. */
+.uso-legenda {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: 12px 24px; margin-top: 16px;
+}
+.uso-legenda-item {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 14px 4px; border-bottom: 1px solid var(--border-subtle);
+}
+.uso-legenda-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.uso-legenda-corpo { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; }
+.uso-legenda-nome {
+  color: var(--fg-1); font-family: var(--font-display); font-size: 18px; font-weight: 600;
+  line-height: 1.35; overflow-wrap: anywhere;
+}
+.uso-legenda-linha2 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
+.uso-legenda-tempo { font-size: 18px; font-weight: 600; color: var(--fg-1); }
+.uso-legenda-pct { font-size: 15px; color: var(--fg-2); }
+/* Ativo/ocioso: duas tonalidades da categoria com barra e valor legíveis. */
+.uso-legenda-linha3 { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+.uso-legenda-track {
+  flex: 1; min-width: 24px; height: 6px; border-radius: 3px; overflow: hidden;
+  display: flex; background: var(--bg-sunken);
+}
+.uso-legenda-track-ativo { height: 100%; }
+/* Opacidade, não uma segunda variável de cor: esmaece qualquer cor de
+   categoria (são cinco + "Outras") sem precisar de um tom "esmaecido"
+   dedicado para cada uma. */
+.uso-legenda-track-ocioso { height: 100%; opacity: 0.32; }
+.uso-legenda-ativo-tempo { font-size: 14px; color: var(--fg-2); flex-shrink: 0; }
+/* Total do período no canto superior direito do card "Por tela". */
+.uso-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 220px; padding: 32px 16px; gap: 10px; text-align: center;
+}
+.uso-empty-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; margin-bottom: 6px; border-radius: 50%;
+  background: var(--bg-sunken); color: var(--fg-2);
+}
+.uso-empty h3 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.4; color: var(--fg-1); }
+.uso-empty p { margin: 0; max-width: 360px; font-size: 15px; line-height: 1.6; color: var(--fg-2); }
+.uso-por-tela-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.uso-legenda-total { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
+.uso-legenda-total .uso-legenda-nome {
+  color: var(--fg-2); text-transform: uppercase; font-size: 14px; letter-spacing: 0.08em;
+}
+.uso-legenda-total .uso-legenda-tempo { font-size: 20px; }
 
 /* ===== Responsividade ===== */
 

@@ -45,7 +45,7 @@ from ranking_msc.exceptions import ConfigError
 
 logger = logging.getLogger("ranking_msc")
 
-_SUBDIRS = ("snapshots", "reports", "logs")
+_SUBDIRS = ("snapshots", "reports", "logs", "uso")
 
 
 def data_home() -> Path:
@@ -163,6 +163,7 @@ def preparar_config(home: Path, *, root: Path) -> Path:
         "snapshots_dir": data_dir / "snapshots",
         "reports_dir": data_dir / "reports",
         "logs_dir": data_dir / "logs",
+        "uso_dir": data_dir / "uso",
     }
     for chave, padrao in padroes.items():
         valor = paths.get(chave)

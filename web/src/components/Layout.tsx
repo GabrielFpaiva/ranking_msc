@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Outlet, useLocation } from 'react-router-dom';
 
+import { useTempoUso } from '../store/useTempoUso';
 import { DrawerHost } from './DrawerHost';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
@@ -15,9 +16,11 @@ export function Layout() {
     setNavOpen(false);
   }, [pathname]);
 
+  const encerrarUso = useTempoUso();
+
   return (
     <div className="samid-app">
-      <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
+      <Sidebar onBeforeLogout={encerrarUso} open={navOpen} onClose={() => setNavOpen(false)} />
       {navOpen && (
         <button
           type="button"

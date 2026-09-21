@@ -32,9 +32,11 @@ def test_primeira_execucao_grava_paths_absolutos(tmp_path: Path) -> None:
     destino = preparar_config(tmp_path, root=_ROOT)
 
     paths = yaml.safe_load(destino.read_text(encoding="utf-8"))["paths"]
-    for chave in ("data_dir", "snapshots_dir", "reports_dir", "logs_dir", "ref_dir"):
+    for chave in ("data_dir", "snapshots_dir", "reports_dir", "logs_dir", "uso_dir", "ref_dir"):
         assert Path(paths[chave]).is_absolute(), chave
     assert Path(paths["snapshots_dir"]) == tmp_path / "data" / "snapshots"
+    assert Path(paths["uso_dir"]) == tmp_path / "data" / "uso"
+    assert (tmp_path / "data" / "uso").is_dir()
     assert (tmp_path / "data" / "snapshots").is_dir()
 
 
@@ -131,6 +133,8 @@ def test_paths_relativos_sao_absolutizados(tmp_path: Path) -> None:
     paths = yaml.safe_load(destino.read_text(encoding="utf-8"))["paths"]
     assert Path(paths["data_dir"]) == tmp_path / "data"
     assert Path(paths["snapshots_dir"]) == tmp_path / "data" / "snapshots"
+    assert Path(paths["uso_dir"]) == tmp_path / "data" / "uso"
+    assert (tmp_path / "data" / "uso").is_dir()
     assert Path(paths["reports_dir"]) == tmp_path / "data" / "reports"
     assert Path(paths["logs_dir"]) == tmp_path / "data" / "logs"
 
@@ -168,3 +172,21 @@ def test_template_tem_config_version_e_carrega(tmp_path: Path) -> None:
     assert yaml.safe_load(destino.read_text(encoding="utf-8"))["config_version"] == 1
     settings = load_settings(destino)
     assert len(settings.security.users) == 3
+
+
+def test_uso_dir_relativo_e_absolutizado_em_instalacao_existente(tmp_path: Path) -> None:
+    """Config de versao anterior, sem uso_dir absoluto, e corrigida no arranque.
+
+    A tela de tempo de uso chegou depois da primeira versao instalada. Sem esta
+    correcao, `absolute_uso_dir()` resolveria para dentro do diretorio de
+    extracao do bundle, que some quando o aplicativo fecha.
+    """
+    destino = preparar_config(tmp_path, root=_ROOT)
+    raw = yaml.safe_load(destino.read_text(encoding="utf-8"))
+    raw["paths"]["uso_dir"] = "./data/uso"
+    destino.write_text(yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+    preparar_config(tmp_path, root=_ROOT)
+
+    depois = yaml.safe_load(destino.read_text(encoding="utf-8"))
+    assert Path(depois["paths"]["uso_dir"]) == tmp_path / "data" / "uso"
