@@ -86,3 +86,18 @@ def test_servidor_sobe_sem_stdout_nem_stderr(monkeypatch) -> None:  # type: igno
         assert servidor.esperar_saude(timeout=30.0) is True
     finally:
         servidor.parar()
+
+
+def test_esperar_saude_desiste_quando_thread_morreu() -> None:
+    """Thread do servidor já encerrada: esperar_saude devolve False sem esperar o prazo."""
+    import threading
+    import time
+
+    servidor = ServidorLocal(porta_livre())
+    servidor._thread = threading.Thread(target=lambda: None)
+    servidor._thread.start()
+    servidor._thread.join()
+
+    inicio = time.monotonic()
+    assert servidor.esperar_saude(timeout=60.0) is False
+    assert time.monotonic() - inicio < 5.0

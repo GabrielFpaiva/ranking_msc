@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 import desktop.launcher as launcher_module
+import pytest
 from desktop.launcher import main
 
 from ranking_msc.exceptions import ConfigError
@@ -139,3 +140,112 @@ def test_headless_falha_no_preparar_config_grava_no_log_sem_quebrar_finally(
     conteudo = log_path.read_text(encoding="utf-8")
     assert "ConfigError" in conteudo
     assert "template ausente simulado" in conteudo
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+def test_erro_do_uvicorn_ao_subir_chega_ao_desktop_log(tmp_path: Path, monkeypatch) -> None:
+    """Porta ocupada: o erro de bind do logger uvicorn.error vai para o desktop.log.
+
+    O uvicorn encerra a própria thread com ``sys.exit(1)`` depois de logar o erro;
+    o aviso do pytest sobre essa exceção em thread é o comportamento esperado.
+    """
+    import socket
+    import time
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.delenv("RANKING_MSC_CONFIG", raising=False)
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as ocupado:
+        ocupado.bind(("127.0.0.1", 0))
+        ocupado.listen()
+        porta = int(ocupado.getsockname()[1])
+        monkeypatch.setattr(launcher_module, "porta_livre", lambda: porta)
+
+        inicio = time.monotonic()
+        assert main(["--headless"]) == 1
+        # Servidor morto não espera os 120 s do timeout de saúde.
+        assert time.monotonic() - inicio < 30.0
+
+    log_path = tmp_path / "MCRA" / "data" / "logs" / "desktop.log"
+    conteudo = log_path.read_text(encoding="utf-8")
+    assert conteudo.count("error while attempting to bind") == 1
+    assert "O servidor local não respondeu" in conteudo
+
+
+def test_registro_de_uvicorn_error_vai_para_o_arquivo_uma_vez(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """O handler do desktop.log está ligado à árvore uvicorn sem duplicar linhas."""
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    log_path = launcher_module._configurar_logging(tmp_path / "MCRA")
+    launcher_module._configurar_logging(tmp_path / "MCRA")
+
+    logging.getLogger("uvicorn.error").error("rota estourou: marcador-uvicorn")
+
+    assert log_path.read_text(encoding="utf-8").count("marcador-uvicorn") == 1
+
+
+def _falhar_preparar_config(home: Path, *, root: Path) -> Path:
+    raise ConfigError("falha simulada")
+
+
+def test_modo_janela_com_falha_mostra_messagebox(tmp_path: Path, monkeypatch) -> None:
+    """Sem --headless, main() devolvendo 1 chama MessageBoxW com o caminho do log."""
+    from unittest import mock
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setattr(launcher_module, "preparar_config", _falhar_preparar_config)
+    monkeypatch.setattr(launcher_module, "_eh_windows", lambda: True)
+    ctypes_falso = mock.MagicMock()
+    monkeypatch.setattr(launcher_module, "ctypes", ctypes_falso)
+
+    assert main([]) == 1
+
+    message_box = ctypes_falso.windll.user32.MessageBoxW
+    message_box.assert_called_once()
+    texto = message_box.call_args.args[1]
+    assert str(tmp_path / "MCRA" / "data" / "logs" / "desktop.log") in texto
+
+
+def test_modo_headless_com_falha_nao_mostra_messagebox(tmp_path: Path, monkeypatch) -> None:
+    """Em --headless (smoke do CI) não há caixa de mensagem."""
+    from unittest import mock
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setattr(launcher_module, "preparar_config", _falhar_preparar_config)
+    monkeypatch.setattr(launcher_module, "_eh_windows", lambda: True)
+    ctypes_falso = mock.MagicMock()
+    monkeypatch.setattr(launcher_module, "ctypes", ctypes_falso)
+
+    assert main(["--headless"]) == 1
+
+    ctypes_falso.windll.user32.MessageBoxW.assert_not_called()
+
+
+def test_messagebox_que_falha_nao_derruba_main(tmp_path: Path, monkeypatch) -> None:
+    """Se a própria caixa falhar, main() ainda devolve 1 sem levantar."""
+    from unittest import mock
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setattr(launcher_module, "preparar_config", _falhar_preparar_config)
+    monkeypatch.setattr(launcher_module, "_eh_windows", lambda: True)
+    ctypes_falso = mock.MagicMock()
+    ctypes_falso.windll.user32.MessageBoxW.side_effect = OSError("sem user32")
+    monkeypatch.setattr(launcher_module, "ctypes", ctypes_falso)
+
+    assert main([]) == 1
+
+
+def test_fora_do_windows_nao_toca_em_ctypes(tmp_path: Path, monkeypatch) -> None:
+    """No macOS/Linux a caixa não é tentada (ctypes.windll não existe lá)."""
+    from unittest import mock
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setattr(launcher_module, "preparar_config", _falhar_preparar_config)
+    monkeypatch.setattr(launcher_module, "_eh_windows", lambda: False)
+    ctypes_falso = mock.MagicMock()
+    monkeypatch.setattr(launcher_module, "ctypes", ctypes_falso)
+
+    assert main([]) == 1
+
+    ctypes_falso.windll.user32.MessageBoxW.assert_not_called()

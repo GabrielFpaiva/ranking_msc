@@ -79,6 +79,10 @@ class ServidorLocal:
     def esperar_saude(self, timeout: float = 30.0) -> bool:
         """Aguarda ``/api/health`` responder.
 
+        Desiste na hora se a thread do servidor já morreu (porta ocupada, falha
+        no startup da aplicação): com o timeout longo do launcher, esperar o
+        prazo inteiro só atrasaria o aviso de erro.
+
         Args:
             timeout: segundos de espera antes de desistir.
 
@@ -87,6 +91,8 @@ class ServidorLocal:
         """
         limite = time.monotonic() + timeout
         while time.monotonic() < limite:
+            if self._thread is not None and not self._thread.is_alive():
+                return False
             try:
                 resposta = httpx.get(f"{self.url}/api/health", timeout=2.0)
                 if resposta.status_code == 200:
