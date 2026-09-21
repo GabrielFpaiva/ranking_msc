@@ -21,7 +21,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
 # Adicionar src/ ao path antes de importar ranking_msc.
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+from app.api.paths import resolve_root  # noqa: E402
+
+_PROJECT_ROOT = resolve_root()
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
 import ranking_msc.rules  # noqa: E402, F401  -- popular RULE_REGISTRY

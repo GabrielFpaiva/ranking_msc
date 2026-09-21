@@ -1,0 +1,110 @@
+config_version: 1
+app:
+  title: Ranking MSC — Validação Contábil
+  debug: false
+  esfera: municipal
+paths:
+  data_dir: ./data
+  snapshots_dir: ./data/snapshots
+  reports_dir: ./data/reports
+  logs_dir: ./data/logs
+  uso_dir: ./data/uso
+  ref_dir: ./ref
+rules:
+  enabled:
+  - R001
+  - R0010
+  - R0011
+  - R002
+  - R003
+  - R004
+  - R005
+  - R006
+  - R007
+  - R008
+  - R009
+  - R010
+  - R011
+  - R012
+  - R020
+  - R021
+  - R022
+  - R023
+  - R024
+  - R025
+  - R026
+  - R027
+  - R028
+  - R029
+  - R030
+  - R031
+  - R032
+  - R033
+  - R034
+  - R035
+  - R036
+  - R037
+  - R038
+  - R039
+  - R040
+  - R041
+  - R042
+  - R043
+  - R044
+  - R045
+  - R046
+  - R047
+  - R048
+  - R050
+  - R051
+  - R052
+  - R053
+  - R054
+  - R055
+  - R060
+  - R061
+  - R062
+  - R063
+  - R064
+  - R065
+  - R066
+  - R067
+  - R068
+  - R069
+  - R070
+  - R071
+  - R072
+  - R073
+  - R074
+  - R080
+  - R081
+  - R082
+  - R083
+  - R084
+  - R085
+  - R086
+  - R087
+  - R088
+  - R089
+  - R090
+  - R091
+  - R092
+  - R093
+  fail_fast: false
+security:
+  secret_key: change-me-in-production
+  algorithm: HS256
+  access_token_expire_minutes: 480
+  users:
+  - username: be.zmarcelino@gmail.com
+    hashed_password: $2b$12$Qy6u4b/IX1l2uy1XNu6xje7qJ4CnD5cMeQMsdoG5SRIqTaPiDig9G
+  - username: laeliajoyce@gmail.com
+    hashed_password: $2b$12$ECNvajO1xM6lFiMTH.gFlePW0Z/hDJYC.Qae8MDH.Yy0BHjoMjbla
+  - username: thialle.soli@gmail.com
+    hashed_password: $2b$12$fs./cIlp01AObVc/ZEnR7.cvZOQn1cYy9l5CaSTlIpkuUJhv/58Eu
+siconfi:
+  id_ente: 2507507
+  cache_ttl_horas: 24
+  prazos_dias:
+    Relatório Resumido de Execução Orçamentária: 30
+    Relatório de Gestão Fiscal: 30

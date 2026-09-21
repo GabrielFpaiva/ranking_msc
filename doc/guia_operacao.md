@@ -18,7 +18,8 @@ executar checks, revisar logs e operar os arquivos gerados pelo Ranking MSC.
 - Frontend: React/Vite em `web`.
 - Configuracao: `config/settings.yaml`.
 - Referencias: `ref`.
-- Dados persistidos: `data/snapshots`, `data/reports`, `data/logs`, `data/uso`.
+- Dados persistidos: `data/snapshots`, `data/reports`, `data/logs`, `data/uso`
+  (no aplicativo desktop, dentro de `%LOCALAPPDATA%\MCRA\data`).
 
 ---
 
@@ -56,7 +57,15 @@ Campos criticos:
 - `security.secret_key`: chave JWT;
 - `security.users`: usuarios e hashes bcrypt.
 
-Para criar o primeiro usuario nao ha passo manual de hash. Tres caminhos:
+No instalador do aplicativo desktop (`MCRA-Setup-<versao>.exe`) os tres
+usuarios da equipe ja vem cadastrados; as senhas sao entregues pessoalmente
+pelo responsavel tecnico. Senha esquecida no aplicativo desktop: feche o
+aplicativo e apague `%LOCALAPPDATA%\MCRA\config\settings.yaml`; no proximo
+arranque ele recria a configuracao com as senhas originais, e os dados
+(snapshots, relatorios, logs) ficam onde estavam.
+
+O que segue vale para quem roda a API fora do
+instalador (desenvolvimento local), onde nao ha passo manual de hash:
 
 1. **Navegador (recomendado)**: com o app no ar e nenhum usuario configurado,
    a tela de login vira "Primeiro acesso" e cria o administrador ali mesmo.
@@ -68,8 +77,8 @@ Para criar o primeiro usuario nao ha passo manual de hash. Tres caminhos:
 # a senha e pedida no prompt, sem eco
 ```
 
-3. **Docker**: defina `RANKING_MSC_ADMIN_USERNAME` e `RANKING_MSC_ADMIN_PASSWORD`
-   no ambiente do compose: o `entrypoint.sh` cadastra o usuario no primeiro boot.
+O caminho via variaveis de ambiente e Docker Compose foi aposentado em
+21/09/2026 junto com o material em `doc/legacy/`.
 
 Em todos os caminhos o hash bcrypt e um `secret_key` seguro sao gerados
 automaticamente (o placeholder `change-me-in-production` e substituido).
@@ -114,9 +123,9 @@ siconfi:
 
 ### Teste de conectividade com o Siconfi
 
-O servidor da prefeitura pode nao ter saida liberada para a internet. Antes
-de depender da tela **Entregas** em producao, valide a conectividade direto
-do servidor:
+A maquina onde o MCRA esta instalado pode nao ter saida liberada para a
+internet. Antes de depender da tela **Entregas**, valide a conectividade
+direto dela:
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" \
@@ -155,7 +164,11 @@ URLs:
 
 ---
 
-## Subir build unificado sem Docker
+## Subir build unificado localmente
+
+Uso principal: conferir o build completo (SPA + API) antes de empacotar. O
+empacotamento para distribuicao usa `make desktop-build` (ver secao
+"Distribuicao do aplicativo desktop").
 
 Gerar build do frontend:
 
@@ -168,10 +181,10 @@ cd ..
 Subir FastAPI servindo API e SPA:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn app.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Acesse `http://localhost:8000`.
+Acesse `http://127.0.0.1:8000`.
 
 ---
 
@@ -377,7 +390,8 @@ esse dado.
 
 | Sintoma | Causa provavel | Acao |
 |---|---|---|
-| `/api/health` nao responde | Backend parado ou porta errada | Reiniciar uvicorn e verificar porta. |
+| `/api/health` nao responde (dev local) | Backend parado ou porta errada | Reiniciar uvicorn e verificar porta. |
+| Aplicativo desktop nao abre | Falha no arranque (WebView2, porta local ocupada, config corrompida) | Conferir `%LOCALAPPDATA%\MCRA\data\logs\desktop.log`. |
 | Login retorna 401 | Usuario/senha incorretos ou hash errado | Revisar `security.users`. |
 | Login impossivel para todos | `users` vazio com secret configurado | Cadastrar ao menos um usuario. |
 | Upload retorna 400 | CSV vazio ou formato invalido | Validar metadata/cabecalho/separador. |
@@ -391,24 +405,25 @@ esse dado.
 
 ## Backup e retencao
 
-Diretorios a preservar:
+O que copiar, em cada maquina onde o MCRA esta instalado:
 
-- `config/settings.yaml`;
-- `data/snapshots`;
-- `data/reports`;
-- `data/logs`;
-- `data/uso`;
-- `ref`.
+    %LOCALAPPDATA%\MCRA
 
-Recomendacao minima:
+Essa pasta contem a configuracao (com os usuarios) e todos os dados gerados:
+snapshots por competencia, relatorios e logs. A pasta de instalacao em Arquivos
+de Programas nao precisa de backup: ela e recriada pelo instalador.
 
-- backup diario de `data`;
-- backup sempre antes de atualizar versao;
-- manter snapshots mensais usados em comparacoes e auditorias.
+Como cada pessoa guarda os proprios dados, nao existe copia central. Se a
+Controladoria precisar de trilha de auditoria consolidada, os relatorios
+precisam ser exportados para uma pasta de rede depois de cada fechamento.
 
 ---
 
 ## Atualizacao de versao
+
+Este procedimento atualiza um checkout do codigo-fonte, usado em
+desenvolvimento e manutencao. Para atualizar o aplicativo instalado nas
+maquinas da equipe, veja a secao "Distribuicao do aplicativo desktop".
 
 1. Parar o servidor.
 2. Fazer backup de `config` e `data`.
@@ -429,159 +444,39 @@ npm.cmd run build
 cd ..
 ```
 
-## Publicacao com reverse proxy (nginx + TLS)
+## Distribuicao do aplicativo desktop
 
-Em producao, o MCRA roda atras de um reverse proxy nginx que termina TLS e
-encaminha o trafego para o container do app. O app deixa de ser exposto
-diretamente na porta `8000` do host — so o nginx publica as portas `80` e `443`.
+Ate 21/09/2026 o MCRA era publicado em servidor, atras de um reverse proxy
+nginx com TLS (certificado self-signed ou institucional, com opcao de
+renovacao automatica via Let's Encrypt). Essa topologia foi aposentada nessa
+data: a prefeitura nao provisionou servidor, dominio nem certificado
+institucional, e a entrega passou a ser um instalador Windows por maquina,
+sem topologia de servidor. O material antigo (compose, Dockerfile, config de
+nginx, script de renovacao de certificado e a suite E2E que dependia do
+stack) fica preservado em `doc/legacy/`, caso a decisao seja revista.
 
-Topologia:
+### Como o instalador e gerado
 
-    Cliente  HTTPS :443 -> [nginx] -> (rede interna) -> [app:8000]
-             HTTP  :80  -> redireciona 308 para :443
+O workflow `Release desktop` do GitHub Actions builda o instalador Windows
+(`MCRA-Setup-<versao>.exe`) a partir de uma tag `v*` (ou disparo manual) e o
+anexa como artefato da execucao (`upload-artifact`), para baixar na aba
+Actions; o workflow nao cria Release no GitHub. O instalador:
 
-### 1. Gerar o certificado
+- instala o aplicativo em Arquivos de Programas;
+- cria atalho no menu iniciar e na area de trabalho;
+- verifica o Edge WebView2 e instala se estiver faltando;
+- ao desinstalar, pergunta se deve apagar `%LOCALAPPDATA%\MCRA` (padrao "Nao"),
+  explicando o que se perde.
 
-Para subir imediatamente com um certificado self-signed:
+Para empacotar localmente (sem passar pelo CI): `make desktop-build`. Para
+rodar o app desktop em desenvolvimento, sem gerar instalador: `make
+desktop-run`. Os dois alvos exigem antes `pip install -e ".[desktop]"`
+(pywebview e PyInstaller ficam fora do `.[dev]`).
 
-    make gen-cert
+### Assinatura de codigo
 
-Isso cria `docker/nginx/certs/fullchain.pem` e `privkey.pem`. O alvo nao
-sobrescreve um certificado ja existente. Para definir o nome do host no
-certificado, use `make gen-cert CERT_CN=mcra.prefeitura.gov.br`.
-
-### 2. Subir o stack de producao
-
-    make prod-up      # gera o cert se faltar (gen-cert) e sobe o stack
-    make prod-down    # derruba o stack
-
-Use sempre `make prod-up`: ele depende de `gen-cert`, entao garante os
-certificados antes de o nginx subir. Se precisar usar o `docker compose`
-diretamente (sem make), gere ou instale os certificados ANTES, senao o nginx
-encerra no startup por falta de `fullchain.pem`/`privkey.pem`:
-
-    make gen-cert     # ou copie os certificados para docker/nginx/certs/
-    docker compose -f docker-compose.prod.yml up --build -d
-
-### 3. Substituir pelo certificado institucional
-
-Quando a prefeitura fornecer um certificado oficial (ou para configurar
-renovacao automatica via Let's Encrypt), veja a secao "Certificado TLS
-valido" mais abaixo — inclui os comandos e as permissoes corretas. Nao use
-`restart nginx` para trocar o certificado: ele derruba conexoes em
-andamento; a secao referida usa `nginx -s reload`, que e gracioso.
-
-### 4. Validacao
-
-- `curl -k https://<host>/api/health` -> HTTP 200 com as regras esperadas
-- `curl -I http://<host>` -> HTTP 308 redirecionando para https
-- login e upload de CSV pela SPA funcionam atraves do proxy
-
-Ajustes:
-
-- Limite de upload (`client_max_body_size`, default `200m`) e timeouts de
-  processamento (`proxy_read_timeout`/`proxy_send_timeout`, default `300s`)
-  ficam centralizados em `docker/nginx/nginx.conf`.
-
-## Certificado TLS valido
-
-O self-signed serve para desenvolvimento. Em qualquer ambiente acessado por
-outra pessoa, use certificado emitido por autoridade reconhecida — caso
-contrario o navegador exibe aviso de conexao nao privada.
-
-O nginx le sempre os mesmos dois arquivos:
-
-- `docker/nginx/certs/fullchain.pem`
-- `docker/nginx/certs/privkey.pem`
-
-Qualquer origem de certificado funciona, desde que produza esses dois arquivos.
-
-### Opcao A — certificado institucional (PMJP)
-
-Copie os dois arquivos fornecidos pela TI para `docker/nginx/certs/`, ajuste
-as permissoes e recarregue:
-
-```bash
-cp <cert-institucional>.pem  docker/nginx/certs/fullchain.pem
-cp <chave-institucional>.pem docker/nginx/certs/privkey.pem
-chmod 644 docker/nginx/certs/fullchain.pem
-chmod 600 docker/nginx/certs/privkey.pem
-docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
-```
-
-`cp` como root herda o modo do arquivo de origem, entao os `chmod` acima nao
-sao opcionais — sem eles a chave privada pode ficar com permissao mais aberta
-do que `600`.
-
-### Opcao B — Let's Encrypt (gratuito, renovacao automatica)
-
-Requer dominio publico apontando para o servidor e a porta 80 acessivel.
-
-O Let's Encrypt limita 5 falhas por hora por dominio — confirme que a porta
-80 esta alcancavel de fora ANTES de rodar o certbot, para nao gastar essas
-tentativas a toa.
-
-O teste so faz sentido com o stack **ja no ar**, porque quem responde na porta
-80 e o nginx do proprio stack. Se ainda nao subiu, rode antes:
-
-```bash
-make gen-cert   # self-signed temporario, so para o nginx conseguir subir
-make prod-up
-```
-
-Com o stack no ar, teste de uma maquina fora do servidor:
-
-```bash
-curl -sI http://SEU.DOMINIO | head -1   # deve devolver 308
-```
-
-Nao prossiga sem essa resposta. Como diagnosticar o que veio:
-
-| Resposta | Causa provavel |
-|---|---|
-| `308` | tudo certo, siga para o certbot |
-| conexao recusada | o stack nao esta no ar — rode `make prod-up` |
-| conexao pendura / timeout | firewall do host (ufw/iptables) ou do provedor (regra de seguranca na nuvem) |
-| responde outro servico | outra coisa ja ocupa a porta 80 no servidor |
-
-```bash
-sudo apt install certbot
-sudo RANKING_MSC_REPO_DIR=/caminho/do/repo certbot certonly --webroot \
-  -w /caminho/do/repo/docker/nginx/certbot-webroot \
-  -d SEU.DOMINIO \
-  --deploy-hook /caminho/do/repo/scripts/deploy/renew-hook.sh
-```
-
-O `renew-hook.sh` publica os PEMs em `docker/nginx/certs/` e recarrega o nginx.
-A renovacao automatica ja vem no systemd timer instalado com o pacote certbot.
-
-O `RANKING_MSC_REPO_DIR` acima e usado apenas na emissao manual. O certbot
-persiste `renew_hook = <script>` em
-`/etc/letsencrypt/renewal/SEU.DOMINIO.conf`, mas NAO persiste variaveis de
-ambiente — o timer systemd roda `certbot -q renew` com ambiente limpo. Por
-isso o hook deriva a raiz do repositorio sozinho, a partir do proprio
-caminho (`<repo>/scripts/deploy/renew-hook.sh`), sem depender de
-`RANKING_MSC_REPO_DIR` estar definida na renovacao automatica. A variavel
-serve como override explicito, so necessario se o script for instalado fora
-do layout padrao do repo (copiado/symlinkado para outro caminho).
-
-O nginx precisa estar no ar antes da emissao, para servir o desafio na porta 80.
-Na primeira vez: `make gen-cert` (self-signed, so para o nginx subir),
-`make prod-up`, e entao o certbot substitui pelo valido.
-
-Valide a renovacao antes de confiar nela. `certbot renew --dry-run` valida
-APENAS o desafio ACME (prova que o dominio e alcancavel e o certbot consegue
-emitir) -- ele PULA o deploy hook (log "Dry run: skipping deploy hook
-command"), entao nao prova que o hook publica o certificado nem que o nginx
-recarrega. O flag `--run-deploy-hooks` resolveria isso, mas so existe no
-certbot 2.8+; o `apt install certbot` do Ubuntu 22.04 entrega 1.21. A prova
-real e invocar o hook diretamente:
-
-```bash
-sudo RANKING_MSC_REPO_DIR=/caminho/do/repo certbot renew --dry-run
-
-sudo RANKING_MSC_REPO_DIR=/caminho/do/repo \
-  RENEWED_LINEAGE=/etc/letsencrypt/live/SEU.DOMINIO \
-  /caminho/do/repo/scripts/deploy/renew-hook.sh
-ls -l docker/nginx/certs/    # mtime deve ser de agora
-```
+O executavel nao e assinado. O Windows SmartScreen mostra aviso na primeira
+execucao, e o antivirus corporativo pode bloquear o instalador ou o
+executavel. Isso precisa ser testado numa maquina real da prefeitura antes de
+qualquer treinamento ou distribuicao ampla. Certificado de assinatura e
+decisao pendente do responsavel pelo projeto (compra).

@@ -5,7 +5,7 @@ import { ApiError, apiLogin, apiSetup, apiSetupStatus } from '../api/client';
 
 function friendlyLoginError(err: unknown): string {
   if (err instanceof ApiError) {
-    if (err.status === 401) return 'Usuário ou senha inválidos.';
+    if (err.status === 401) return 'E-mail ou senha inválidos.';
     if (err.status === 0 || err.status >= 500) return 'Não foi possível conectar ao servidor. Tente novamente.';
     return err.detail;
   }
@@ -111,10 +111,10 @@ export function Login() {
           </div>
 
           <label className="samid-login-field">
-            <span className="samid-login-label">Usuário</span>
+            <span className="samid-login-label">E-mail</span>
             <input
               type="text"
-              autoComplete="username"
+              autoComplete="email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required

@@ -42,6 +42,10 @@ config/settings.yaml
 # Git worktrees
 .worktrees/
 
+# Gravacao do video de demonstracao (scripts/demo_video/)
+scripts/demo_video/node_modules/
+scripts/demo_video/package-lock.json
+
 # Frontend (web/)
 web/node_modules/
 web/dist/
@@ -70,6 +74,10 @@ docs/
 
 # Relatórios mensais locais (não publicar)
 doc/relatorio-maio/
+
+# PyInstaller
+/build/
+/dist/
 
 # Claude Code — settings locais do dev
 .claude/settings.local.json

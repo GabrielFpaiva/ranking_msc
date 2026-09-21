@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -83,7 +84,14 @@ def setup_logging(
 ) -> logging.Logger:
     """Configura o logger raiz do projeto.
 
-    Deve ser chamado UMA VEZ no início da aplicação (API ou CLI).
+    Deve ser chamado UMA VEZ no início da aplicação (API ou CLI). Idempotente:
+    procura especificamente pelos handlers que esta função cria — o console
+    pelo stream (``sys.stdout``) e o arquivo pelo caminho absoluto de destino
+    — e só anexa o que ainda faltar. Isso é deliberado: outros componentes do
+    aplicativo (ex.: ``desktop.launcher``) anexam handlers próprios no mesmo
+    logger ``"ranking_msc"`` antes de ``setup_logging()`` rodar, e uma guarda
+    do tipo "já tem algum handler, não faço nada" deixaria o arquivo JSON
+    Lines de auditoria (``ranking_msc.jsonl``) sem ser criado.
 
     Args:
         log_dir: diretório para o arquivo de log.
@@ -96,30 +104,36 @@ def setup_logging(
     """
     log_path = Path(log_dir)
     log_path.mkdir(parents=True, exist_ok=True)
+    destino = log_path / log_file
+    destino_absoluto = os.path.abspath(str(destino))
 
     logger = logging.getLogger("ranking_msc")
     logger.setLevel(logging.DEBUG)
 
-    # Evita handlers duplicados se chamado mais de uma vez
-    if logger.handlers:
-        return logger
-
-    # Handler: console (legível)
-    console = logging.StreamHandler(sys.stdout)
-    console.setLevel(console_level)
-    console.setFormatter(logging.Formatter(
-        "[%(asctime)s] %(levelname)-8s %(name)s — %(message)s",
-        datefmt="%H:%M:%S",
-    ))
-    logger.addHandler(console)
-
-    # Handler: arquivo JSON Lines
-    file_handler = logging.FileHandler(
-        log_path / log_file, encoding="utf-8",
+    tem_console = any(
+        isinstance(h, logging.StreamHandler)
+        and not isinstance(h, logging.FileHandler)
+        and h.stream is sys.stdout
+        for h in logger.handlers
     )
-    file_handler.setLevel(file_level)
-    file_handler.setFormatter(JSONLineFormatter())
-    logger.addHandler(file_handler)
+    if not tem_console:
+        console = logging.StreamHandler(sys.stdout)
+        console.setLevel(console_level)
+        console.setFormatter(logging.Formatter(
+            "[%(asctime)s] %(levelname)-8s %(name)s — %(message)s",
+            datefmt="%H:%M:%S",
+        ))
+        logger.addHandler(console)
+
+    tem_arquivo = any(
+        isinstance(h, logging.FileHandler) and h.baseFilename == destino_absoluto
+        for h in logger.handlers
+    )
+    if not tem_arquivo:
+        file_handler = logging.FileHandler(destino, encoding="utf-8")
+        file_handler.setLevel(file_level)
+        file_handler.setFormatter(JSONLineFormatter())
+        logger.addHandler(file_handler)
 
     return logger
 

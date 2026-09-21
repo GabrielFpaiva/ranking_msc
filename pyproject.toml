@@ -41,6 +41,10 @@ dev = [
     # O TestClient do FastAPI usa o mesmo pacote, entao os testes seguem servidos.
     # bcrypt>=4.0 inclui stubs PEP 561 inline — sem pacote types-bcrypt necessário
 ]
+desktop = [
+    "pywebview>=5.0",         # janela nativa; no Windows usa o Edge WebView2
+    "pyinstaller>=6.3",       # empacotamento onedir
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ranking_msc"]
@@ -81,4 +85,9 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["reportlab", "reportlab.*"]
+ignore_missing_imports = true
+
+# pywebview vem do extra "desktop"; o CI de backend instala só ".[dev]".
+[[tool.mypy.overrides]]
+module = ["webview", "webview.*"]
 ignore_missing_imports = true

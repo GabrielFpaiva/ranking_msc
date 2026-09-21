@@ -123,8 +123,9 @@ def test_run_cli_fluxo_feliz_orquestra_pipeline(
             source=str(path),
         )
 
-    def fake_normalize_ic(df: pd.DataFrame) -> pd.DataFrame:
+    def fake_normalize_ic(df: pd.DataFrame, *, mapping_path: Path | None = None) -> pd.DataFrame:
         captured["normalize_input_cols"] = list(df.columns)
+        captured["normalize_mapping_path"] = mapping_path
         return normalized_df
 
     def fake_run_engine(df: pd.DataFrame, context: object) -> SimpleNamespace:

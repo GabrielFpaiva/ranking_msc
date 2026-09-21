@@ -1,6 +1,6 @@
 # Ranking MSC — Motor de Validação Contábil
 
-Aplicação web interna para validação da Matriz de Saldos Contábeis (MSC) conforme regras do Ranking SICONFI. Motor Python + interface React/TypeScript (SPA) + FastAPI, para uso na intranet da prefeitura.
+Aplicação interna para validação da Matriz de Saldos Contábeis (MSC) conforme regras do Ranking SICONFI. Motor Python + interface React/TypeScript (SPA) + FastAPI, entregue como aplicativo desktop instalado na máquina de cada pessoa da equipe da prefeitura.
 
 **Repositório:** <https://github.com/GabrielFpaiva/ranking_msc>
 
@@ -130,52 +130,55 @@ make dev-frontend
 
 Acesse `http://localhost:5173` no navegador. O Vite faz proxy de `/api/*` para o backend na porta 8000.
 
-### Rodar em produção
+### Build unificado local (verificação antes de empacotar)
 
 ```bash
 # Build do frontend
 make frontend-build
 
-# Servidor (front + API unificados)
-.venv/bin/python -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+# Servidor local (front + API unificados)
+.venv/bin/python -m uvicorn app.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-O FastAPI serve `web/dist/` como estático em `/` e as rotas em `/api/*`.
+O FastAPI serve `web/dist/` como estático em `/` e as rotas em `/api/*`. Serve
+para conferir o build completo antes de empacotar — a entrega real para a
+equipe da prefeitura é o instalador desktop (ver seção seguinte), não este
+processo rodando exposto em rede.
 
-### Rodar com Docker Compose
+### Distribuição (aplicativo desktop)
 
-Pré-requisito: Docker com `docker compose` disponível.
+A entrega para a equipe da prefeitura é um instalador Windows,
+`MCRA-Setup-<versão>.exe`, gerado pelo workflow `Release desktop` do GitHub
+Actions a partir de uma tag `v*` (ou disparo manual). O workflow só anexa o
+instalador como artefato da execução (`upload-artifact`), para baixar na aba
+Actions; ele não cria Release no GitHub. O instalador instala o
+aplicativo em Arquivos de Programas, cria atalho no menu iniciar e na área de
+trabalho, e verifica/instala o Edge WebView2 se faltar.
 
 ```bash
-# Sobe a stack local já com build
-docker compose up --build
+# Uma vez: instala pywebview e PyInstaller (extra "desktop"), que os dois alvos exigem
+pip install -e ".[desktop]"
 
-# Ou via Makefile
-make docker-up
+# Rodar o aplicativo desktop em desenvolvimento, sem gerar instalador
+make desktop-run
+
+# Empacotar localmente (sem passar pelo CI)
+make desktop-build
 ```
 
-A aplicação fica acessível em `http://localhost:8000`, servindo:
+Dados e configuração de cada pessoa ficam em `%LOCALAPPDATA%\MCRA` — cada
+máquina tem os seus, não existe cópia central.
 
-- frontend React já buildado em `/`
-- API FastAPI em `/api/*`
+O executável não é assinado: o Windows SmartScreen mostra aviso na primeira
+execução, e o antivírus corporativo pode bloquear. Isso precisa ser testado
+numa máquina real da prefeitura antes de qualquer distribuição ampla.
 
-Volumes montados por padrão:
+### Docker Compose (aposentado)
 
-- `./data:/app/data`
-- `./config:/app/config`
-
-Comportamento do container:
-
-- se `config/settings.yaml` não existir, o entrypoint copia `config/settings.yaml.example`;
-- diretórios `data/snapshots`, `data/reports` e `data/logs` são criados automaticamente.
-
-Para derrubar a stack:
-
-```bash
-docker compose down
-# ou
-make docker-down
-```
+A publicação via Docker Compose (`docker compose up`, `make docker-up`) foi
+aposentada em 21/09/2026 — a entrega deixou de ser hospedada e passou a ser
+o instalador desktop acima. O material (compose, Dockerfile, nginx) está
+preservado em `doc/legacy/`.
 
 ### Configuração e variáveis de ambiente
 
@@ -185,7 +188,8 @@ O arquivo real de configuração é `config/settings.yaml`.
 Se ele não existir:
 
 - `make bootstrap` copia `config/settings.yaml.example`;
-- o container também copia `config/settings.yaml.example` no startup.
+- no aplicativo desktop, o próprio aplicativo cria `%LOCALAPPDATA%\MCRA\config\settings.yaml` no primeiro arranque, a partir de um template embutido;
+- o material de container Docker (aposentado em 21/09/2026) também fazia isso — ver `doc/legacy/`.
 
 Estrutura suportada hoje:
 
@@ -237,15 +241,19 @@ Campos e efeito operacional:
 \* Em dev puro (sem login), `secret_key` padrão + `users=[]` é aceito com warning.
 Em uso autenticado, é obrigatório configurar chave forte e ao menos um usuário.
 
-Para criar o primeiro usuário há três caminhos (nenhum exige gerar hash na mão):
+No aplicativo desktop os três usuários da equipe já vêm cadastrados no
+instalador; as senhas são entregues pessoalmente pelo responsável técnico. O
+que segue vale para quem roda a API fora do instalador (desenvolvimento
+local), onde nenhum caminho exige gerar hash na mão:
 
 1. **Navegador (recomendado)** — com o app no ar e nenhum usuário configurado,
    a tela de login vira "Primeiro acesso" e cria o administrador ali mesmo
    (`POST /api/auth/setup`, que tranca após o primeiro usuário existir).
 2. **CLI** — `python scripts/create_user.py --username admin` (senha pedida no
    prompt; hash bcrypt e `secret_key` seguro gerados automaticamente).
-3. **Docker** — defina `RANKING_MSC_ADMIN_USERNAME` e `RANKING_MSC_ADMIN_PASSWORD`
-   no ambiente: o entrypoint cadastra o usuário sozinho no primeiro boot.
+
+O caminho via variáveis de ambiente e Docker Compose foi aposentado em
+21/09/2026 junto com o material em `doc/legacy/`.
 
 Observações importantes:
 
@@ -263,36 +271,34 @@ Variáveis efetivamente suportadas hoje:
 
 | Variável | Onde funciona | Default | Efeito |
 |---|---|---|---|
-| `PORT` | container / `docker-compose` | `8000` | porta do `uvicorn` no entrypoint |
-| `RANKING_MSC_CONFIG` | loader Python quando `load_settings()` é chamado sem path explícito | `config/settings.yaml` | afeta uso programático sem path explícito e a CLI `scripts/benchmark.py` |
+| `PORT` | mecanismo do entrypoint Docker, aposentado em 21/09/2026 — ver `doc/legacy/` | `8000` | porta do `uvicorn` no entrypoint (sem uso no fluxo atual) |
+| `RANKING_MSC_CONFIG` | API web (`app/api/deps.py::get_config_path()`) e loader Python quando `load_settings()` é chamado sem path explícito | `config/settings.yaml` | escolhe o `settings.yaml` da API (o aplicativo desktop depende disso), do uso programático sem path explícito e da CLI `scripts/benchmark.py` |
 
 Limitações atuais de resolução de config:
 
-- `app/api/deps.py` carrega explicitamente `PROJECT_ROOT / config/settings.yaml`;
+- `app/api/deps.py::get_config_path()` usa `RANKING_MSC_CONFIG` quando definida e, sem ela, `PROJECT_ROOT / config/settings.yaml`; é assim que o aplicativo desktop aponta a API para `%LOCALAPPDATA%\MCRA\config\settings.yaml`;
 - `scripts/run_pipeline.py`, `scripts/run_batch.py` e `scripts/compare_periods.py` resolvem `config/settings.yaml` ou `--config` antes de chamar `load_settings()`;
 - `scripts/benchmark.py` chama `load_settings()` sem path explícito e, portanto, **respeita** `RANKING_MSC_CONFIG`;
-- portanto, a variável `RANKING_MSC_CONFIG` **não altera** a configuração da API web nem o comportamento padrão dessas três CLIs operacionais, mas afeta `scripts/benchmark.py`;
-- para mudar a configuração do servidor web, use o arquivo `config/settings.yaml` montado no volume `./config:/app/config`;
+- portanto, a variável `RANKING_MSC_CONFIG` **altera** a configuração da API web e de `scripts/benchmark.py`, mas **não** o comportamento padrão dessas três CLIs operacionais;
+- para mudar a configuração da API fora do instalador (dev/self-hosted manual), edite `config/settings.yaml` na raiz do projeto; no aplicativo desktop, edite `%LOCALAPPDATA%\MCRA\config\settings.yaml`;
 - para mudar a configuração de `run_pipeline.py`, `run_batch.py` e `compare_periods.py`, use `--config /caminho/para/settings.yaml`.
 
-#### Dev vs produção vs Docker
+#### Dev vs aplicativo desktop vs Docker (aposentado)
 
 | Ambiente | Como a config é resolvida | Paths de dados mais comuns | Observações |
 |---|---|---|---|
 | Dev local | `config/settings.yaml` na raiz do repo | `./data/*` | `make bootstrap` já cria tudo |
 | CLI local | `config/settings.yaml` ou `--config` | `./data/*`, `--output-dir/*` (pipeline/batch) ou diretório custom de Excel consolidado (compare) | `compare_periods` usa `--snapshots-dir`; `benchmark.py` é a exceção que respeita `RANKING_MSC_CONFIG` |
-| Docker Compose | `/app/config/settings.yaml` via volume | `/app/data/*` mapeado de `./data` | `PORT=8000` por padrão |
-| Produção sem compose | arquivo local `config/settings.yaml` | conforme `paths.*` | garantir permissão de escrita em logs/reports/snapshots |
+| Aplicativo desktop | `%LOCALAPPDATA%\MCRA\config\settings.yaml`, criado pelo aplicativo no primeiro arranque (via `RANKING_MSC_CONFIG`) | `%LOCALAPPDATA%\MCRA\data\*` | sem servidor central; cada máquina tem os seus |
+| Docker Compose | `/app/config/settings.yaml` via volume | `/app/data/*` mapeado de `./data` | aposentado em 21/09/2026 — ver `doc/legacy/` |
 
-#### Checklist mínimo de produção
+#### Checklist mínimo antes de distribuir uma versão
 
-Antes de subir em ambiente operacional, confirme:
-
-- `config/settings.yaml` presente e revisado para o ente correto (`app.esfera`);
+- `config/settings.yaml` (ou o template embutido do instalador) revisado para o ente correto (`app.esfera`);
 - diretórios de `snapshots`, `reports` e `logs` com permissão de escrita;
-- volume de `./config` e `./data` montado, se usar Docker;
-- `ref/` presente no artefato de deploy;
-- porta exposta compatível com o reverse proxy ou intranet;
+- volume de `./config` e `./data` montado, se ainda usar o material Docker legado;
+- `ref/` presente no artefato de instalação;
+- instalador testado numa máquina real da prefeitura (SmartScreen, antivírus corporativo, WebView2);
 - `make validate` verde na revisão que será publicada.
 
 ### Validar localmente

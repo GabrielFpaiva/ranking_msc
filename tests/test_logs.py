@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 
 from ranking_msc.outputs.logs import JSONLineFormatter, log_execucao, setup_logging
 
@@ -191,4 +192,42 @@ class TestSetupLogging:
         result = setup_logging(log_dir=str(tmp_path))
 
         assert len(result.handlers) == 2
+        # Um único handler de cada tipo, não apenas duas contagens coincidentes.
+        arquivos = [h for h in result.handlers if isinstance(h, logging.FileHandler)]
+        consoles = [
+            h
+            for h in result.handlers
+            if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+        ]
+        assert len(arquivos) == 1
+        assert len(consoles) == 1
         result.handlers.clear()
+
+    def test_setup_com_handler_estranho_ja_anexado_ainda_cria_arquivo(
+        self, tmp_path: object
+    ) -> None:
+        """Com outro handler já no logger, setup_logging ainda anexa o FileHandler do JSONL.
+
+        Este é o cenário real do aplicativo desktop: ``desktop.launcher`` já anexou seu
+        próprio handler ao logger ``ranking_msc`` antes de ``setup_logging()`` rodar. A
+        guarda antiga ("se já tem handler, não faço nada") deixava o arquivo JSON Lines
+        de auditoria sem ser criado nesse caso.
+        """
+        logger_name = "ranking_msc"
+        logger = logging.getLogger(logger_name)
+        logger.handlers.clear()
+
+        handler_estranho = logging.StreamHandler()  # stderr, como o do launcher
+        logger.addHandler(handler_estranho)
+        try:
+            result = setup_logging(log_dir=str(tmp_path))
+            result.info("linha de teste")
+
+            arquivos = [h for h in result.handlers if isinstance(h, logging.FileHandler)]
+            assert len(arquivos) == 1
+
+            jsonl_path = Path(str(tmp_path)) / "ranking_msc.jsonl"
+            assert jsonl_path.is_file()
+            assert jsonl_path.stat().st_size > 0
+        finally:
+            logger.handlers.clear()

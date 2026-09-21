@@ -60,9 +60,14 @@ def authenticate_user(
 
 
 def find_user(settings: SecuritySettings, username: str) -> UserSettings | None:
-    """Busca usuário por username na lista de usuários configurados."""
+    """Busca usuário por username na lista de usuários configurados.
+
+    A comparação ignora maiúsculas e espaços nas pontas: o username é um e-mail,
+    e quem digita ``Fulano@...`` ou cola com espaço não pode levar 401.
+    """
+    procurado = username.strip().casefold()
     for user in settings.users:
-        if user.username == username:
+        if user.username.strip().casefold() == procurado:
             return user
     return None
 

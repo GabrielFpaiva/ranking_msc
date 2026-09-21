@@ -19,13 +19,14 @@ Documentos de apoio: `doc/manual_usuario.md` (fluxo de uso) e
 
 ## Pre-requisitos
 
-- Aplicacao publicada e acessivel pelo endpoint institucional (HTTPS).
-- Um usuario de teste com login e senha validos.
-- Um CSV MSC de exemplo de uma competencia real (idealmente a do mes corrente).
-- Projetor ou tela compartilhada para a demonstracao.
+- Aplicativo instalado na maquina de cada participante (instalador MCRA-Setup).
+- O e-mail e a senha de cada pessoa, entregues pelo responsavel tecnico.
+- Um CSV MSC de exemplo de uma competencia real, autorizado para demonstracao.
+- Projetor ou tela compartilhada.
 
-Antes de comecar, confirmar que `GET /api/health` responde `ok` e informa o
-numero de regras esperado (78).
+Antes de comecar, abrir o aplicativo numa das maquinas e confirmar que a tela de
+login aparece. Depois do login, abrir a tela `Regras` e conferir o cabecalho
+"78 regras registradas".
 
 ---
 
@@ -34,9 +35,10 @@ numero de regras esperado (78).
 Apresentar cada etapa fazendo ao vivo e explicando o "porque", nao so o "como".
 
 ### 1. Acesso e login (3 min)
-- Abrir o endpoint institucional e mostrar a tela de login.
-- Explicar que o acesso e por usuario e senha (token de sessao com expiracao).
+- Abrir o aplicativo pelo atalho do menu iniciar.
+- Explicar que o acesso e por e-mail e senha, com sessao que expira.
 - Mostrar onde aparece o usuario logado e o botao `Sair`.
+- Dizer onde ficam os dados: `%LOCALAPPDATA%\MCRA`. Cada pessoa tem os seus.
 
 ### 2. Upload e execucao (5 min)
 - Em `Inicio`, enviar o CSV MSC de exemplo.
@@ -102,8 +104,8 @@ Apresentar cada etapa fazendo ao vivo e explicando o "porque", nao so o "como".
 
 ## Checklist do facilitador
 
-- [ ] Ambiente no ar e `GET /api/health` respondendo `ok` com 78 regras
-- [ ] Usuario e senha de demonstracao testados antes da sessao
+- [ ] Aplicativo instalado e tela de login testada em pelo menos uma maquina, com "78 regras registradas" na tela `Regras` apos o login
+- [ ] E-mail e senha de demonstracao testados antes da sessao
 - [ ] CSV MSC de exemplo carregado e validado
 - [ ] Excel e PDF gerando sem erro
 - [ ] Manual e guia de operacao acessiveis aos participantes
