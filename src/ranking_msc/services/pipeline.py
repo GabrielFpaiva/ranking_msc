@@ -79,7 +79,7 @@ def run_full_pipeline(
         SnapshotError: se a persistência dos snapshots falhar.
         ReportError: se a exportação do Excel falhar.
     """
-    df = normalize_ic(raw.df)
+    df = normalize_ic(raw.df, mapping_path=Path(settings.paths.ref_dir) / "mapeamento_ic_tipo.csv")
 
     snap_base = snapshots_dir / raw.siconfi
     # Snapshot do normalizado ANTES das regras — R054 e demais regras

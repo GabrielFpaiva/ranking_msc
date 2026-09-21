@@ -8,7 +8,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 import ranking_msc.rules  # noqa: F401  -- popular RULE_REGISTRY
-from ranking_msc.config.settings import RulesSettings, Settings
+from ranking_msc.config.settings import PathsSettings, RulesSettings, Settings
 from ranking_msc.io.reader_msc import read_msc_csv
 from ranking_msc.services.pipeline import run_full_pipeline
 
@@ -16,6 +16,42 @@ from ranking_msc.services.pipeline import run_full_pipeline
 def _settings_com_r082() -> Settings:
     """Settings mínimo com uma regra real habilitada."""
     return Settings(rules=RulesSettings(enabled=["R082"]))
+
+
+def test_pipeline_normaliza_usando_o_ref_dir_configurado(
+    monkeypatch,
+    msc_csv_path: Path,
+    tmp_path: Path,
+) -> None:
+    """O caminho do mapeamento IC/TIPO sai de settings.paths.ref_dir.
+
+    Congelado pelo PyInstaller, o default derivado de __file__ aponta para fora
+    do bundle — o pipeline não pode depender dele.
+    """
+    capturado: dict[str, object] = {}
+
+    def _spy(df, *, mapping_path=None):
+        capturado["mapping_path"] = mapping_path
+        return df
+
+    monkeypatch.setattr("ranking_msc.services.pipeline.normalize_ic", _spy)
+
+    raw = read_msc_csv(msc_csv_path)
+    settings = Settings(
+        paths=PathsSettings(ref_dir=str(tmp_path / "ref_instalado")),
+        rules=RulesSettings(enabled=[]),
+    )
+
+    run_full_pipeline(
+        raw,
+        settings=settings,
+        snapshots_dir=tmp_path / "snapshots",
+        reports_dir=tmp_path / "reports",
+        logger=logging.getLogger("ranking_msc_test_service"),
+        usuario="teste",
+    )
+
+    assert capturado["mapping_path"] == Path(settings.paths.ref_dir) / "mapeamento_ic_tipo.csv"
 
 
 class TestRunFullPipeline:
