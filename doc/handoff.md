@@ -149,6 +149,9 @@ atualizar um checkout local esta em `doc/guia_operacao.md`, secao
 > certificado institucional saem da lista; o material correspondente esta em
 > `doc/legacy/`.
 
+> Decisoes de escopo TECH-02/03/04 ja **encerradas** (registradas na governanca documental,
+> hoje fora do repositorio de entrega); nao sao bloqueadores de encerramento.
+
 ---
 
 ## Aceite formal

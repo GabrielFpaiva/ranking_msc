@@ -340,6 +340,10 @@ precisam ser exportados para uma pasta de rede depois de cada fechamento.
 
 ## Atualizacao de versao
 
+Este procedimento atualiza um checkout do codigo-fonte, usado em
+desenvolvimento e manutencao. Para atualizar o aplicativo instalado nas
+maquinas da equipe, veja a secao "Distribuicao do aplicativo desktop".
+
 1. Parar o servidor.
 2. Fazer backup de `config` e `data`.
 3. Atualizar o repositorio.
