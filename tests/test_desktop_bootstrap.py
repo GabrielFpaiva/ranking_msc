@@ -64,3 +64,90 @@ def test_segunda_execucao_reaponta_ref_dir(tmp_path: Path) -> None:
 
     depois = yaml.safe_load(destino.read_text(encoding="utf-8"))
     assert Path(depois["paths"]["ref_dir"]) == _ROOT / "ref"
+
+
+def test_config_com_placeholder_de_queda_na_primeira_execucao_ganha_secret(
+    tmp_path: Path,
+) -> None:
+    """Queda entre a cópia do template e a gravação: o próximo arranque sorteia o secret."""
+    destino = tmp_path / "config" / "settings.yaml"
+    destino.parent.mkdir(parents=True)
+    template = _ROOT / "config" / "settings.desktop.yaml"
+    destino.write_bytes(template.read_bytes())
+
+    preparar_config(tmp_path, root=_ROOT)
+
+    raw = yaml.safe_load(destino.read_text(encoding="utf-8"))
+    assert raw["security"]["secret_key"] not in {"", "change-me-in-production"}
+    assert len(raw["security"]["secret_key"]) == 64
+    assert len(raw["security"]["users"]) == 3
+
+
+def test_config_vazia_e_recriada_do_template(tmp_path: Path) -> None:
+    """Arquivo truncado a zero bytes volta com os 3 usuários e secret válido."""
+    destino = tmp_path / "config" / "settings.yaml"
+    destino.parent.mkdir(parents=True)
+    destino.write_text("", encoding="utf-8")
+
+    preparar_config(tmp_path, root=_ROOT)
+
+    raw = yaml.safe_load(destino.read_text(encoding="utf-8"))
+    assert len(raw["security"]["users"]) == 3
+    assert raw["security"]["secret_key"] not in {"", "change-me-in-production"}
+    assert Path(raw["paths"]["data_dir"]) == tmp_path / "data"
+
+
+def test_config_sem_usuarios_recriada_preserva_secret_valido(tmp_path: Path) -> None:
+    """YAML truncado antes de security.users volta do template com o mesmo secret."""
+    destino = tmp_path / "config" / "settings.yaml"
+    destino.parent.mkdir(parents=True)
+    secret = "a" * 64
+    destino.write_text(f"security:\n  secret_key: {secret}\n", encoding="utf-8")
+
+    preparar_config(tmp_path, root=_ROOT)
+
+    raw = yaml.safe_load(destino.read_text(encoding="utf-8"))
+    assert raw["security"]["secret_key"] == secret
+    assert len(raw["security"]["users"]) == 3
+    assert (tmp_path / "config" / "settings.yaml.bak").is_file()
+
+
+def test_paths_relativos_sao_absolutizados(tmp_path: Path) -> None:
+    """Caminhos de dados relativos passam a apontar para dentro de home/data."""
+    destino = preparar_config(tmp_path, root=_ROOT)
+    raw = yaml.safe_load(destino.read_text(encoding="utf-8"))
+    raw["paths"].update(
+        {
+            "data_dir": "./data",
+            "snapshots_dir": "./data/snapshots",
+            "reports_dir": "data/reports",
+            "logs_dir": "./data/logs",
+        }
+    )
+    destino.write_text(yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+    preparar_config(tmp_path, root=_ROOT)
+
+    paths = yaml.safe_load(destino.read_text(encoding="utf-8"))["paths"]
+    assert Path(paths["data_dir"]) == tmp_path / "data"
+    assert Path(paths["snapshots_dir"]) == tmp_path / "data" / "snapshots"
+    assert Path(paths["reports_dir"]) == tmp_path / "data" / "reports"
+    assert Path(paths["logs_dir"]) == tmp_path / "data" / "logs"
+
+
+def test_segundo_arranque_sem_mudanca_nao_regrava(tmp_path: Path) -> None:
+    """Sem nada a corrigir, o arquivo não é regravado (mtime e inode iguais)."""
+    destino = preparar_config(tmp_path, root=_ROOT)
+    antes = destino.stat()
+
+    preparar_config(tmp_path, root=_ROOT)
+
+    depois = destino.stat()
+    assert depois.st_mtime_ns == antes.st_mtime_ns
+    assert depois.st_ino == antes.st_ino
+
+
+def test_gravacao_nao_deixa_temporario_na_pasta(tmp_path: Path) -> None:
+    """A escrita atômica não deixa arquivo .tmp para trás."""
+    preparar_config(tmp_path, root=_ROOT)
+    assert [p.name for p in (tmp_path / "config").iterdir()] == ["settings.yaml"]
