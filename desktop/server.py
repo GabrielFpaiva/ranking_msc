@@ -65,7 +65,12 @@ class ServidorLocal:
 
         from app.api.main import app
 
-        config = uvicorn.Config(app, host=_HOST, port=self.porta, log_level="warning")
+        # log_config=None: o dictConfig padrão do uvicorn chama sys.stdout.isatty(), e no
+        # exe GUI do Windows (console=False) sys.stdout é None — o Config estouraria com
+        # "Unable to configure formatter 'default'". Os handlers vêm do launcher.
+        config = uvicorn.Config(
+            app, host=_HOST, port=self.porta, log_level="warning", log_config=None
+        )
         self._server = uvicorn.Server(config)
         self._thread = threading.Thread(target=self._server.run, daemon=True)
         self._thread.start()

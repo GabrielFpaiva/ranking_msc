@@ -71,3 +71,18 @@ def test_parar_com_thread_viva_loga_warning(caplog) -> None:  # type: ignore[no-
         # Cleanup: parar de verdade
         if servidor._server is not None:
             servidor._server.should_exit = True
+
+
+def test_servidor_sobe_sem_stdout_nem_stderr(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """No exe GUI do Windows (console=False) stdout e stderr são None; o servidor sobe mesmo assim."""
+    import sys
+
+    monkeypatch.setattr(sys, "stdout", None)
+    monkeypatch.setattr(sys, "stderr", None)
+
+    servidor = ServidorLocal(porta_livre())
+    try:
+        servidor.iniciar()
+        assert servidor.esperar_saude(timeout=30.0) is True
+    finally:
+        servidor.parar()
