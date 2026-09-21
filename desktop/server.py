@@ -41,7 +41,7 @@ class ServidorLocal:
         Args:
             porta: porta TCP em loopback. Use ``porta_livre()``.
         """
-        self.porta = porta
+        self.porta: int = porta
         self._thread: threading.Thread | None = None
         self._server: uvicorn.Server | None = None
 
@@ -56,7 +56,13 @@ class ServidorLocal:
         A aplicação é importada aqui, e não no topo do módulo, para que
         ``RANKING_MSC_CONFIG`` já esteja no ambiente quando o loader de
         configuração rodar.
+
+        Raises:
+            RuntimeError: se o servidor já foi iniciado.
         """
+        if self._server is not None or self._thread is not None:
+            raise RuntimeError("O servidor já foi iniciado. Crie uma nova instância.")
+
         from app.api.main import app
 
         config = uvicorn.Config(app, host=_HOST, port=self.porta, log_level="warning")
@@ -91,4 +97,10 @@ class ServidorLocal:
             self._server.should_exit = True
         if self._thread is not None:
             self._thread.join(timeout=10.0)
+            if self._thread.is_alive():
+                logger.warning(
+                    "Thread do servidor em %s não encerrou no timeout de 10s.",
+                    self.url,
+                )
+                return
         logger.info("Servidor local encerrado.")
