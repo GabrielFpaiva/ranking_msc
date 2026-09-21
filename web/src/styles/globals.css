@@ -444,6 +444,7 @@ a:focus-visible { outline-offset: 2px; }
 }
 .samid-login-input:focus { outline: 2px solid var(--jp-red); border-color: var(--jp-red); }
 .samid-login-error { color: var(--samid-erro); font-size: 1rem; margin: 0; }
+.samid-login-hint { color: var(--fg-2); font-size: 0.95rem; margin: 0; text-align: center; }
 .samid-login-submit {
   padding: 0.7rem;
   border-radius: 6px;
