@@ -1,7 +1,7 @@
 VENV := .venv/bin
 PYTHON := $(VENV)/python
 
-.PHONY: bootstrap config dirs dev-backend dev-frontend lint typecheck test frontend-lint frontend-typecheck frontend-build validate ci desktop-run desktop-build
+.PHONY: bootstrap config dirs dev-backend dev-frontend lint typecheck test frontend-lint frontend-typecheck frontend-build validate ci desktop-run desktop-build faq-html
 
 bootstrap:
 	python3 -m venv .venv
@@ -50,3 +50,6 @@ desktop-run:
 
 desktop-build:
 	pyinstaller mcra.spec --noconfirm
+
+faq-html:
+	cd scripts/demo_video && node faq_html.mjs

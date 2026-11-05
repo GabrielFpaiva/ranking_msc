@@ -1,0 +1,52 @@
+{
+  "abertura": {
+    "duracaoMs": 32881,
+    "mecanicaMs": 906,
+    "pausasBaseMs": 7000
+  },
+  "login": {
+    "duracaoMs": 7335,
+    "mecanicaMs": 6151,
+    "pausasBaseMs": 5920
+  },
+  "execucao": {
+    "duracaoMs": 26866,
+    "mecanicaMs": 9463,
+    "pausasBaseMs": 13452
+  },
+  "score": {
+    "duracaoMs": 46877,
+    "mecanicaMs": 4586,
+    "pausasBaseMs": 34024
+  },
+  "pendencias": {
+    "duracaoMs": 35949,
+    "mecanicaMs": 12980,
+    "pausasBaseMs": 31512
+  },
+  "regras": {
+    "duracaoMs": 26072,
+    "mecanicaMs": 7961,
+    "pausasBaseMs": 16112
+  },
+  "exportacoes": {
+    "duracaoMs": 22128,
+    "mecanicaMs": 9665,
+    "pausasBaseMs": 16228
+  },
+  "entregas": {
+    "duracaoMs": 53251,
+    "mecanicaMs": 5065,
+    "pausasBaseMs": 33072
+  },
+  "comparar": {
+    "duracaoMs": 19327,
+    "mecanicaMs": 3145,
+    "pausasBaseMs": 9864
+  },
+  "encerramento": {
+    "duracaoMs": 25404,
+    "mecanicaMs": 3863,
+    "pausasBaseMs": 11536
+  }
+}

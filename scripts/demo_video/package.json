@@ -1,0 +1,13 @@
+{
+  "name": "ranking-msc-demo-video",
+  "private": true,
+  "type": "module",
+  "description": "Grava o video de demonstracao do MCRA dirigindo o app com Playwright.",
+  "scripts": {
+    "record": "node record.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

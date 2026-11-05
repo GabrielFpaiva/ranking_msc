@@ -1,0 +1,55 @@
+{
+  "duracao_audio": 295.915,
+  "cenas": [
+    {
+      "cena": "abertura",
+      "inicio": 0.0,
+      "alvo": 32.88
+    },
+    {
+      "cena": "login",
+      "inicio": 32.88,
+      "alvo": 7.12
+    },
+    {
+      "cena": "execucao",
+      "inicio": 40.0,
+      "alvo": 26.84
+    },
+    {
+      "cena": "score",
+      "inicio": 66.84,
+      "alvo": 46.88
+    },
+    {
+      "cena": "pendencias",
+      "inicio": 113.72,
+      "alvo": 36.0
+    },
+    {
+      "cena": "regras",
+      "inicio": 149.72,
+      "alvo": 26.08
+    },
+    {
+      "cena": "exportacoes",
+      "inicio": 175.8,
+      "alvo": 22.12
+    },
+    {
+      "cena": "entregas",
+      "inicio": 197.92,
+      "alvo": 53.28
+    },
+    {
+      "cena": "comparar",
+      "inicio": 251.2,
+      "alvo": 19.32
+    },
+    {
+      "cena": "encerramento",
+      "inicio": 270.52,
+      "alvo": 25.4
+    }
+  ]
+}
