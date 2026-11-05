@@ -16,6 +16,7 @@ export type IconName =
   | 'entregas'
   | 'regras'
   | 'execucao'
+  | 'ajuda'
   | 'sair';
 
 const PATHS: Record<IconName, string> = {
@@ -39,6 +40,8 @@ const PATHS: Record<IconName, string> = {
   regras: 'M5 4a2 2 0 0 1 2-2h11v18H7a2 2 0 0 0-2 2zM9 2v18',
   // pulso / atividade (execução)
   execucao: 'M3 12h4l3 8 4-16 3 8h4',
+  // interrogação (ajuda)
+  ajuda: 'M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7M12 17h.01M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0',
   // logout (sair)
   sair: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
 };

@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { Layout } from './components/Layout';
+import { Ajuda } from './screens/Ajuda';
 import { Caixa } from './screens/Caixa';
 import { Comparar } from './screens/Comparar';
 import Entregas from './screens/Entregas';
@@ -28,6 +29,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/ajuda" element={<Ajuda />} />
       <Route
         path="/"
         element={

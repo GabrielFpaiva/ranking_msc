@@ -459,6 +459,29 @@ a:focus-visible { outline-offset: 2px; }
 .samid-login-submit:disabled { cursor: not-allowed; opacity: 0.7; }
 .samid-login-submit:not(:disabled):hover { background: var(--jp-red-dk); }
 
+.samid-login-help { text-align: center; font-size: 1rem; color: var(--fg-2); text-decoration: underline; }
+.samid-login-help:hover { color: var(--jp-red); }
+
+/* ===== Ajuda (FAQ) ===== */
+.samid-ajuda-page { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+.samid-ajuda-head { margin-bottom: 24px; }
+.samid-ajuda-back { color: var(--fg-2); font-size: 1rem; text-decoration: none; }
+.samid-ajuda-back:hover { color: var(--jp-red); }
+.samid-ajuda-title { font-family: var(--font-display); font-size: 2rem; font-weight: 700; margin: 12px 0 4px; color: var(--fg-1); }
+.samid-ajuda-sub { margin: 0; color: var(--fg-2); font-size: 1.1rem; }
+.samid-ajuda-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.samid-ajuda-item { background: var(--bg-surface); border-radius: 10px; box-shadow: var(--shadow-card); overflow: hidden; }
+.samid-ajuda-q {
+  width: 100%; text-align: left; padding: 16px 20px; background: transparent; border: none; cursor: pointer;
+  font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; color: var(--fg-1);
+}
+.samid-ajuda-q:hover, .samid-ajuda-q[aria-expanded="true"] { color: var(--jp-red); }
+.samid-ajuda-q:focus-visible { outline: 2px solid var(--jp-red); outline-offset: -2px; }
+.samid-ajuda-a { padding: 0 20px 20px; }
+.samid-ajuda-steps { margin: 0 0 16px; padding-left: 22px; color: var(--fg-1); font-size: 1.05rem; line-height: 1.5; }
+.samid-ajuda-steps li + li { margin-top: 6px; }
+.samid-ajuda-gif { display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border-default); }
+
 /* ===== Tempo de uso — bloco da sidebar ===== */
 /* Compacto de propósito: a sidebar é presa em 100vh e o rodapé precisa caber
    junto com usuário e Sair sem gerar rolagem no menu. Número e rótulo dividem
