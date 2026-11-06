@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { ApiError, apiLogin, apiSetup, apiSetupStatus } from '../api/client';
 
@@ -168,6 +168,10 @@ export function Login() {
                 ? 'Criar administrador'
                 : 'Entrar'}
           </button>
+
+          <Link to="/ajuda" className="samid-login-help">
+            Precisa de ajuda?
+          </Link>
         </div>
       </form>
     </div>

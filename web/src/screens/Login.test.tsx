@@ -84,6 +84,15 @@ describe('Login', () => {
   });
 });
 
+describe('Login — ajuda', () => {
+  it('login tem link para ajuda', () => {
+    renderLogin();
+
+    const link = screen.getByRole('link', { name: 'Precisa de ajuda?' });
+    expect(link.getAttribute('href')).toBe('/ajuda');
+  });
+});
+
 describe('Login — primeiro acesso', () => {
   beforeEach(() => {
     apiSetupStatusMock.mockResolvedValue(true);

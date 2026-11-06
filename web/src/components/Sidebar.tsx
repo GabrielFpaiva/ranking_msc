@@ -41,6 +41,10 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/execucao', label: 'Execução', icon: 'execucao' },
     ],
   },
+  {
+    label: 'Ajuda',
+    items: [{ to: '/ajuda', label: 'Ajuda', icon: 'ajuda' }],
+  },
 ];
 
 function userInitials(name: string | null): string {

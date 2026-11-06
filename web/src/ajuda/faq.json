@@ -1,0 +1,143 @@
+[
+  {
+    "id": "login",
+    "pergunta": "Como faço login e saio?",
+    "passos": [
+      "Abra o MCRA pelo atalho da área de trabalho ou do menu Iniciar.",
+      "Digite seu e-mail e sua senha e clique em Entrar.",
+      "A tela Início abre. Pronto, você já está dentro.",
+      "Para sair, clique em Sair, no canto de baixo do menu à esquerda.",
+      "Se o login expirar, o app volta para a tela de login. É só entrar de novo."
+    ],
+    "gif": "login.gif"
+  },
+  {
+    "id": "enviar-msc",
+    "pergunta": "Como envio a MSC do mês?",
+    "passos": [
+      "Na tela Início, procure o quadro Nova execução.",
+      "Clique nele (ou arraste o arquivo para dentro) e escolha o CSV da MSC do mês.",
+      "Espere o processamento terminar. O quadro mostra \"Processando...\" enquanto roda.",
+      "Quando acabar, aparecem o status, a competência, o total de pendências e o score.",
+      "Se aparecer erro de leitura, confira se o arquivo é o CSV da MSC, com separador ponto e vírgula e a linha de metadados no topo.",
+      "Se outra pessoa estiver processando o mesmo ente e mês, o app recusa o envio. Espere ela terminar e envie de novo."
+    ],
+    "gif": "enviar-msc.gif"
+  },
+  {
+    "id": "score",
+    "pergunta": "Como leio o score na tela Início?",
+    "passos": [
+      "O score vai de 0 a 100 e mostra o quanto a MSC está em conformidade.",
+      "A letra ao lado é a banda: A (95 a 100), B (85 a 94), C (75 a 84), D (65 a 74) e E (abaixo de 65).",
+      "Logo abaixo ficam as regras mais violadas. Comece por elas.",
+      "Nota alta não dispensa olhar as pendências graves. Nota baixa quer dizer que é hora de priorizar as regras com ERRO."
+    ],
+    "gif": "score.gif"
+  },
+  {
+    "id": "pendencias",
+    "pergunta": "Como vejo e trato as pendências?",
+    "passos": [
+      "Clique em Pendências no menu à esquerda.",
+      "Use os filtros para achar o que importa: severidade, dimensão, regra (por exemplo R020) ou prefixo da conta.",
+      "ERRO é o mais grave e deve ser resolvido primeiro. ALERTA pede revisão. INFO é só informação.",
+      "Cada linha mostra a conta, a descrição, o valor esperado e o valor encontrado. Compare os dois.",
+      "Clique no código da regra para entender o motivo, ou no número da conta para ver os detalhes dela.",
+      "Corrija na origem, gere a MSC de novo e envie outra vez.",
+      "Clique em Limpar filtros para voltar à lista completa."
+    ],
+    "gif": "pendencias.gif"
+  },
+  {
+    "id": "regras",
+    "pergunta": "Como entendo uma regra?",
+    "passos": [
+      "Clique em Regras no menu à esquerda.",
+      "Use a busca no alto da lista para achar por número, nome ou dimensão.",
+      "Clique na regra para abrir o painel lateral.",
+      "O painel mostra o nome, a dimensão, a descrição e o histórico de ocorrências por mês."
+    ],
+    "gif": "regras.gif"
+  },
+  {
+    "id": "conta",
+    "pergunta": "Como vejo os detalhes de uma conta?",
+    "passos": [
+      "Nas telas Caixa e Passivos, clique na linha da conta. Em Pendências, clique no número da conta.",
+      "Abre um painel lateral com os dados daquela conta.",
+      "Para fechar, clique fora do painel ou no botão de fechar."
+    ],
+    "gif": "conta.gif"
+  },
+  {
+    "id": "contas",
+    "pergunta": "O que mostram Caixa, Passivos e Superávit?",
+    "passos": [
+      "Caixa: contas de caixa e equivalentes, com saldo inicial, movimento do mês e saldo final.",
+      "Passivos: contas de passivo circulante e não circulante. Ajuda a conferir obrigações e saldos com natureza invertida.",
+      "Superávit: resultado financeiro por Fonte de Recursos (FR), com ativo financeiro, passivo financeiro e o resultado.",
+      "O Superávit é uma conta de apoio. A área contábil deve validar o resultado antes de usar."
+    ],
+    "gif": "contas.gif"
+  },
+  {
+    "id": "comparar",
+    "pergunta": "Como comparo duas competências?",
+    "passos": [
+      "Clique em Comparar no menu à esquerda.",
+      "Escolha as duas competências nas listas.",
+      "A tela mostra a mudança no score, se as pendências subiram ou caíram e quais dimensões melhoraram ou pioraram.",
+      "Só dá para comparar meses que já foram processados. Se faltar algum, envie a MSC dele primeiro."
+    ],
+    "gif": "comparar.gif"
+  },
+  {
+    "id": "entregas",
+    "pergunta": "Como acompanho as entregas?",
+    "passos": [
+      "Clique em Entregas no menu à esquerda.",
+      "Escolha o exercício no topo da tela.",
+      "O resumo mostra quantas entregas ao Siconfi foram feitas, quantas homologadas e quantas retificadas.",
+      "A tabela Como estamos lista cada entrega da Prefeitura e da Câmara, com status, período e data.",
+      "Retificado quer dizer que o relatório foi reenviado depois do original. Muitas retificações pioram a nota da Dimensão I.",
+      "Se o Siconfi estiver fora do ar, a tela avisa e mostra o último dado salvo."
+    ],
+    "gif": "entregas.gif"
+  },
+  {
+    "id": "exportacoes",
+    "pergunta": "Como gero o Excel de pendências e o PDF executivo?",
+    "passos": [
+      "Processe a MSC do mês primeiro. Os arquivos só saem depois disso.",
+      "Na tela Início, clique em Exportar Excel ou Exportar PDF. O Excel também está na tela Pendências.",
+      "Espere o botão terminar de gerar e o arquivo é baixado.",
+      "O Excel traz o resumo, a lista completa de pendências e as evidências. Use quando houver muitas linhas.",
+      "O PDF é a versão de uma página, com score, histórico, dimensões críticas e recomendações. Bom para reunião."
+    ],
+    "gif": "exportacoes.gif"
+  },
+  {
+    "id": "senha",
+    "pergunta": "Esqueci a senha, e agora?",
+    "passos": [
+      "O responsável técnico envia a senha por outro canal, não por e-mail. Procure ele primeiro.",
+      "Se ele não estiver, feche o aplicativo por completo.",
+      "Abra a pasta %LOCALAPPDATA%\\MCRA\\config (cole esse caminho na barra do Explorador de Arquivos).",
+      "Apague o arquivo settings.yaml.",
+      "Abra o aplicativo de novo. Ele recria a configuração com as senhas originais.",
+      "Seus dados (execuções, relatórios e logs) ficam onde estavam."
+    ]
+  },
+  {
+    "id": "antivirus",
+    "pergunta": "O app não abre / o antivírus bloqueou",
+    "passos": [
+      "No Google Drive, se aparecer \"Não foi possível verificar vírus\", clique em Baixar mesmo assim. O arquivo é o instalador do MCRA.",
+      "No Chrome, se aparecer \"não é baixado com frequência\", clique nos três pontinhos ao lado do arquivo e escolha Manter.",
+      "No Windows, se a tela azul do SmartScreen aparecer, clique em Mais informações e depois em Executar assim mesmo.",
+      "Se o antivírus ainda bloquear ou o app não abrir, peça para a TI liberar o programa C:\\Program Files\\MCRA\\MCRA.exe.",
+      "Se nada resolver, chame o responsável técnico e diga qual mensagem apareceu na tela."
+    ]
+  }
+]

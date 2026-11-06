@@ -209,6 +209,16 @@ nem cache disponivel, a tela mostra so o aviso explicando a indisponibilidade
 - sem resumo nem tabelas, para nao dar a entender que "0 retificacoes" e um
 resultado real.
 
+### Ajuda
+
+Tela com perguntas e respostas do dia a dia (login, envio da MSC, score,
+pendencias, regras, exportacoes, senha esquecida e antivirus), cada uma com
+passo a passo e uma animacao curta. Abre pelo grupo **Ajuda** no menu lateral
+ou, antes do login, pelo link **Precisa de ajuda?** na tela de entrada; nao
+exige estar logado. O mesmo conteudo existe como arquivo unico
+`FAQ-MCRA.html` (gerado com `make faq-html`), que pode ser aberto no navegador
+sem instalar nada.
+
 ---
 
 ## Exportacoes

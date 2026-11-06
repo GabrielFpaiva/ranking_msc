@@ -58,8 +58,9 @@ Campos criticos:
 - `security.users`: usuarios e hashes bcrypt.
 
 No instalador do aplicativo desktop (`MCRA-Setup-<versao>.exe`) os tres
-usuarios da equipe ja vem cadastrados; as senhas sao entregues pessoalmente
-pelo responsavel tecnico. Senha esquecida no aplicativo desktop: feche o
+usuarios da equipe ja vem cadastrados; as senhas sao entregues pelo
+responsavel tecnico por um canal separado do convite (nunca no e-mail com o
+link do instalador). Senha esquecida no aplicativo desktop: feche o
 aplicativo e apague `%LOCALAPPDATA%\MCRA\config\settings.yaml`; no proximo
 arranque ele recria a configuracao com as senhas originais, e os dados
 (snapshots, relatorios, logs) ficam onde estavam.
