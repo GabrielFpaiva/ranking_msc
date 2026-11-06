@@ -19,8 +19,10 @@ Documentos de apoio: `doc/manual_usuario.md` (fluxo de uso) e
 
 ## Pre-requisitos
 
-- Aplicativo instalado na maquina de cada participante (instalador MCRA-Setup).
-- O e-mail e a senha de cada pessoa, entregues pelo responsavel tecnico.
+- Aplicativo instalado na maquina de cada participante (instalador MCRA-Setup,
+  baixado do link do Google Drive enviado no convite, `doc/convite_treinamento.md`).
+- O `FAQ-MCRA.html` baixado da mesma pasta do Drive (ou a tela `Ajuda` do app).
+- O e-mail e a senha de cada pessoa. A senha vai por um canal separado do convite.
 - Um CSV MSC de exemplo de uma competencia real, autorizado para demonstracao.
 - Projetor ou tela compartilhada.
 

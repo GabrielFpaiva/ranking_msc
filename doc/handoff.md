@@ -22,6 +22,7 @@ sistema de forma autonoma e o projeto possa ser encerrado formalmente.
 | Manual do usuario | `doc/manual_usuario.md` | Fluxo de uso para a equipe contabil |
 | Guia de operacao | `doc/guia_operacao.md` | Instalacao, configuracao, backup, troubleshooting |
 | Roteiro de treinamento | `doc/roteiro_treinamento.md` | Roteiro da demonstracao (F5-10) |
+| Convite e FAQ | `doc/convite_treinamento.md`, `FAQ-MCRA.html` | Texto do e-mail aos usuarios; FAQ com GIFs gerado por `make faq-html` (regravar os GIFs: `make faq-gifs`, com backend e frontend de dev no ar) |
 | Modelo de pontuacao | `doc/modelo_pontuacao.md` | Regra de negocio do score |
 
 ---
@@ -61,7 +62,8 @@ Hoje a entrega e um instalador Windows por maquina:
   iniciar e na area de trabalho.
 - O instalador verifica o Edge WebView2 e instala se estiver faltando.
 - Login por e-mail e senha. Tres usuarios ja vem cadastrados no instalador; as
-  senhas sao entregues pessoalmente pelo responsavel tecnico.
+  senhas sao entregues pelo responsavel tecnico por um canal separado do
+  convite (`doc/convite_treinamento.md`).
 - O executavel nao e assinado: o Windows SmartScreen mostra aviso na primeira
   execucao, e o antivirus corporativo pode bloquear. Precisa ser testado numa
   maquina real da prefeitura antes do treinamento.
