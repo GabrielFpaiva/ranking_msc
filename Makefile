@@ -1,7 +1,7 @@
 VENV := .venv/bin
 PYTHON := $(VENV)/python
 
-.PHONY: bootstrap config dirs dev-backend dev-frontend lint typecheck test frontend-lint frontend-typecheck frontend-build validate ci desktop-run desktop-build faq-html
+.PHONY: bootstrap config dirs dev-backend dev-frontend lint typecheck test frontend-lint frontend-typecheck frontend-build validate ci desktop-run desktop-build faq-html faq-gifs
 
 bootstrap:
 	python3 -m venv .venv
@@ -53,3 +53,7 @@ desktop-build:
 
 faq-html:
 	cd scripts/demo_video && node faq_html.mjs
+
+# Precisa do back (make dev-backend) e do front (make dev-frontend) rodando.
+faq-gifs:
+	cd scripts/demo_video && node faq.mjs

@@ -42,7 +42,7 @@ export async function login(page, { usuario, senha }) {
     'Acesso',
     'O acesso é por usuário e senha. A sessão expira sozinha, e nenhuma tela abre sem ela.',
   );
-  await type(page, '.samid-login-input[autocomplete="username"]', usuario);
+  await type(page, '.samid-login-input[type="text"]', usuario);
   await type(page, '.samid-login-input[type="password"]', senha, { delay: 70 });
   await click(page, '.samid-login-submit');
   await page.waitForURL('**/inicio', { timeout: 15000 });
