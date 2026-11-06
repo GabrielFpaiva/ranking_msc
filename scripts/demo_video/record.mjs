@@ -249,7 +249,9 @@ async function main() {
   const mp4 = path.join(OUT, 'mcra-demo.mp4');
   const temMp4 = await converterParaMp4(webm, mp4);
 
-  await writeFile(CALIBRACAO, `${JSON.stringify(calibracao, null, 2)}\n`);
+  // Com CENAS, so parte das cenas foi medida: preserva a calibracao das outras.
+  const calibrado = { ...calibracaoAnterior, ...calibracao };
+  await writeFile(CALIBRACAO, `${JSON.stringify(calibrado, null, 2)}\n`);
   await writeFile(
     path.join(OUT, 'cenas.json'),
     `${JSON.stringify({ duracao, cenas: marcacoes, exportados: baixados }, null, 2)}\n`,

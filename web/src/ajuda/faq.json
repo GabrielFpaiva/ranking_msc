@@ -136,7 +136,7 @@
       "No Google Drive, se aparecer \"Não foi possível verificar vírus\", clique em Baixar mesmo assim. O arquivo é o instalador do MCRA.",
       "No Chrome, se aparecer \"não é baixado com frequência\", clique nos três pontinhos ao lado do arquivo e escolha Manter.",
       "No Windows, se a tela azul do SmartScreen aparecer, clique em Mais informações e depois em Executar assim mesmo.",
-      "Se o antivírus ainda bloquear ou o app não abrir, peça para a TI liberar a pasta %LOCALAPPDATA%\\MCRA.",
+      "Se o antivírus ainda bloquear ou o app não abrir, peça para a TI liberar o programa C:\\Program Files\\MCRA\\MCRA.exe.",
       "Se nada resolver, chame o responsável técnico e diga qual mensagem apareceu na tela."
     ]
   }

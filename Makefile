@@ -54,6 +54,8 @@ desktop-build:
 faq-html:
 	cd scripts/demo_video && node faq_html.mjs
 
-# Precisa do back (make dev-backend) e do front (make dev-frontend) rodando.
+# Precisa do back (make dev-backend) e do front (make dev-frontend) rodando e
+# do usuario de gravacao demo/demo2026: python scripts/create_user.py --username demo
+# (ou passe USUARIO e SENHA).
 faq-gifs:
-	cd scripts/demo_video && node faq.mjs
+	cd scripts/demo_video && npm install && npx playwright install chromium && node faq.mjs

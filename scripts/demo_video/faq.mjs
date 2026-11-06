@@ -54,14 +54,23 @@ const opcoesContexto = {
   reducedMotion: 'no-preference',
 };
 
-/** Login e duas execucoes (para Comparar ter dois meses), sem gravar. */
+/** Login e as execucoes que as cenas usam (Comparar escolhe 2025-11 x 2025-12), sem gravar. */
 async function preparar(browser) {
   const context = await browser.newContext(opcoesContexto);
   const page = await context.newPage();
   await page.goto(BASE_URL, { waitUntil: 'networkidle' });
   await install(page);
-  await login(page, { usuario: USUARIO, senha: SENHA });
-  for (const comp of ['2025-12', '2026-01']) {
+  try {
+    await login(page, { usuario: USUARIO, senha: SENHA });
+  } catch (err) {
+    throw new Error(
+      `Login de ${USUARIO} falhou. Cadastre o usuario de gravacao com `
+        + `"python scripts/create_user.py --username ${USUARIO}" (senha ${SENHA}) `
+        + 'ou passe USUARIO e SENHA.',
+      { cause: err },
+    );
+  }
+  for (const comp of ['2025-11', '2025-12', '2026-01']) {
     await execucao(page, { csv: CSV(comp) });
   }
   const estado = await context.storageState();
