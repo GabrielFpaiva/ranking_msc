@@ -37,8 +37,8 @@ async function pendencias(page) {
   await click(page, nav('Pendências'), { after: 1400 });
   await click(page, '.samid-check:has-text("ERRO") input', { after: 1200 });
   await beat(page, 'Filtros', 'Filtre por severidade. ERRO é o mais grave: resolva primeiro.');
-  await type(page, '.samid-filter-group:has-text("Regra") input.samid-input', 'R054');
-  await beat(page, 'Filtrar por regra', 'Ou digite uma regra, por exemplo R054.');
+  await type(page, '.samid-filter-group:has-text("Regra") input.samid-input', 'R020');
+  await beat(page, 'Filtrar por regra', 'Ou digite uma regra, por exemplo R020.');
   await click(page, '.samid-btn:has-text("Limpar filtros")', { after: 1200 });
   await beat(page, 'Limpar filtros', 'Clique em Limpar filtros para voltar à lista completa.');
   await clearCaption(page);

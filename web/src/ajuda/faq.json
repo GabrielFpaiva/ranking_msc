@@ -40,7 +40,7 @@
     "pergunta": "Como vejo e trato as pendências?",
     "passos": [
       "Clique em Pendências no menu à esquerda.",
-      "Use os filtros para achar o que importa: severidade, dimensão, regra (por exemplo R054) ou prefixo da conta.",
+      "Use os filtros para achar o que importa: severidade, dimensão, regra (por exemplo R020) ou prefixo da conta.",
       "ERRO é o mais grave e deve ser resolvido primeiro. ALERTA pede revisão. INFO é só informação.",
       "Cada linha mostra a conta, a descrição, o valor esperado e o valor encontrado. Compare os dois.",
       "Clique no código da regra para entender o motivo, ou no número da conta para ver os detalhes dela.",
@@ -121,7 +121,7 @@
     "id": "senha",
     "pergunta": "Esqueci a senha, e agora?",
     "passos": [
-      "As senhas são entregues pessoalmente pelo responsável técnico. Procure ele primeiro.",
+      "O responsável técnico envia a senha por outro canal, não por e-mail. Procure ele primeiro.",
       "Se ele não estiver, feche o aplicativo por completo.",
       "Abra a pasta %LOCALAPPDATA%\\MCRA\\config (cole esse caminho na barra do Explorador de Arquivos).",
       "Apague o arquivo settings.yaml.",
