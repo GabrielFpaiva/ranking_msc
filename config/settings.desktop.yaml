@@ -102,6 +102,8 @@ security:
     hashed_password: $2b$12$ECNvajO1xM6lFiMTH.gFlePW0Z/hDJYC.Qae8MDH.Yy0BHjoMjbla
   - username: thialle.soli@gmail.com
     hashed_password: $2b$12$fs./cIlp01AObVc/ZEnR7.cvZOQn1cYy9l5CaSTlIpkuUJhv/58Eu
+  - username: detup.4@gmail.com
+    hashed_password: $2b$12$eUNK6EUnDlwCgnFFFCCwi.xPXX6iPqjRl7ljU2JdZzG4WcTsR/G2.
 siconfi:
   id_ente: 2507507
   cache_ttl_horas: 24
