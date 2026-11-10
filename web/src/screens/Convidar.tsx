@@ -36,7 +36,9 @@ function friendlySendError(err: unknown): string {
       );
     }
     if (err.status === 422) {
-      return 'O e-mail informado não parece válido. Confira o endereço e tente de novo.';
+      return (
+        err.detail || 'O e-mail informado não parece válido. Confira o endereço e tente de novo.'
+      );
     }
     return err.detail || 'Erro inesperado. Tente novamente.';
   }
@@ -146,8 +148,9 @@ export function Convidar() {
           <div className="samid-eyebrow">Convites</div>
           <h2 className="samid-card-title">Convidar um colaborador</h2>
           <p className="samid-muted">
-            O colaborador recebe por e-mail o link do instalador e um código, válido por 7 dias.
-            Ele mesmo escolhe a senha.
+            O colaborador recebe por e-mail o link do instalador e um código. O convite tem prazo
+            de validade: a data aparece aqui depois do envio e vai no e-mail. Ele mesmo escolhe a
+            senha.
           </p>
         </div>
 

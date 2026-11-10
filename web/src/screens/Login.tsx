@@ -135,8 +135,8 @@ export function Login() {
   }
 
   async function handleInvite() {
-    if (password.length < 8) {
-      setError('A senha deve ter pelo menos 8 caracteres.');
+    if (password.length < 8 || password.length > 72) {
+      setError('A senha deve ter entre 8 e 72 caracteres.');
       return;
     }
     if (password !== confirm) {

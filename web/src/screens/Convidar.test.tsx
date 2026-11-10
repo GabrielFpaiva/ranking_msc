@@ -82,6 +82,16 @@ describe('Convidar — lista dos convites emitidos', () => {
     expect(await screen.findByText('Nenhum convite emitido neste computador.')).toBeTruthy();
   });
 
+  it('a explicação do formulário não afirma um prazo fixo (a validade é configurável)', async () => {
+    renderConvidar();
+
+    const texto = await screen.findByText(/O convite tem prazo de validade/);
+    expect(texto.textContent).toBe(
+      'O colaborador recebe por e-mail o link do instalador e um código. O convite tem prazo de validade: a data aparece aqui depois do envio e vai no e-mail. Ele mesmo escolhe a senha.',
+    );
+    expect(screen.queryByText(/\d+ dias/)).toBeNull();
+  });
+
   it('lista cada convite com e-mail, datas em pt-BR e se o e-mail saiu', async () => {
     listInvitesMock.mockResolvedValue([
       EMITIDO,
@@ -249,8 +259,22 @@ describe('Convidar — emissão', () => {
     );
   });
 
-  it('e-mail malformado (422) pede para conferir o endereço, em português', async () => {
-    createInviteMock.mockRejectedValue(new ApiError(422, 'String should match pattern'));
+  it('422 mostra o detail em português que a API devolveu', async () => {
+    createInviteMock.mockRejectedValue(
+      new ApiError(422, 'O e-mail do colaborador não é válido. Confira o endereço.'),
+    );
+    const user = userEvent.setup();
+    renderConvidar();
+
+    await emitir(user);
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'O e-mail do colaborador não é válido. Confira o endereço.',
+    );
+  });
+
+  it('422 sem detail em texto pede para conferir o endereço, em português', async () => {
+    createInviteMock.mockRejectedValue(new ApiError(422, ''));
     const user = userEvent.setup();
     renderConvidar();
 
@@ -259,6 +283,22 @@ describe('Convidar — emissão', () => {
     expect((await screen.findByRole('alert')).textContent).toBe(
       'O e-mail informado não parece válido. Confira o endereço e tente de novo.',
     );
+  });
+
+  it('409 (chave de convites que não é a da versão instalada) mostra o detail e mantém o e-mail', async () => {
+    const detail =
+      'A chave de convites deste computador não é a da versão instalada. Instale a versão mais recente do MCRA e tente de novo.';
+    createInviteMock.mockRejectedValue(new ApiError(409, detail));
+    const user = userEvent.setup();
+    renderConvidar();
+
+    await emitir(user);
+
+    expect((await screen.findByRole('alert')).textContent).toBe(detail);
+    expect((screen.getByLabelText('E-mail do colaborador') as HTMLInputElement).value).toBe(
+      'ana@pmjp.gov.br',
+    );
+    expect((screen.getByLabelText('Senha da chave') as HTMLInputElement).value).toBe('');
   });
 
   it.each([

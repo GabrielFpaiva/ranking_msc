@@ -512,13 +512,18 @@ O que fica onde:
 | O que | Onde | Segredo? |
 |---|---|---|
 | Chave publica, link do instalador, validade | `config/invites.yaml` (versionado e embutido no instalador) | nao |
-| Chave privada, cifrada com a senha da chave | `invite_key.pem`, na pasta de config local | sim |
+| Chave privada (o arquivo guarda a chave cifrada com a senha da chave) | `invite_key.pem`, na pasta de config local | sim |
 | Emissor, conta do Gmail e senha de app (cifrada) | `invite_issuer.yaml`, na pasta de config local | sim |
 | Convites emitidos (sem o codigo) | `invites_sent.jsonl`, na pasta de config local | nao |
 | Convites ja usados neste computador | `invites_used.json`, na pasta de config local | nao |
 
 A pasta de config local e a do `settings.yaml` em uso. No aplicativo desktop e
 `%LOCALAPPDATA%\MCRA\config`.
+
+**Cuidado ao desinstalar o MCRA:** o desinstalador pergunta se deve apagar os
+dados do usuario (`%LOCALAPPDATA%\MCRA`). Responder "Sim" apaga tambem o
+`invite_key.pem` e o `invite_issuer.yaml`. Antes de desinstalar no computador do
+emissor, guarde a copia da chave (passo 5 da cerimonia abaixo).
 
 ### Cerimonia do emissor (uma vez)
 
@@ -559,6 +564,11 @@ python scripts/create_user.py --username <e-mail> --config "$env:LOCALAPPDATA\MC
 
 A senha e pedida no prompt, sem eco.
 
+**Use o e-mail EXATAMENTE como esta gravado no `settings.yaml`, com as mesmas
+maiusculas e minusculas.** O comando compara o nome cru: com outra caixa ele nao
+acha a conta existente, cria uma segunda conta e a senha antiga continua
+valendo na primeira.
+
 ### Qual pasta de config o script usa
 
 Por padrao o `setup_invites.py` grava em `%LOCALAPPDATA%\MCRA\config`, a pasta
@@ -588,7 +598,7 @@ config\settings.yaml` (o padrao dele).
    (sem o codigo).
 
 O colaborador instala o MCRA, clica em **Tenho um convite** na tela de entrada,
-cola o codigo e escolhe a senha (8 a 128 caracteres). Se o e-mail dele ja tem
+cola o codigo e escolhe a senha (8 a 72 caracteres). Se o e-mail dele ja tem
 conta naquele computador, o convite **troca a senha** dessa conta: e assim que
 se atende "esqueci a senha".
 
@@ -599,6 +609,8 @@ O link do instalador fica so no `config/invites.yaml`. Para trocar:
 ```powershell
 python scripts/setup_invites.py set-url <link>
 ```
+
+O `set-url` so aceita link que comece com `https://`.
 
 Depois faca o commit, um release novo e instale-o no computador do emissor: o
 link e lido do `invites.yaml` embutido no instalador, e quem monta o e-mail e o
@@ -616,10 +628,21 @@ Isso gera uma chave nova e exige commit, merge e um release novo. **Os convites
 ja emitidos deixam de valer**; as contas ja criadas continuam funcionando. Sem
 `--force` o comando recusa sobrescrever a chave existente.
 
+Dois avisos:
+
+- **Entre rodar `init --force` e instalar a versao nova no computador do emissor,
+  NAO convide ninguem.** Nesse intervalo a chave local (a nova) nao e a da versao
+  instalada, e o app recusa o envio com uma mensagem. Conclua commit, merge,
+  release e instalacao antes de voltar a convidar.
+- **Quem tem uma versao antiga instalada precisa instalar a versao nova** para
+  aceitar convites assinados pela chave nova. Isso vale tambem para o "esqueci a
+  senha": a versao antiga confere a assinatura com a chave publica antiga e
+  recusa o codigo novo.
+
 ### Limites
 
 - **Nao ha revogacao antes do vencimento.** Um convite emitido vale ate vencer
-  (7 dias, `validity_days`); para anular um convite antes, so trocando a chave
+  (o prazo de `validity_days`); para anular um convite antes, so trocando a chave
   (convites antigos deixam de valer, ver acima).
 - **O uso unico vale por computador.** O mesmo codigo nao funciona duas vezes no
   mesmo computador, mas pode ser usado uma vez em cada computador onde o MCRA

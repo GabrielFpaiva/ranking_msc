@@ -295,8 +295,40 @@ describe('Login — convite', () => {
     await preencherConvite(user, 'curta', 'curta');
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe('A senha deve ter pelo menos 8 caracteres.');
+    expect(alert.textContent).toBe('A senha deve ter entre 8 e 72 caracteres.');
     expect(apiAcceptInviteMock).not.toHaveBeenCalled();
+  });
+
+  it('senha com mais de 72 caracteres bloqueia o envio antes de chamar a API', async () => {
+    const user = await abrirModoConvite();
+    const longa = 'a'.repeat(73);
+
+    await preencherConvite(user, longa, longa);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('A senha deve ter entre 8 e 72 caracteres.');
+    expect(apiAcceptInviteMock).not.toHaveBeenCalled();
+  });
+
+  it('senha de exatamente 72 caracteres segue para a API', async () => {
+    apiAcceptInviteMock.mockResolvedValue({ username: 'ana@pmjp.gov.br', password_reset: false });
+    apiLoginMock.mockResolvedValue(undefined);
+    const user = await abrirModoConvite();
+    const limite = 'a'.repeat(72);
+
+    await preencherConvite(user, limite, limite);
+
+    expect(apiAcceptInviteMock).toHaveBeenCalledWith(CODIGO, limite);
+  });
+
+  it('erro 422 mostra o detail em português da API', async () => {
+    const detail = 'A senha deve ter entre 8 e 72 bytes.';
+    apiAcceptInviteMock.mockRejectedValue(new ApiError(422, detail));
+    const user = await abrirModoConvite();
+
+    await preencherConvite(user, 'senha-forte-123', 'senha-forte-123');
+
+    expect((await screen.findByRole('alert')).textContent).toBe(detail);
   });
 
   it('senhas diferentes bloqueiam o envio com mensagem clara', async () => {

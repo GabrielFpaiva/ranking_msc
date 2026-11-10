@@ -18,10 +18,10 @@
       "Instale o MCRA no seu computador com o instalador do link que veio no e-mail do convite.",
       "Abra o MCRA. Na tela de login, clique em Tenho um convite.",
       "Copie o código do e-mail e cole no campo Código do convite. Pode colar o texto inteiro, mesmo que ele ocupe várias linhas.",
-      "Escolha uma senha de 8 a 128 caracteres e digite a mesma senha em Confirmar senha.",
+      "Escolha uma senha de 8 a 72 caracteres e digite a mesma senha em Confirmar senha.",
       "Clique em Entrar com convite. O MCRA já abre na tela Início.",
       "Nas próximas vezes, entre com o e-mail que recebeu o convite e a senha que você escolheu.",
-      "O convite vale por 7 dias e só pode ser usado uma vez neste computador. Se aparecer que ele venceu ou já foi usado, peça um novo convite ao responsável técnico.",
+      "O convite tem prazo de validade (o prazo vem escrito no e-mail) e só pode ser usado uma vez neste computador. Se aparecer que ele venceu ou já foi usado, peça um novo convite ao responsável técnico.",
       "Se o botão Tenho um convite não aparece, a sua versão do MCRA ainda não tem convites. Procure o responsável técnico."
     ]
   },
@@ -136,8 +136,8 @@
     "pergunta": "Esqueci a senha, e agora?",
     "passos": [
       "Peça um novo convite ao responsável técnico. Ele envia um código por e-mail e você mesmo escolhe a senha nova.",
-      "Abra o MCRA, clique em Tenho um convite na tela de login, cole o código e escolha a senha nova (de 8 a 128 caracteres).",
-      "O convite troca a senha da sua conta. Ele vale por 7 dias e só pode ser usado uma vez neste computador.",
+      "Abra o MCRA, clique em Tenho um convite na tela de login, cole o código e escolha a senha nova (de 8 a 72 caracteres).",
+      "O convite troca a senha da sua conta. Ele tem prazo de validade (o prazo vem escrito no e-mail) e só pode ser usado uma vez neste computador.",
       "Se a sua versão do MCRA ainda não tem o botão Tenho um convite, siga o procedimento do guia de operação com o responsável técnico.",
       "Trocar a senha não apaga seus dados (execuções, relatórios e logs)."
     ]

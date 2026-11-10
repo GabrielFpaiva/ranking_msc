@@ -34,14 +34,14 @@ instalador e um codigo), seu primeiro acesso e assim:
 2. Abra o aplicativo. Na tela de entrada, clique em **Tenho um convite**.
 3. Copie o codigo do e-mail e cole no campo **Codigo do convite** (pode colar o
    texto inteiro, mesmo que ocupe varias linhas).
-4. Escolha a **senha** (de 8 a 128 caracteres) e repita em **Confirmar senha**.
+4. Escolha a **senha** (de 8 a 72 caracteres) e repita em **Confirmar senha**.
 5. Clique em **Entrar com convite**. O aplicativo abre direto em **Inicio**.
 
 Nas proximas vezes, entre com o e-mail que recebeu o convite e a senha que voce
 escolheu.
 
-O convite vale por 7 dias e so pode ser usado uma vez em cada computador. Se a
-tela disser que o convite venceu ou ja foi usado, peca um novo ao responsavel
+O convite tem prazo de validade (o prazo vem escrito no e-mail) e so pode ser
+usado uma vez em cada computador. Se a tela disser que o convite venceu ou ja foi usado, peca um novo ao responsavel
 tecnico. Se o botao **Tenho um convite** nao aparece, a sua versao do
 aplicativo ainda nao tem convites: procure o responsavel tecnico.
 
