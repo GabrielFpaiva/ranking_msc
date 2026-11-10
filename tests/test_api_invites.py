@@ -453,7 +453,7 @@ class TestAceitar:
         with caplog.at_level(logging.DEBUG, logger="ranking_msc"):
             resposta = ambiente.aceitar(code)
 
-        assert resposta.status_code == 500
+        assert resposta.status_code == 409
         assert resposta.json()["detail"] == (
             "Não foi possível gravar a conta: o arquivo de configuração do MCRA está com "
             "problema. Peça ajuda ao responsável técnico."

@@ -523,7 +523,10 @@ A pasta de config local e a do `settings.yaml` em uso. No aplicativo desktop e
 **Cuidado ao desinstalar o MCRA:** o desinstalador pergunta se deve apagar os
 dados do usuario (`%LOCALAPPDATA%\MCRA`). Responder "Sim" apaga tambem o
 `invite_key.pem` e o `invite_issuer.yaml`. Antes de desinstalar no computador do
-emissor, guarde a copia da chave (passo 5 da cerimonia abaixo).
+emissor, guarde a copia dos dois arquivos (passo 5 da cerimonia abaixo) e, depois
+de reinstalar, devolva os dois a `%LOCALAPPDATA%\MCRA\config`. So a chave nao
+basta: sem o `invite_issuer.yaml` o item "Convidar" nao aparece, e recria-lo
+exige `init --force`, que troca a chave.
 
 ### Cerimonia do emissor (uma vez)
 
@@ -551,7 +554,8 @@ projeto (ative com `.\.venv\Scripts\Activate.ps1` ou troque `python` por
    Drive (o link da pasta esta em `installer_url`).
 4. Instale a versao nova no computador do emissor. Entrando com o e-mail do
    passo 1, o item **Convidar** aparece no menu.
-5. Guarde uma copia do `invite_key.pem` num lugar seguro. Sem ela (ou sem a
+5. Guarde uma copia do `invite_key.pem` e do `invite_issuer.yaml` num lugar
+   seguro (os dois ficam em `%LOCALAPPDATA%\MCRA\config`). Sem eles (ou sem a
    senha da chave) nao ha como emitir convites: ver "Perdeu a chave" abaixo.
 
 Se o e-mail do emissor ainda nao tem conta no MCRA instalado, o `init` avisa e

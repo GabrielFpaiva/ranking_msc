@@ -228,13 +228,15 @@ def _config_error(exc: ConfigError) -> HTTPException:
 
 
 def _settings_error(path: Path, exc: ConfigError) -> HTTPException:
-    """Falha ao gravar a conta no ``settings.yaml``: 500 com texto fixo.
+    """Falha ao gravar a conta no ``settings.yaml``: 409 com texto fixo.
 
     A mensagem do ``ConfigError`` traz um trecho do arquivo (o do PyYAML pode incluir
     o ``secret_key``): fica fora da resposta e do log, que registram só o tipo e o caminho.
+    O status é 409, não 500, porque a tela trata todo 5xx como falha de conexão e a
+    orientação ("peça ajuda ao responsável técnico") não chegaria à pessoa.
     """
     logger.error("Convite: falha ao gravar a conta em %s (%s).", path, type(exc).__name__)
-    return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=_MSG_SETTINGS)
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_MSG_SETTINGS)
 
 
 def _usable_config(path: Path) -> InviteConfig | None:

@@ -263,7 +263,8 @@ def _run_init(args: argparse.Namespace) -> int:
         )
     print(
         "Próximos passos: faça o commit do config/invites.yaml (só a chave pública mudou), "
-        "gere o instalador novo e guarde uma cópia do invite_key.pem num lugar seguro."
+        "gere o instalador novo e guarde uma cópia do invite_key.pem e do invite_issuer.yaml "
+        "num lugar seguro."
     )
     return 0
 
