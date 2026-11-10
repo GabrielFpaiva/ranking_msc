@@ -57,13 +57,22 @@ Campos criticos:
 - `security.secret_key`: chave JWT;
 - `security.users`: usuarios e hashes bcrypt.
 
-No instalador do aplicativo desktop (`MCRA-Setup-<versao>.exe`) os tres
-usuarios da equipe ja vem cadastrados; as senhas sao entregues pelo
-responsavel tecnico por um canal separado do convite (nunca no e-mail com o
-link do instalador). Senha esquecida no aplicativo desktop: feche o
-aplicativo e apague `%LOCALAPPDATA%\MCRA\config\settings.yaml`; no proximo
-arranque ele recria a configuracao com as senhas originais, e os dados
-(snapshots, relatorios, logs) ficam onde estavam.
+No instalador do aplicativo desktop (`MCRA-Setup-<versao>.exe`) os usuarios
+da equipe listados em `config/settings.desktop.yaml` ja vem cadastrados; as
+senhas sao entregues pelo responsavel tecnico por um canal separado (nunca no
+e-mail com o link do instalador). Quem entra depois recebe um convite (ver a
+secao "Convites") e escolhe a propria senha.
+
+Senha esquecida no aplicativo desktop: o caminho e pedir um novo convite ao
+responsavel tecnico. O convite para um e-mail que ja tem conta naquele
+computador **troca a senha** dessa conta, sem apagar nada (ver "Convites").
+
+Alternativa para versoes do aplicativo sem convite (a tela de login nao tem
+"Tenho um convite"): feche o aplicativo e apague
+`%LOCALAPPDATA%\MCRA\config\settings.yaml`; no proximo arranque ele recria a
+configuracao com as senhas originais, e os dados (snapshots, relatorios, logs)
+ficam onde estavam. **Atencao:** isso tambem apaga as contas criadas por
+convite naquele computador; elas precisam de um convite novo.
 
 O que segue vale para quem roda a API fora do
 instalador (desenvolvimento local), onde nao ha passo manual de hash:
@@ -481,3 +490,137 @@ execucao, e o antivirus corporativo pode bloquear o instalador ou o
 executavel. Isso precisa ser testado numa maquina real da prefeitura antes de
 qualquer treinamento ou distribuicao ampla. Certificado de assinatura e
 decisao pendente do responsavel pelo projeto (compra).
+
+---
+
+## Convites
+
+O convite assinado deixa o responsavel tecnico (o "emissor") chamar um
+colaborador por e-mail, sem criar a conta a mao: o colaborador recebe o link do
+instalador e um codigo, instala o MCRA, cola o codigo na tela de entrada e
+escolhe a propria senha. Nao ha servidor: o codigo e assinado com uma chave que
+so o emissor tem, e cada computador confere a assinatura com a chave publica
+embutida no instalador.
+
+**O recurso fica desligado enquanto `public_key` estiver vazio em
+`config/invites.yaml`.** Desligado, nao aparecem "Tenho um convite" na tela de
+entrada nem "Convidar" no menu. A chave publica so e preenchida pela cerimonia
+abaixo.
+
+O que fica onde:
+
+| O que | Onde | Segredo? |
+|---|---|---|
+| Chave publica, link do instalador, validade | `config/invites.yaml` (versionado e embutido no instalador) | nao |
+| Chave privada, cifrada com a senha da chave | `invite_key.pem`, na pasta de config local | sim |
+| Emissor, conta do Gmail e senha de app (cifrada) | `invite_issuer.yaml`, na pasta de config local | sim |
+| Convites emitidos (sem o codigo) | `invites_sent.jsonl`, na pasta de config local | nao |
+| Convites ja usados neste computador | `invites_used.json`, na pasta de config local | nao |
+
+A pasta de config local e a do `settings.yaml` em uso. No aplicativo desktop e
+`%LOCALAPPDATA%\MCRA\config`.
+
+### Cerimonia do emissor (uma vez)
+
+Rode no PowerShell, da raiz do clone do repositorio, com o ambiente virtual do
+projeto (ative com `.\.venv\Scripts\Activate.ps1` ou troque `python` por
+`.\.venv\Scripts\python.exe`):
+
+1. Gere a chave e grave o emissor:
+
+   ```powershell
+   python scripts/setup_invites.py init --issuer <e-mail> --smtp-user <conta do Gmail>
+   ```
+
+   - `<e-mail>` e o login do emissor no MCRA (o e-mail de quem vai convidar);
+   - `<conta do Gmail>` e a conta que envia os convites.
+
+   O comando pede, sem eco: a **senha da chave** (duas vezes, 12 caracteres ou
+   mais) e a **senha de app do Gmail** (uma senha propria para aplicativos,
+   gerada na conta do Google; nao e a senha normal do Gmail). Depois grava:
+   a chave privada cifrada (`invite_key.pem`) e o `invite_issuer.yaml` em
+   `%LOCALAPPDATA%\MCRA\config`, e a chave publica em `config/invites.yaml`.
+   Nenhum segredo e impresso na tela.
+2. Faca o commit do `config/invites.yaml` (so a chave publica mudou) e o merge.
+3. Rode o workflow `Release desktop` e ponha o instalador novo na pasta do
+   Drive (o link da pasta esta em `installer_url`).
+4. Instale a versao nova no computador do emissor. Entrando com o e-mail do
+   passo 1, o item **Convidar** aparece no menu.
+5. Guarde uma copia do `invite_key.pem` num lugar seguro. Sem ela (ou sem a
+   senha da chave) nao ha como emitir convites: ver "Perdeu a chave" abaixo.
+
+Se o e-mail do emissor ainda nao tem conta no MCRA instalado, o `init` avisa e
+o item "Convidar" nao aparece. Crie a conta (este comando tambem serve de
+"esqueci a senha" do proprio emissor, que nao tem a quem pedir convite):
+
+```powershell
+python scripts/create_user.py --username <e-mail> --config "$env:LOCALAPPDATA\MCRA\config\settings.yaml"
+```
+
+A senha e pedida no prompt, sem eco.
+
+### Qual pasta de config o script usa
+
+Por padrao o `setup_invites.py` grava em `%LOCALAPPDATA%\MCRA\config`, a pasta
+do aplicativo instalado. A API de desenvolvimento (`uvicorn`, ver "Subir em
+desenvolvimento") le a `config/` do clone: sao pastas diferentes. Quem testa o
+convite pela API de desenvolvimento precisa apontar o script para a pasta do
+`settings.yaml` que a API usa:
+
+```powershell
+python scripts/setup_invites.py init --issuer <e-mail> --smtp-user <conta do Gmail> --state-dir config
+```
+
+`--state-dir` escolhe a pasta; o `create_user.py` correspondente usa `--config
+config\settings.yaml` (o padrao dele).
+
+### Convidar alguem
+
+1. Entre no MCRA com o login do emissor e abra **Convidar** no menu.
+2. Informe o **e-mail do colaborador** e a **senha da chave** e clique em
+   **Enviar convite**.
+3. O MCRA envia o e-mail (link do instalador, codigo e validade) e mostra
+   "Convite enviado por e-mail" com a data de vencimento.
+4. Se o e-mail nao sair (Gmail recusou a senha de app, sem internet), a tela
+   avisa "O e-mail nao saiu" e mostra o codigo para copiar. O convite continua
+   valido: envie o codigo ao colaborador por outro meio.
+5. A tabela "Convites emitidos neste computador" lista o que ja foi emitido
+   (sem o codigo).
+
+O colaborador instala o MCRA, clica em **Tenho um convite** na tela de entrada,
+cola o codigo e escolhe a senha (8 a 128 caracteres). Se o e-mail dele ja tem
+conta naquele computador, o convite **troca a senha** dessa conta: e assim que
+se atende "esqueci a senha".
+
+### Trocar o link do Drive
+
+O link do instalador fica so no `config/invites.yaml`. Para trocar:
+
+```powershell
+python scripts/setup_invites.py set-url <link>
+```
+
+Depois faca o commit, um release novo e instale-o no computador do emissor: o
+link e lido do `invites.yaml` embutido no instalador, e quem monta o e-mail e o
+MCRA do emissor. Convites ja enviados continuam com o link antigo.
+
+### Perdeu a chave ou a senha da chave
+
+Nao ha recuperacao. Repita a cerimonia do passo 1 com `--force`:
+
+```powershell
+python scripts/setup_invites.py init --issuer <e-mail> --smtp-user <conta do Gmail> --force
+```
+
+Isso gera uma chave nova e exige commit, merge e um release novo. **Os convites
+ja emitidos deixam de valer**; as contas ja criadas continuam funcionando. Sem
+`--force` o comando recusa sobrescrever a chave existente.
+
+### Limites
+
+- **Nao ha revogacao antes do vencimento.** Um convite emitido vale ate vencer
+  (7 dias, `validity_days`); para anular um convite antes, so trocando a chave
+  (convites antigos deixam de valer, ver acima).
+- **O uso unico vale por computador.** O mesmo codigo nao funciona duas vezes no
+  mesmo computador, mas pode ser usado uma vez em cada computador onde o MCRA
+  esteja instalado.

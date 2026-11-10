@@ -26,6 +26,11 @@ dependencies = [
     # rotas de entregas no startup — sem ele a API não sobe. Estava só no bloco
     # `dev`, o que passou despercebido porque venv local e CI instalam `[dev]`.
     "httpx>=0.27",
+    # Convite assinado (F6-09): `services/invites.py` importa `cryptography` direto
+    # (assinatura Ed25519, chave privada em PEM cifrado, Fernet para a senha de app).
+    # Antes ela só chegava como extra do python-jose; declarada aqui, deixa de
+    # depender de outro pacote manter esse extra.
+    "cryptography>=42.0",
 ]
 
 [project.optional-dependencies]

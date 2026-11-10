@@ -12,6 +12,7 @@ datas = [
     ("ref", "ref"),
     ("config/settings.desktop.yaml", "config"),
     ("config/settings.yaml.example", "config"),
+    ("config/invites.yaml", "config"),
 ]
 datas += collect_data_files("reportlab")
 

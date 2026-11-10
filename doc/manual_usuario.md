@@ -25,6 +25,35 @@ prioriza riscos para a equipe revisar.
 Se o login expirar, o sistema volta para a tela de login. Entre novamente e
 continue a consulta.
 
+### Entrar com convite
+
+Se voce recebeu por e-mail um convite do responsavel tecnico (com o link do
+instalador e um codigo), seu primeiro acesso e assim:
+
+1. Baixe o instalador pelo link do e-mail e instale o MCRA.
+2. Abra o aplicativo. Na tela de entrada, clique em **Tenho um convite**.
+3. Copie o codigo do e-mail e cole no campo **Codigo do convite** (pode colar o
+   texto inteiro, mesmo que ocupe varias linhas).
+4. Escolha a **senha** (de 8 a 128 caracteres) e repita em **Confirmar senha**.
+5. Clique em **Entrar com convite**. O aplicativo abre direto em **Inicio**.
+
+Nas proximas vezes, entre com o e-mail que recebeu o convite e a senha que voce
+escolheu.
+
+O convite vale por 7 dias e so pode ser usado uma vez em cada computador. Se a
+tela disser que o convite venceu ou ja foi usado, peca um novo ao responsavel
+tecnico. Se o botao **Tenho um convite** nao aparece, a sua versao do
+aplicativo ainda nao tem convites: procure o responsavel tecnico.
+
+### Esqueci a senha
+
+Peca um novo convite ao responsavel tecnico e siga os passos de "Entrar com
+convite" acima: o codigo troca a senha da sua conta, e voce escolhe a nova. Seus
+dados (snapshots, relatorios, logs) continuam onde estavam.
+
+Se a sua versao do aplicativo ainda nao tem **Tenho um convite**, o responsavel
+tecnico segue o procedimento do guia de operacao (`doc/guia_operacao.md`).
+
 ---
 
 ## Fluxo recomendado
@@ -211,7 +240,7 @@ resultado real.
 
 ### Ajuda
 
-Tela com perguntas e respostas do dia a dia (login, envio da MSC, score,
+Tela com perguntas e respostas do dia a dia (login, convite por e-mail, envio da MSC, score,
 pendencias, regras, exportacoes, senha esquecida e antivirus), cada uma com
 passo a passo e uma animacao curta. Abre pelo grupo **Ajuda** no menu lateral
 ou, antes do login, pelo link **Precisa de ajuda?** na tela de entrada; nao
@@ -271,6 +300,9 @@ com `ERRO` e dimensoes mais fracas.
 | Situacao | O que fazer |
 |---|---|
 | Login nao entra | Conferir e-mail/senha com o responsavel tecnico. |
+| Esqueci a senha | Pedir um novo convite ao responsavel tecnico (ver "Esqueci a senha"). |
+| Convite venceu ou "ja foi usado" | Pedir um novo convite ao responsavel tecnico. |
+| Codigo do convite "invalido" | Copiar o codigo inteiro do e-mail e colar de novo. |
 | Arquivo vazio | Exportar novamente o CSV da MSC. |
 | Erro de formato | Conferir metadata, separador e cabecalho do CSV. |
 | Sem historico para comparar | Processar as competencias anteriores. |
