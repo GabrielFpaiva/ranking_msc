@@ -9,6 +9,10 @@ on:
 jobs:
   windows:
     runs-on: windows-latest
+    # O contexto `secrets` não pode ser lido em `if:` de passo. Aqui vai só o
+    # sinal verdadeiro/falso; os segredos ficam restritos ao passo do Drive.
+    env:
+      GDRIVE_CONFIGURED: ${{ secrets.GDRIVE_TOKEN != '' && secrets.GDRIVE_CLIENT_ID != '' && secrets.GDRIVE_CLIENT_SECRET != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -78,3 +82,28 @@ jobs:
         with:
           name: MCRA-Setup
           path: installer/Output/*.exe
+
+      # Publica o instalador na pasta do Drive que o e-mail do convite aponta
+      # (`installer_url` em config/invites.yaml), sempre com o mesmo nome de
+      # arquivo, para o link não mudar a cada versão. Só roda quando a variável
+      # GDRIVE_FOLDER_ID e os três segredos existem (ver "Instalador no Drive" em
+      # doc/guia_operacao.md). Vem depois do artefato e nunca derruba o release:
+      # se o envio falhar, o instalador continua disponível no Actions.
+      - name: Publicar o instalador no Drive
+        if: ${{ vars.GDRIVE_FOLDER_ID != '' && env.GDRIVE_CONFIGURED == 'true' }}
+        continue-on-error: true
+        shell: pwsh
+        env:
+          RCLONE_CONFIG_MCRADRIVE_TYPE: drive
+          RCLONE_CONFIG_MCRADRIVE_SCOPE: drive
+          RCLONE_CONFIG_MCRADRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          RCLONE_CONFIG_MCRADRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          RCLONE_CONFIG_MCRADRIVE_TOKEN: ${{ secrets.GDRIVE_TOKEN }}
+          RCLONE_CONFIG_MCRADRIVE_ROOT_FOLDER_ID: ${{ vars.GDRIVE_FOLDER_ID }}
+        run: |
+          choco install rclone -y --no-progress
+          $instalador = Get-ChildItem installer\Output\*.exe | Select-Object -First 1
+          if (-not $instalador) { throw "Instalador não encontrado em installer\Output" }
+          rclone copyto $instalador.FullName "mcradrive:MCRA-Setup.exe"
+          if ($LASTEXITCODE -ne 0) { throw "rclone copyto retornou $LASTEXITCODE" }
+          Write-Host "Instalador publicado no Drive como MCRA-Setup.exe"
