@@ -10,6 +10,21 @@ from desktop.bootstrap import data_home, preparar_config
 _ROOT = Path(__file__).resolve().parents[1]
 
 
+def _usuarios_do_template() -> int:
+    """Conta os usuários embutidos no template do instalador.
+
+    A equipe cadastrada muda com o tempo; fixar o número aqui quebrava a suíte
+    a cada pessoa incluída em ``config/settings.desktop.yaml``.
+    """
+    template = yaml.safe_load(
+        (_ROOT / "config" / "settings.desktop.yaml").read_text(encoding="utf-8")
+    )
+    return len(template["security"]["users"])
+
+
+_N_TEMPLATE = _usuarios_do_template()
+
+
 def test_data_home_usa_localappdata_quando_definido(tmp_path: Path, monkeypatch) -> None:
     """No Windows a pasta é %LOCALAPPDATA%\\MCRA."""
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
@@ -24,7 +39,7 @@ def test_primeira_execucao_cria_config_com_secret_proprio(tmp_path: Path) -> Non
     assert destino == tmp_path / "config" / "settings.yaml"
     assert raw["security"]["secret_key"] != "change-me-in-production"
     assert len(raw["security"]["secret_key"]) == 64
-    assert len(raw["security"]["users"]) == 3
+    assert len(raw["security"]["users"]) == _N_TEMPLATE
 
 
 def test_primeira_execucao_grava_paths_absolutos(tmp_path: Path) -> None:
@@ -52,7 +67,7 @@ def test_segunda_execucao_preserva_secret_e_usuarios(tmp_path: Path) -> None:
 
     depois = yaml.safe_load(primeiro.read_text(encoding="utf-8"))
     assert depois["security"]["secret_key"] == secret_original
-    assert len(depois["security"]["users"]) == 4
+    assert len(depois["security"]["users"]) == _N_TEMPLATE + 1
 
 
 def test_segunda_execucao_reaponta_ref_dir(tmp_path: Path) -> None:
@@ -82,11 +97,11 @@ def test_config_com_placeholder_de_queda_na_primeira_execucao_ganha_secret(
     raw = yaml.safe_load(destino.read_text(encoding="utf-8"))
     assert raw["security"]["secret_key"] not in {"", "change-me-in-production"}
     assert len(raw["security"]["secret_key"]) == 64
-    assert len(raw["security"]["users"]) == 3
+    assert len(raw["security"]["users"]) == _N_TEMPLATE
 
 
 def test_config_vazia_e_recriada_do_template(tmp_path: Path) -> None:
-    """Arquivo truncado a zero bytes volta com os 3 usuários e secret válido."""
+    """Arquivo truncado a zero bytes volta com os usuários do template e secret válido."""
     destino = tmp_path / "config" / "settings.yaml"
     destino.parent.mkdir(parents=True)
     destino.write_text("", encoding="utf-8")
@@ -94,7 +109,7 @@ def test_config_vazia_e_recriada_do_template(tmp_path: Path) -> None:
     preparar_config(tmp_path, root=_ROOT)
 
     raw = yaml.safe_load(destino.read_text(encoding="utf-8"))
-    assert len(raw["security"]["users"]) == 3
+    assert len(raw["security"]["users"]) == _N_TEMPLATE
     assert raw["security"]["secret_key"] not in {"", "change-me-in-production"}
     assert Path(raw["paths"]["data_dir"]) == tmp_path / "data"
 
@@ -110,7 +125,7 @@ def test_config_sem_usuarios_recriada_preserva_secret_valido(tmp_path: Path) -> 
 
     raw = yaml.safe_load(destino.read_text(encoding="utf-8"))
     assert raw["security"]["secret_key"] == secret
-    assert len(raw["security"]["users"]) == 3
+    assert len(raw["security"]["users"]) == _N_TEMPLATE
     assert (tmp_path / "config" / "settings.yaml.bak").is_file()
 
 
@@ -171,7 +186,7 @@ def test_template_tem_config_version_e_carrega(tmp_path: Path) -> None:
 
     assert yaml.safe_load(destino.read_text(encoding="utf-8"))["config_version"] == 1
     settings = load_settings(destino)
-    assert len(settings.security.users) == 3
+    assert len(settings.security.users) == _N_TEMPLATE
 
 
 def test_uso_dir_relativo_e_absolutizado_em_instalacao_existente(tmp_path: Path) -> None:
