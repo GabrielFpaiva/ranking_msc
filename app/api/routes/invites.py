@@ -22,13 +22,15 @@ nova do convidado.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Annotated
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field, StringConstraints
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.routing import APIRoute
+from pydantic import BaseModel
 
 from app.api.deps import (
     PROJECT_ROOT,
@@ -40,17 +42,21 @@ from ranking_msc.exceptions import (
     ConfigError,
     InviteExpiredError,
     InviteInvalidError,
+    InviteKeyMismatchError,
     InviteKeyPasswordError,
     InviteUsedError,
 )
 from ranking_msc.services.invite_email import build_invite_message, send_invite_email
 from ranking_msc.services.invites import (
+    MSG_INVALID_EMAIL,
     InviteConfig,
     InviteStore,
     IssuerConfig,
     decrypt_secret,
+    is_valid_email,
     issue_invite,
     load_invite_config,
+    load_public_key,
     normalize_email,
     verify_invite,
 )
@@ -58,17 +64,46 @@ from ranking_msc.services.users import find_username, provision_user
 
 logger = logging.getLogger("ranking_msc")
 
-public_router = APIRouter(prefix="/api/auth", tags=["auth"])
-router = APIRouter(prefix="/api/invites", tags=["invites"])
+# O nome da constante do Starlette mudou entre versões (ENTITY → CONTENT): o número é estável.
+_STATUS_422 = 422
+
+_MSG_BAD_BODY = (
+    "Os dados enviados estão incompletos ou em formato inesperado. "
+    "Recarregue a página e tente de novo."
+)
+
+
+class _PortugueseValidationRoute(APIRoute):
+    """Rota cujo 422 de corpo malformado vem em português, com ``detail`` em texto.
+
+    Os campos do corpo são ``str`` sem restrição: quem valida o conteúdo é a própria
+    rota (mensagem em português que diz o que fazer). Falta de campo, tipo errado e
+    JSON quebrado caem aqui, em vez da lista em inglês do FastAPI.
+    """
+
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        """Embrulha o handler padrão: ``RequestValidationError`` vira 422 em português."""
+        original = super().get_route_handler()
+
+        async def handler(request: Request) -> Response:
+            try:
+                return await original(request)
+            except RequestValidationError:
+                raise HTTPException(status_code=_STATUS_422, detail=_MSG_BAD_BODY) from None
+
+        return handler
+
+
+public_router = APIRouter(prefix="/api/auth", tags=["auth"], route_class=_PortugueseValidationRoute)
+router = APIRouter(prefix="/api/invites", tags=["invites"], route_class=_PortugueseValidationRoute)
 
 _EXAMPLE_PATH: Path = PROJECT_ROOT / "config" / "settings.yaml.example"
 
-# Sem EmailStr (o email_validator não é dependência): algo@algo.algo, sem espaço.
-_EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-EmailText = Annotated[str, StringConstraints(strip_whitespace=True, pattern=_EMAIL_PATTERN)]
-
 EmailSender = Callable[[EmailMessage, str, str], bool]
 """``sender(mensagem, usuário SMTP, senha de app) -> enviou?`` — trocado nos testes."""
+
+MIN_PASSWORD_CHARS = 8
+MAX_PASSWORD_BYTES = 72  # limite do bcrypt: além disso o hash levanta ValueError
 
 _MSG_DISABLED = (
     "Os convites não estão ativados nesta versão do MCRA. "
@@ -78,6 +113,17 @@ _MSG_FORBIDDEN = (
     "Você não tem permissão para convidar neste computador. Entre com a conta do "
     "responsável técnico, no computador onde a chave de convites foi instalada."
 )
+_MSG_CODE_EMPTY = "Cole o código do convite que veio no e-mail."
+_MSG_PASSWORD = (
+    f"A senha deve ter no mínimo {MIN_PASSWORD_CHARS} caracteres e no máximo "
+    f"{MAX_PASSWORD_BYTES} bytes (letras com acento e símbolos contam mais de um byte). "
+    "Escolha outra senha."
+)
+_MSG_KEY_PASSWORD_EMPTY = "Digite a senha da chave."
+_MSG_SETTINGS = (
+    "Não foi possível gravar a conta: o arquivo de configuração do MCRA está com problema. "
+    "Peça ajuda ao responsável técnico."
+)
 
 
 # --------------------------------------------------------------------------- dependências
@@ -86,7 +132,12 @@ _MSG_FORBIDDEN = (
 def get_invite_config(
     path: Path = Depends(get_invites_config_path),  # noqa: B008
 ) -> InviteConfig:
-    """Carrega o ``invites.yaml``; arquivo ausente ou sem chave pública = desligado."""
+    """Carrega o ``invites.yaml``; arquivo ausente ou sem chave pública = desligado.
+
+    ``invites.yaml`` ilegível levanta 409 com a mensagem (que diz o arquivo e o que
+    fazer). As rotas que só decidem se o recurso aparece (``invite-status`` e
+    ``capability``) não usam esta dependência: veja ``_usable_config``.
+    """
     try:
         return load_invite_config(path)
     except ConfigError as exc:
@@ -120,7 +171,7 @@ class AcceptIn(BaseModel):
     """Código colado pela pessoa e a senha que ela escolheu."""
 
     code: str
-    password: str = Field(min_length=8, max_length=128)
+    password: str
 
 
 class AcceptOut(BaseModel):
@@ -139,7 +190,7 @@ class CapabilityOut(BaseModel):
 class InviteIn(BaseModel):
     """Quem convidar e a senha da chave que autoriza a emissão."""
 
-    email: EmailText
+    email: str
     key_password: str
 
 
@@ -165,9 +216,41 @@ class SentInviteOut(BaseModel):
 
 
 def _config_error(exc: ConfigError) -> HTTPException:
-    """Arquivo de convite ilegível: 500 com a mensagem (que já diz o arquivo e o que fazer)."""
+    """Arquivo de convite ilegível ou em estado ruim: 409 com a mensagem.
+
+    Só vale para os arquivos do convite (``invites.yaml``, ``invite_issuer.yaml``,
+    ``invite_key.pem``, ``invites_used.json``): a mensagem deles já diz o arquivo e
+    o que fazer, e nunca traz trecho de conteúdo secreto. 409 (e não 5xx) porque a
+    tela mostra o texto da resposta em vez de "não foi possível conectar".
+    """
     logger.error("Falha de configuração do convite: %s", exc)
-    return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+def _settings_error(path: Path, exc: ConfigError) -> HTTPException:
+    """Falha ao gravar a conta no ``settings.yaml``: 500 com texto fixo.
+
+    A mensagem do ``ConfigError`` traz um trecho do arquivo (o do PyYAML pode incluir
+    o ``secret_key``): fica fora da resposta e do log, que registram só o tipo e o caminho.
+    """
+    logger.error("Convite: falha ao gravar a conta em %s (%s).", path, type(exc).__name__)
+    return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=_MSG_SETTINGS)
+
+
+def _usable_config(path: Path) -> InviteConfig | None:
+    """Config do ``invites.yaml`` para decidir se o recurso aparece; defeito = ``None``.
+
+    ``invites.yaml`` ilegível ou chave pública que não é Ed25519 desligam o recurso
+    (com um WARNING), em vez de dar 5xx ou de ligar um botão cujo aceite sempre falha.
+    """
+    try:
+        config = load_invite_config(path)
+        if config.enabled:
+            load_public_key(config.public_key)
+    except ConfigError as exc:
+        logger.warning("Convites desligados nesta máquina: %s", exc)
+        return None
+    return config
 
 
 def _issuer_for(user: str, config: InviteConfig, store: InviteStore) -> IssuerConfig | None:
@@ -176,13 +259,13 @@ def _issuer_for(user: str, config: InviteConfig, store: InviteStore) -> IssuerCo
     As três condições da spec: chave pública configurada; ``invite_issuer.yaml``
     existe e o emissor dele é o usuário logado (comparação normalizada); e
     ``invite_key.pem`` existe.
+
+    Raises:
+        ConfigError: ``invite_issuer.yaml`` ilegível.
     """
     if not config.enabled:
         return None
-    try:
-        issuer = store.read_issuer()
-    except ConfigError as exc:
-        raise _config_error(exc) from exc
+    issuer = store.read_issuer()
     if issuer is None or issuer.email != normalize_email(user):
         return None
     if not store.has_private_key():
@@ -191,12 +274,32 @@ def _issuer_for(user: str, config: InviteConfig, store: InviteStore) -> IssuerCo
 
 
 def _require_issuer(user: str, config: InviteConfig, store: InviteStore) -> IssuerConfig:
-    """Como ``_issuer_for``, mas sem permissão levanta 403."""
-    issuer = _issuer_for(user, config, store)
+    """Como ``_issuer_for``, mas sem permissão levanta 403 e arquivo ilegível levanta 409."""
+    try:
+        issuer = _issuer_for(user, config, store)
+    except ConfigError as exc:
+        raise _config_error(exc) from exc
     if issuer is None:
         logger.warning("Convite: usuário '%s' sem permissão para convidar.", user)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_MSG_FORBIDDEN)
     return issuer
+
+
+def _unprocessable(detail: str) -> HTTPException:
+    """422 com ``detail`` em texto (a tela mostra a frase como está)."""
+    return HTTPException(status_code=_STATUS_422, detail=detail)
+
+
+def _password_in_range(password: str) -> bool:
+    """Senha de 8 caracteres a 72 bytes em UTF-8 (limite do bcrypt).
+
+    Texto que nem codifica em UTF-8 (``\\ud800`` solto no JSON) também fica de fora.
+    """
+    try:
+        size = len(password.encode("utf-8"))
+    except UnicodeEncodeError:
+        return False
+    return len(password) >= MIN_PASSWORD_CHARS and size <= MAX_PASSWORD_BYTES
 
 
 def _refuse(code: int, reason: str, detail: str) -> HTTPException:
@@ -214,10 +317,15 @@ def _refuse(code: int, reason: str, detail: str) -> HTTPException:
     summary="Indica se os convites estão ligados",
 )
 def invite_status(
-    config: InviteConfig = Depends(get_invite_config),  # noqa: B008
+    path: Path = Depends(get_invites_config_path),  # noqa: B008
 ) -> InviteStatusOut:
-    """Retorna ``enabled=True`` quando há chave pública no ``invites.yaml``."""
-    return InviteStatusOut(enabled=config.enabled)
+    """Retorna ``enabled=True`` quando há chave pública válida no ``invites.yaml``.
+
+    ``invites.yaml`` ilegível ou chave pública malformada = ``enabled=False`` (WARNING
+    no log): ligar o botão faria todo aceite falhar.
+    """
+    config = _usable_config(path)
+    return InviteStatusOut(enabled=config is not None and config.enabled)
 
 
 @public_router.post(
@@ -238,9 +346,16 @@ def accept_invite(
     O ``jti`` só é marcado como usado depois de a conta gravada.
 
     Raises:
+        HTTPException 422: código vazio, ou senha fora de 8 caracteres a 72 bytes.
         HTTPException 403: convites desligados nesta versão.
-        HTTPException 400: código inválido. 410: vencido. 409: já usado aqui.
+        HTTPException 400: código inválido. 410: vencido. 409: já usado aqui, ou
+            arquivo de convite (``invites.yaml``, ``invites_used.json``) ilegível.
+        HTTPException 500: ``settings.yaml`` com problema (texto fixo, sem trecho do arquivo).
     """
+    if not body.code.strip():
+        raise _unprocessable(_MSG_CODE_EMPTY)
+    if not _password_in_range(body.password):
+        raise _unprocessable(_MSG_PASSWORD)
     if not config.enabled:
         raise _refuse(status.HTTP_403_FORBIDDEN, "recurso desligado", _MSG_DISABLED)
     try:
@@ -261,6 +376,9 @@ def accept_invite(
     password_reset = existing is not None
     try:
         provision_user(config_path, username, body.password, example_path=_EXAMPLE_PATH)
+    except ConfigError as exc:
+        raise _settings_error(config_path, exc) from None
+    try:
         store.mark_used(payload.jti)
     except ConfigError as exc:
         raise _config_error(exc) from exc
@@ -284,11 +402,24 @@ def accept_invite(
 )
 def capability(
     current_user: str = Depends(get_current_user),  # noqa: B008
-    config: InviteConfig = Depends(get_invite_config),  # noqa: B008
+    path: Path = Depends(get_invites_config_path),  # noqa: B008
     store: InviteStore = Depends(get_invite_store),  # noqa: B008
 ) -> CapabilityOut:
-    """Verdadeiro só com chave pública, emissor igual ao logado e chave privada presente."""
-    return CapabilityOut(can_invite=_issuer_for(current_user, config, store) is not None)
+    """Verdadeiro só com chave pública, emissor igual ao logado e chave privada presente.
+
+    Qualquer arquivo de convite com defeito (``invites.yaml``, chave pública malformada,
+    ``invite_issuer.yaml``) dá ``can_invite=False`` com um WARNING: a pergunta é feita
+    por todo usuário ao entrar, e não pode virar erro para quem nem é o emissor.
+    """
+    config = _usable_config(path)
+    if config is None:
+        return CapabilityOut(can_invite=False)
+    try:
+        issuer = _issuer_for(current_user, config, store)
+    except ConfigError as exc:
+        logger.warning("Convite: sem permissão para convidar, arquivo ilegível: %s", exc)
+        return CapabilityOut(can_invite=False)
+    return CapabilityOut(can_invite=issuer is not None)
 
 
 @router.post(
@@ -311,21 +442,33 @@ def create_invite(
 
     Raises:
         HTTPException 403: sem permissão (não é o emissor, ou falta a chave).
+        HTTPException 422: e-mail fora do padrão estrito, ou senha da chave vazia.
         HTTPException 400: senha da chave incorreta.
+        HTTPException 409: a chave privada não é o par da chave pública da versão
+            instalada (nada é emitido nem enviado), ou arquivo de convite ilegível.
     """
     issuer = _require_issuer(current_user, config, store)
+    email = body.email.strip()
+    if not is_valid_email(email):
+        raise _unprocessable(MSG_INVALID_EMAIL)
+    if not body.key_password:
+        raise _unprocessable(_MSG_KEY_PASSWORD_EMPTY)
     try:
         invite = issue_invite(
             store.read_private_key(),
             body.key_password,
-            body.email,
+            email,
             issuer.email,
             validity_days=config.validity_days,
+            expected_public_key=config.public_key,
         )
         smtp_password = decrypt_secret(issuer.smtp_password_encrypted, body.key_password)
     except InviteKeyPasswordError as exc:
         logger.warning("Convite: emissão recusada (senha da chave incorreta).")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except InviteKeyMismatchError as exc:
+        logger.warning("Convite: emissão recusada (a chave privada não é o par da pública).")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ConfigError as exc:
         raise _config_error(exc) from exc
 

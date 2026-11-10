@@ -11,12 +11,14 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
 from ranking_msc.exceptions import (
     ConfigError,
     InviteError,
     InviteExpiredError,
     InviteInvalidError,
+    InviteKeyMismatchError,
     InviteKeyPasswordError,
     InviteUsedError,
     RankingMSCError,
@@ -135,13 +137,69 @@ class TestLoadInviteConfig:
 
 
 class TestKeypair:
-    def test_par_gerado_tem_pem_cifrado_e_publica_de_32_bytes(
+    def test_par_gerado_tem_chave_privada_cifrada_e_publica_de_32_bytes(
         self, keypair: tuple[bytes, str]
     ) -> None:
-        """A privada sai cifrada (PKCS8) e a pública é a Ed25519 crua em base64."""
+        """A privada sai cifrada pelo esquema do segredo (scrypt + Fernet); a pública é crua."""
         pem, publica = keypair
-        assert pem.startswith(b"-----BEGIN ENCRYPTED PRIVATE KEY-----")
         assert len(base64.b64decode(publica, validate=True)) == 32
+        aberto = decrypt_secret(pem.decode("ascii"), KEY_PASSWORD)
+        chave = serialization.load_pem_private_key(aberto.encode("ascii"), password=None)
+        assert isinstance(chave, Ed25519PrivateKey)
+        assert _chave_publica(chave) == publica
+
+    def test_arquivo_da_chave_nao_guarda_a_chave_em_claro(
+        self, keypair: tuple[bytes, str]
+    ) -> None:
+        """O conteúdo do invite_key.pem não traz o PEM, o cabeçalho nem o corpo da chave."""
+        pem, _ = keypair
+        aberto = decrypt_secret(pem.decode("ascii"), KEY_PASSWORD)
+        corpo = "".join(aberto.splitlines()[1:-1])
+        assert len(corpo) > 40
+        texto = pem.decode("ascii")
+        assert "PRIVATE KEY" not in texto
+        assert corpo not in texto
+        assert corpo[:40] not in texto
+        assert texto.count("\n") <= 1  # um token só, sem as linhas de um PEM
+
+    def test_chave_privada_nao_usa_pbkdf2_do_bestavailableencryption(
+        self, keypair: tuple[bytes, str]
+    ) -> None:
+        """O arquivo só abre pelo esquema do segredo: o loader de PEM cifrado não o reconhece."""
+        pem, _ = keypair
+        with pytest.raises(ValueError):
+            serialization.load_pem_private_key(pem, password=KEY_PASSWORD.encode("utf-8"))
+
+    @pytest.mark.parametrize(
+        "conteudo",
+        [
+            b"",
+            b"lixo",
+            b"semponto",
+            b"a.b",
+            b"!!!.???",
+            b"\xff\xfe\x00",
+            b"-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49\n"
+            b"-----END ENCRYPTED PRIVATE KEY-----\n",
+        ],
+    )
+    def test_arquivo_da_chave_corrompido_levanta_configerror_com_o_nome(
+        self, conteudo: bytes
+    ) -> None:
+        """Arquivo corrompido ou de formato desconhecido não é 'senha incorreta'."""
+        with pytest.raises(ConfigError, match="invite_key.pem"):
+            issue_invite(conteudo, KEY_PASSWORD, "a@b.co", "g@b.co", now=AGORA)
+
+    def test_arquivo_da_chave_com_chave_que_nao_e_ed25519_levanta_configerror(self) -> None:
+        """Cifrado direito, mas com outro tipo de chave dentro: erro de configuração."""
+        outra = X25519PrivateKey.generate().private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+        arquivo = encrypt_secret(outra.decode("ascii"), KEY_PASSWORD).encode("ascii")
+        with pytest.raises(ConfigError, match="invite_key.pem"):
+            issue_invite(arquivo, KEY_PASSWORD, "a@b.co", "g@b.co", now=AGORA)
 
     def test_senha_da_chave_curta_levanta_inviteerror(self) -> None:
         """Senha da chave com menos de 12 caracteres é recusada."""
@@ -161,9 +219,55 @@ class TestKeypair:
         with pytest.raises(InviteKeyPasswordError):
             issue_invite(pem, "outra-senha-qualquer", "a@b.co", "g@b.co", now=AGORA)
 
+    def test_chave_privada_de_outro_par_levanta_keymismatch(
+        self, keypair: tuple[bytes, str]
+    ) -> None:
+        """Chave privada que não é o par da pública esperada → nada é emitido (C1)."""
+        pem, _ = keypair
+        _, outra_publica = generate_keypair(KEY_PASSWORD)
+        with pytest.raises(InviteKeyMismatchError, match="Instale a versão"):
+            issue_invite(
+                pem, KEY_PASSWORD, "a@b.co", "g@b.co", now=AGORA, expected_public_key=outra_publica
+            )
+
+    def test_chave_privada_do_mesmo_par_emite_com_a_publica_esperada(
+        self, keypair: tuple[bytes, str]
+    ) -> None:
+        """Contraprova: com a pública do próprio par (mesmo com espaços nas pontas) emite."""
+        pem, publica = keypair
+        invite = issue_invite(
+            pem, KEY_PASSWORD, "a@b.co", "g@b.co", now=AGORA, expected_public_key=f" {publica}\n"
+        )
+        assert verify_invite(invite.code, publica, now=AGORA).email == "a@b.co"
+
+    def test_senha_errada_vence_a_conferencia_do_par(self, keypair: tuple[bytes, str]) -> None:
+        """Sem abrir a chave não há como comparar: senha errada continua sendo senha errada."""
+        pem, _ = keypair
+        _, outra_publica = generate_keypair(KEY_PASSWORD)
+        with pytest.raises(InviteKeyPasswordError):
+            issue_invite(
+                pem, "senha-errada-123", "a@b.co", "g@b.co", expected_public_key=outra_publica
+            )
+
+    def test_publica_esperada_malformada_levanta_configerror_e_nao_keymismatch(
+        self, keypair: tuple[bytes, str]
+    ) -> None:
+        """Pública do invites.yaml com lixo é erro de configuração, não 'chave trocada'."""
+        pem, _ = keypair
+        with pytest.raises(ConfigError, match="invites.yaml"):
+            issue_invite(
+                pem, KEY_PASSWORD, "a@b.co", "g@b.co", expected_public_key="isto-nao-e-base64!"
+            )
+
     def test_excecoes_herdam_de_rankingmscerror(self) -> None:
-        """As quatro exceções novas entram na hierarquia do projeto."""
-        filhas = (InviteInvalidError, InviteExpiredError, InviteKeyPasswordError, InviteUsedError)
+        """As exceções novas entram na hierarquia do projeto."""
+        filhas = (
+            InviteInvalidError,
+            InviteExpiredError,
+            InviteKeyPasswordError,
+            InviteUsedError,
+            InviteKeyMismatchError,
+        )
         for exc in filhas:
             assert issubclass(exc, InviteError)
         assert issubclass(InviteError, RankingMSCError)

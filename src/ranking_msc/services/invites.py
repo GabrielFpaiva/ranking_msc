@@ -16,9 +16,11 @@ hex>,"by":<e-mail do emissor>}``. O e-mail é sempre normalizado com
 
 Segredos (decisão da spec do convite):
 
-* a chave privada fica num PEM PKCS8 cifrado com a *senha da chave*;
-* a senha de app do Gmail é cifrada com a mesma senha da chave (Fernet, chave
-  derivada por scrypt), para nunca ficar em texto puro no disco;
+* a chave privada (PEM PKCS8 sem cifra, só em memória) é cifrada com a *senha da
+  chave* pelo mesmo esquema da senha de app (``encrypt_secret``: Fernet, chave
+  derivada por scrypt); o ``invite_key.pem`` guarda só esse token, nunca o PEM;
+* a senha de app do Gmail é cifrada com a mesma senha da chave e do mesmo jeito,
+  para nunca ficar em texto puro no disco;
 * o código do convite, a senha da chave e a senha de app nunca vão para log
   nem para mensagem de exceção.
 
@@ -56,6 +58,7 @@ from ranking_msc.exceptions import (
     InviteError,
     InviteExpiredError,
     InviteInvalidError,
+    InviteKeyMismatchError,
     InviteKeyPasswordError,
     InviteUsedError,
 )
@@ -76,6 +79,8 @@ SENT_FILENAME = "invites_sent.jsonl"
 USED_FILENAME = "invites_used.json"
 
 _B64URL_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+# Endereço estrito, só o endereço: sem nome, sem ponto e vírgula, sem sinais nas pontas.
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+")
 _SCRYPT_N = 2**14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
@@ -149,6 +154,16 @@ def normalize_email(email: str) -> str:
     return email.strip().casefold()
 
 
+def is_valid_email(email: str) -> bool:
+    """Indica se ``email`` (depois do ``strip``) é só um endereço ``algo@dominio.sufixo``.
+
+    Recusa nome (``Fulano <a@b.co>``), ``;`` ou ``,`` colados de outro programa,
+    ponto final, aspas, espaços e quebras de linha no meio. Quem chama grava o
+    valor já limpo (``strip``); esta função não o altera.
+    """
+    return _EMAIL_RE.fullmatch(email.strip()) is not None
+
+
 def _b64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
@@ -197,6 +212,13 @@ _MSG_INVALID = (
 )
 _MSG_EXPIRED = "O convite venceu. Peça um novo convite ao responsável técnico."
 _MSG_KEY_PASSWORD = "Senha da chave incorreta. Confira a senha e tente de novo."
+_MSG_KEY_MISMATCH = (
+    "A chave de convites deste computador não é a da versão instalada. Instale a versão "
+    "do MCRA gerada depois da troca da chave e tente de novo."
+)
+
+MSG_INVALID_EMAIL = "E-mail inválido. Digite só o endereço, sem nome, ponto e vírgula ou sinais."
+"""Texto único para endereço fora do padrão (rota de emissão e CLI de instalação)."""
 
 
 # --------------------------------------------------------------------------- configuração
@@ -241,11 +263,16 @@ def load_invite_config(path: Path) -> InviteConfig:
 def generate_keypair(passphrase: str) -> tuple[bytes, str]:
     """Gera um par Ed25519.
 
+    A chave privada é serializada (PEM PKCS8, sem cifra) só em memória e cifrada
+    com ``encrypt_secret`` (scrypt + Fernet), o mesmo esquema da senha de app: o
+    arquivo ``invite_key.pem`` nunca contém a chave em claro.
+
     Args:
-        passphrase: senha da chave (mínimo de 12 caracteres), que cifra o PEM.
+        passphrase: senha da chave (mínimo de 12 caracteres), que cifra a chave privada.
 
     Returns:
-        ``(PEM PKCS8 da chave privada cifrado, chave pública crua em base64)``.
+        ``(conteúdo do invite_key.pem: token cifrado em ASCII, chave pública crua
+        em base64)``.
 
     Raises:
         InviteError: senha da chave curta demais.
@@ -258,25 +285,49 @@ def generate_keypair(passphrase: str) -> tuple[bytes, str]:
     pem = private.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.BestAvailableEncryption(passphrase.encode("utf-8")),
+        encryption_algorithm=serialization.NoEncryption(),
     )
-    public = private.public_key().public_bytes(
+    token = encrypt_secret(pem.decode("ascii"), passphrase)
+    return token.encode("ascii"), _public_key_b64(private.public_key())
+
+
+def _public_key_b64(key: Ed25519PublicKey) -> str:
+    return base64.b64encode(_raw_public_key(key)).decode("ascii")
+
+
+def _raw_public_key(key: Ed25519PublicKey) -> bytes:
+    return key.public_bytes(
         encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
     )
-    return pem, base64.b64encode(public).decode("ascii")
 
 
-def _load_private_key(pem: bytes, key_password: str) -> Ed25519PrivateKey:
+def _load_private_key(blob: bytes, key_password: str) -> Ed25519PrivateKey:
+    """Abre o conteúdo do ``invite_key.pem`` com a senha da chave.
+
+    Raises:
+        InviteKeyPasswordError: a senha da chave não abre o arquivo.
+        ConfigError: arquivo corrompido, de formato desconhecido ou sem chave Ed25519.
+    """
     try:
-        key = serialization.load_pem_private_key(pem, password=key_password.encode("utf-8"))
-    except (ValueError, TypeError) as exc:
-        raise InviteKeyPasswordError(_MSG_KEY_PASSWORD) from exc
+        token = blob.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise _corrupt_secret(PRIVATE_KEY_FILENAME) from exc
+    pem = decrypt_secret(token, key_password, source=PRIVATE_KEY_FILENAME)
+    try:
+        key = serialization.load_pem_private_key(pem.encode("ascii"), password=None)
+    except (ValueError, TypeError, UnicodeError) as exc:
+        raise _corrupt_secret(PRIVATE_KEY_FILENAME) from exc
     if not isinstance(key, Ed25519PrivateKey):
-        raise ConfigError("A chave privada de convites não é uma chave Ed25519.")
+        raise _corrupt_secret(PRIVATE_KEY_FILENAME)
     return key
 
 
-def _load_public_key(public_key: str) -> Ed25519PublicKey:
+def load_public_key(public_key: str) -> Ed25519PublicKey:
+    """Lê a chave pública Ed25519 (base64) do ``invites.yaml``.
+
+    Raises:
+        ConfigError: texto que não é base64 de uma chave Ed25519 de 32 bytes.
+    """
     try:
         raw = base64.b64decode(public_key.strip(), validate=True)
         return Ed25519PublicKey.from_public_bytes(raw)
@@ -303,8 +354,21 @@ def encrypt_secret(secret: str, passphrase: str) -> str:
     return f"{_b64url_encode(salt)}.{token}"
 
 
-def decrypt_secret(token: str, passphrase: str) -> str:
+def _corrupt_secret(source: str) -> ConfigError:
+    """Erro de arquivo cifrado ilegível, com o nome do arquivo e o que fazer (sem conteúdo)."""
+    return ConfigError(
+        f"O arquivo {source} está corrompido ou em formato desconhecido. Restaure uma cópia "
+        "dele ou refaça a configuração com `python scripts/setup_invites.py init --force`."
+    )
+
+
+def decrypt_secret(token: str, passphrase: str, *, source: str = ISSUER_FILENAME) -> str:
     """Decifra o resultado de ``encrypt_secret``.
+
+    Args:
+        token: texto cifrado.
+        passphrase: senha da chave.
+        source: nome do arquivo de onde o texto veio (só para a mensagem de erro).
 
     Raises:
         InviteKeyPasswordError: a senha da chave não abre o texto.
@@ -312,13 +376,11 @@ def decrypt_secret(token: str, passphrase: str) -> str:
     """
     partes = token.strip().split(".")
     if len(partes) != 2:
-        raise ConfigError("O segredo cifrado do emissor está corrompido. Refaça a configuração.")
+        raise _corrupt_secret(source)
     try:
         salt = _b64url_decode_strict(partes[0])
     except ValueError as exc:
-        raise ConfigError(
-            "O segredo cifrado do emissor está corrompido. Refaça a configuração."
-        ) from exc
+        raise _corrupt_secret(source) from exc
     try:
         return _fernet_for(passphrase, salt).decrypt(partes[1].encode("ascii")).decode("utf-8")
     except (InvalidToken, UnicodeError) as exc:
@@ -336,21 +398,31 @@ def issue_invite(
     *,
     validity_days: int = DEFAULT_VALIDITY_DAYS,
     now: datetime | None = None,
+    expected_public_key: str | None = None,
 ) -> IssuedInvite:
     """Emite um convite assinado para ``email``.
 
     Args:
-        private_key_pem: PEM cifrado de ``generate_keypair``.
+        private_key_pem: conteúdo do ``invite_key.pem`` (o que ``generate_keypair`` devolve).
         key_password: senha da chave.
         email: e-mail do convidado (é normalizado).
         issuer_email: e-mail de quem convida (é normalizado; vai em ``by``).
         validity_days: validade em dias.
         now: instante da emissão, com fuso; padrão: o relógio real.
+        expected_public_key: chave pública embutida na versão instalada
+            (``invites.yaml``). Quando dada, a chave privada precisa ser o par
+            dela: um convite assinado por outro par chegaria morto.
 
     Raises:
         InviteKeyPasswordError: senha da chave incorreta.
+        InviteKeyMismatchError: a chave privada não é o par de ``expected_public_key``.
+        ConfigError: arquivo da chave corrompido, ou ``expected_public_key`` inválida.
     """
     private = _load_private_key(private_key_pem, key_password)
+    if expected_public_key is not None:
+        expected = load_public_key(expected_public_key)
+        if _raw_public_key(private.public_key()) != _raw_public_key(expected):
+            raise InviteKeyMismatchError(_MSG_KEY_MISMATCH)
     moment = now if now is not None else datetime.now(tz=UTC)
     issued = _timestamp(moment)
     expires = _timestamp(moment + timedelta(days=validity_days))
@@ -437,7 +509,7 @@ def verify_invite(code: str, public_key: str, *, now: datetime | None = None) ->
         InviteExpiredError: assinatura boa, mas ``exp`` anterior a ``now``.
         ConfigError: a chave pública configurada é inválida.
     """
-    key = _load_public_key(public_key)
+    key = load_public_key(public_key)
     partes = "".join(code.split()).split(".")
     if len(partes) != 3 or partes[0] != CODE_PREFIX:
         raise InviteInvalidError(_MSG_INVALID)

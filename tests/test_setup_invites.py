@@ -175,6 +175,27 @@ class TestSetUrl:
         assert cli.run_cli(["set-url", URL_NOVA, "--invites-file", str(tmp_path / "x.yaml")]) == 2
         assert "ERRO" in capsys.readouterr().err
 
+    @pytest.mark.parametrize(
+        "url",
+        ["", "   ", "http://drive.example/p", "drive.example/p", "ftp://x.example", "https://",
+         "HTTPS//x"],
+    )
+    def test_link_vazio_ou_sem_https_retorna_2_e_nao_grava(
+        self,
+        invites_file: Path,
+        capsys: pytest.CaptureFixture[str],
+        url: str,
+    ) -> None:
+        """O link precisa começar com https://: senão o e-mail leva o colaborador a lugar nenhum."""
+        assert cli.run_cli(["set-url", url, "--invites-file", str(invites_file)]) == 2
+        assert "https://" in capsys.readouterr().err
+        assert invites_file.read_text(encoding="utf-8") == INVITES_YAML
+
+    def test_link_com_espacos_nas_pontas_e_gravado_limpo(self, invites_file: Path) -> None:
+        """Link colado com espaço ou quebra de linha nas pontas grava sem eles."""
+        assert cli.run_cli(["set-url", f" {URL_NOVA}\n", "--invites-file", str(invites_file)]) == 0
+        assert load_invite_config(invites_file).installer_url == URL_NOVA
+
 
 # --------------------------------------------------------------------------- init
 
@@ -224,12 +245,24 @@ class TestInit:
         """Nem a senha da chave, nem a de app, nem o PEM aparecem na saída."""
         _init(invites_file, state_dir)
         saida = capsys.readouterr()
-        pem = InviteStore(state_dir).read_private_key().decode("ascii")
+        arquivo = InviteStore(state_dir).read_private_key().decode("ascii")
         for texto in (saida.out, saida.err):
             assert SENHA_CHAVE not in texto
             assert SENHA_APP not in texto
             assert "PRIVATE KEY" not in texto
-            assert pem.splitlines()[1] not in texto
+            assert arquivo[:40] not in texto
+            assert arquivo[-40:] not in texto
+
+    def test_arquivo_da_chave_gravado_nao_tem_a_chave_em_claro(
+        self, invites_file: Path, state_dir: Path, senhas_por_ambiente: None
+    ) -> None:
+        """O invite_key.pem em disco é só o token cifrado (scrypt + Fernet), sem PEM (C2)."""
+        _init(invites_file, state_dir)
+        gravado = InviteStore(state_dir).private_key_path.read_text(encoding="ascii")
+        assert "PRIVATE KEY" not in gravado
+        assert "BEGIN" not in gravado
+        aberto = decrypt_secret(gravado, SENHA_CHAVE)
+        assert aberto.startswith("-----BEGIN PRIVATE KEY-----")
 
     def test_senhas_pelo_prompt_com_confirmacao(
         self,
@@ -315,6 +348,60 @@ class TestInit:
         assert _init(invites_file, state_dir) == 2
         assert "T_SMTP_PW" in capsys.readouterr().err
         self._nada_gravado(invites_file, state_dir)
+
+    @pytest.mark.parametrize(
+        "invalido",
+        [
+            "gabriel@exemplo.com;",
+            "gabriel@exemplo.com,",
+            "<gabriel@exemplo.com>",
+            "Gabriel <gabriel@exemplo.com>",
+            "gabriel@exemplo.com.",
+            "gabriel @exemplo.com",
+            "gabriel@exemplo",
+            "",
+        ],
+    )
+    @pytest.mark.parametrize("campo", ["--issuer", "--smtp-user"])
+    def test_endereco_fora_do_padrao_retorna_2_antes_de_pedir_senha_ou_gravar(
+        self,
+        invites_file: Path,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        campo: str,
+        invalido: str,
+    ) -> None:
+        """--issuer e --smtp-user passam pelo padrão estrito do convite: erro 2, nada gravado."""
+
+        def nao_deve_pedir(prompt: str = "") -> str:
+            raise AssertionError(f"pediu senha com endereço inválido: {prompt}")
+
+        monkeypatch.setattr(cli.getpass, "getpass", nao_deve_pedir)
+        argumentos = {"--issuer": EMISSOR, "--smtp-user": SMTP_USER, campo: invalido}
+        codigo = cli.run_cli(
+            ["init", "--issuer", argumentos["--issuer"], "--smtp-user", argumentos["--smtp-user"],
+             "--state-dir", str(state_dir), "--invites-file", str(invites_file)]
+        )  # fmt: skip
+        assert codigo == 2
+        erro = capsys.readouterr().err
+        assert campo in erro
+        assert "E-mail inválido. Digite só o endereço" in erro
+        self._nada_gravado(invites_file, state_dir)
+
+    def test_endereco_com_espacos_nas_pontas_e_aceito_limpo(
+        self, invites_file: Path, state_dir: Path, senhas_por_ambiente: None
+    ) -> None:
+        """Quem cola com espaço nas pontas grava o endereço limpo."""
+        codigo = cli.run_cli(
+            ["init", "--issuer", f"  {EMISSOR}\n", "--smtp-user", f" {SMTP_USER} ",
+             "--key-password-env", "T_KEY_PW", "--smtp-password-env", "T_SMTP_PW",
+             "--state-dir", str(state_dir), "--invites-file", str(invites_file)]
+        )  # fmt: skip
+        assert codigo == 0
+        emissor = InviteStore(state_dir).read_issuer()
+        assert emissor is not None
+        assert (emissor.email, emissor.smtp_user) == (EMISSOR, SMTP_USER)
 
     def test_invites_sem_linha_public_key_retorna_2_antes_de_pedir_senha_ou_gravar(
         self, tmp_path: Path, state_dir: Path, monkeypatch: pytest.MonkeyPatch

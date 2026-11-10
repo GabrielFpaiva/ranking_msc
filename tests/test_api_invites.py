@@ -184,12 +184,28 @@ class TestInviteStatus:
         ambiente.sem_login()
         assert ambiente.client.get("/api/auth/invite-status").status_code == 200
 
-    def test_yaml_invalido_responde_500_com_mensagem(self, ambiente: Ambiente) -> None:
-        """invites.yaml quebrado vira 500 com texto em português, não erro cru."""
+    def test_yaml_invalido_desliga_e_avisa_em_vez_de_500(
+        self, ambiente: Ambiente, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """invites.yaml quebrado: o botão não aparece (enabled falso) e o log tem um WARNING."""
         ambiente.invites_path.write_text("public_key: [\n", encoding="utf-8")
-        resposta = ambiente.client.get("/api/auth/invite-status")
-        assert resposta.status_code == 500
-        assert "invites.yaml" in resposta.json()["detail"]
+        with caplog.at_level(logging.WARNING, logger="ranking_msc"):
+            resposta = ambiente.client.get("/api/auth/invite-status")
+        assert resposta.status_code == 200
+        assert resposta.json() == {"enabled": False}
+        assert any(r.levelno == logging.WARNING for r in caplog.records)
+
+    @pytest.mark.parametrize("malformada", ["isto-nao-e-base64!", "AAAA", "QUJD"])
+    def test_chave_publica_malformada_desliga_e_avisa(
+        self, ambiente: Ambiente, caplog: pytest.LogCaptureFixture, malformada: str
+    ) -> None:
+        """Chave pública que não é Ed25519 de 32 bytes: ligar o botão faria todo aceite falhar."""
+        _escrever_invites(ambiente.invites_path, malformada)
+        with caplog.at_level(logging.WARNING, logger="ranking_msc"):
+            resposta = ambiente.client.get("/api/auth/invite-status")
+        assert resposta.status_code == 200
+        assert resposta.json() == {"enabled": False}
+        assert any(r.levelno == logging.WARNING for r in caplog.records)
 
 
 # --------------------------------------------------------------------------- aceite
@@ -269,7 +285,7 @@ class TestAceitar:
 
     @pytest.mark.parametrize(
         "lixo",
-        ["", "   ", "abc", "MCRA1", "MCRA1.x", "MCRA1.a.b.c", "MCRA1.!!!.???", "MCRA2.abc.def"],
+        ["abc", "MCRA1", "MCRA1.x", "MCRA1.a.b.c", "MCRA1.!!!.???", "MCRA2.abc.def"],
     )
     def test_lixo_colado_retorna_400(self, ambiente: Ambiente, lixo: str) -> None:
         """O que não é um código vira 400 (nunca 422 nem 500)."""
@@ -309,24 +325,144 @@ class TestAceitar:
         raw = yaml.safe_load(ambiente.config_path.read_text(encoding="utf-8"))
         assert not (raw.get("security") or {}).get("users")
 
-    @pytest.mark.parametrize("senha", ["curta", "x" * 129, ""])
-    def test_senha_fora_de_8_a_128_retorna_422(self, ambiente: Ambiente, senha: str) -> None:
-        """A senha escolhida tem de 8 a 128 caracteres."""
-        assert ambiente.aceitar(ambiente.codigo(), senha).status_code == 422
+    @pytest.mark.parametrize(
+        "senha",
+        [
+            "",
+            "curta",
+            "1234567",  # 7 caracteres
+            "ç" * 37,  # 37 caracteres, 74 bytes em UTF-8
+            "x" * 73,  # 73 bytes
+            "x" * 129,
+        ],
+    )
+    def test_senha_fora_de_8_caracteres_a_72_bytes_retorna_422_em_portugues(
+        self, ambiente: Ambiente, senha: str
+    ) -> None:
+        """8 caracteres no mínimo, 72 bytes UTF-8 no máximo (limite do bcrypt): detail é texto."""
+        resposta = ambiente.aceitar(ambiente.codigo(), senha)
+        assert resposta.status_code == 422, resposta.text
+        detalhe = resposta.json()["detail"]
+        assert isinstance(detalhe, str)
+        assert "8 caracteres" in detalhe and "72 bytes" in detalhe
+        assert not ambiente.store.used_path.exists()
+
+    @pytest.mark.parametrize("senha", ["12345678", "x" * 72, "ç" * 36, "é" * 8])
+    def test_senha_nos_limites_e_aceita(self, ambiente: Ambiente, senha: str) -> None:
+        """8 caracteres, 72 bytes ASCII e 72 bytes de acentos (36 'ç') passam e dão login."""
+        resposta = ambiente.aceitar(ambiente.codigo(), senha)
+        assert resposta.status_code == 201, resposta.text
+        token = ambiente.client.post(
+            "/api/auth/token", data={"username": "fulano@exemplo.com", "password": senha}
+        )
+        assert token.status_code == 200, token.text
+
+    @pytest.mark.parametrize("codigo", ["", "   ", "\n\t \r\n"])
+    def test_codigo_vazio_retorna_422_em_portugues(
+        self, ambiente: Ambiente, codigo: str
+    ) -> None:
+        """Nada colado no campo: pede o código em vez de dizer que ele é inválido."""
+        resposta = ambiente.aceitar(codigo)
+        assert resposta.status_code == 422, resposta.text
+        detalhe = resposta.json()["detail"]
+        assert isinstance(detalhe, str)
+        assert "código" in detalhe.lower()
+
+    @pytest.mark.parametrize(
+        "corpo",
+        [{}, {"code": "x"}, {"password": "12345678"}, {"code": 7, "password": "12345678"},
+         {"code": "x", "password": None}],
+    )  # fmt: skip
+    def test_corpo_incompleto_ou_de_tipo_errado_retorna_422_em_portugues(
+        self, ambiente: Ambiente, corpo: dict[str, object]
+    ) -> None:
+        """Nada do 422 padrão do FastAPI (lista em inglês): detail é uma frase em português."""
+        resposta = ambiente.client.post("/api/auth/invite/accept", json=corpo)
+        assert resposta.status_code == 422, resposta.text
+        detalhe = resposta.json()["detail"]
+        assert isinstance(detalhe, str)
+        assert "tente de novo" in detalhe
+
+    def test_corpo_que_nao_e_json_retorna_422_em_portugues(self, ambiente: Ambiente) -> None:
+        """JSON quebrado também não vaza o texto em inglês do pydantic."""
+        resposta = ambiente.client.post(
+            "/api/auth/invite/accept",
+            content="{nao-e-json",
+            headers={"Content-Type": "application/json"},
+        )
+        assert resposta.status_code == 422
+        assert isinstance(resposta.json()["detail"], str)
+
+    def test_senha_com_surrogate_solto_no_json_retorna_422_e_nao_500(
+        self, ambiente: Ambiente
+    ) -> None:
+        """`\\ud800` solto no JSON não codifica em UTF-8: 422 em português, nunca 500."""
+        corpo = b'{"code":"x","password":"' + bytes([92]) + b'ud800abcdefgh"}'
+        resposta = ambiente.client.post(
+            "/api/auth/invite/accept",
+            content=corpo,
+            headers={"Content-Type": "application/json"},
+        )
+        assert resposta.status_code == 422, resposta.text
+        assert isinstance(resposta.json()["detail"], str)
 
     def test_aceite_e_publico_nao_pede_login(self, ambiente: Ambiente) -> None:
         """Sem token o aceite funciona: a prova é a assinatura."""
         ambiente.sem_login()
         assert ambiente.aceitar(ambiente.codigo()).status_code == 201
 
-    def test_arquivo_de_usados_ilegivel_retorna_500_com_o_nome_do_arquivo(
+    def test_arquivo_de_usados_ilegivel_retorna_409_com_o_nome_do_arquivo(
         self, ambiente: Ambiente
     ) -> None:
         """invites_used.json corrompido: falha fechada (nada é aceito) e a mensagem diz qual."""
         ambiente.store.used_path.write_text("{", encoding="utf-8")
         resposta = ambiente.aceitar(ambiente.codigo())
-        assert resposta.status_code == 500
+        assert resposta.status_code == 409
         assert "invites_used.json" in resposta.json()["detail"]
+        raw = yaml.safe_load(ambiente.config_path.read_text(encoding="utf-8"))
+        assert not (raw.get("security") or {}).get("users")
+
+    def test_invites_yaml_ilegivel_no_aceite_retorna_409_com_o_nome_do_arquivo(
+        self, ambiente: Ambiente
+    ) -> None:
+        """invites.yaml quebrado depois da emissão: 409 que diz qual arquivo, não 500."""
+        code = ambiente.codigo()
+        ambiente.invites_path.write_text("public_key: [\n", encoding="utf-8")
+        resposta = ambiente.aceitar(code)
+        assert resposta.status_code == 409
+        assert "invites.yaml" in resposta.json()["detail"]
+
+    def test_chave_publica_malformada_no_aceite_retorna_409(self, ambiente: Ambiente) -> None:
+        """Chave pública com lixo no invites.yaml: o aceite diz o que fazer, em 409."""
+        code = ambiente.codigo()
+        _escrever_invites(ambiente.invites_path, "isto-nao-e-base64!")
+        resposta = ambiente.aceitar(code)
+        assert resposta.status_code == 409
+        assert "invites.yaml" in resposta.json()["detail"]
+
+    def test_settings_quebrado_no_secret_key_nao_vaza_o_segredo_no_corpo_nem_no_log(
+        self, ambiente: Ambiente, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """O erro do PyYAML traz um trecho do arquivo: o secret_key não pode sair (C4)."""
+        segredo = "SEGREDO-DO-SECRET-KEY-0123456789abcdef"
+        ambiente.config_path.write_text(
+            f'security:\n  secret_key: "{segredo}\n  users: []\n', encoding="utf-8"
+        )
+        code = ambiente.codigo()
+
+        with caplog.at_level(logging.DEBUG, logger="ranking_msc"):
+            resposta = ambiente.aceitar(code)
+
+        assert resposta.status_code == 500
+        assert resposta.json()["detail"] == (
+            "Não foi possível gravar a conta: o arquivo de configuração do MCRA está com "
+            "problema. Peça ajuda ao responsável técnico."
+        )
+        assert segredo not in resposta.text
+        tudo = caplog.text + "".join(str(r.__dict__) for r in caplog.records)
+        assert segredo not in tudo
+        assert str(ambiente.config_path) in tudo  # o log diz qual arquivo, sem o trecho
+        assert not ambiente.store.used_path.exists()  # conta não gravada: convite segue vivo
 
 
 # --------------------------------------------------------------------------- capability
@@ -367,6 +503,27 @@ class TestCapability:
             ambiente.desligar()
         ambiente.como(usuario)
         assert ambiente.client.get("/api/invites/capability").json() == {"can_invite": False}
+
+    @pytest.mark.parametrize(
+        "defeito", ["yaml_ilegivel", "chave_publica_malformada", "emissor_ilegivel"]
+    )
+    def test_arquivo_com_defeito_nao_pode_convidar_e_avisa(
+        self, ambiente: Ambiente, caplog: pytest.LogCaptureFixture, defeito: str
+    ) -> None:
+        """invites.yaml, chave pública ou invite_issuer.yaml com defeito: false e WARNING."""
+        ambiente.configurar_emissor()
+        ambiente.como(EMISSOR)
+        if defeito == "yaml_ilegivel":
+            ambiente.invites_path.write_text("public_key: [\n", encoding="utf-8")
+        elif defeito == "chave_publica_malformada":
+            _escrever_invites(ambiente.invites_path, "isto-nao-e-base64!")
+        else:
+            ambiente.store.issuer_path.write_text("issuer: [", encoding="utf-8")
+        with caplog.at_level(logging.WARNING, logger="ranking_msc"):
+            resposta = ambiente.client.get("/api/invites/capability")
+        assert resposta.status_code == 200
+        assert resposta.json() == {"can_invite": False}
+        assert any(r.levelno == logging.WARNING for r in caplog.records)
 
 
 # --------------------------------------------------------------------------- emissão
@@ -419,7 +576,7 @@ class TestEmitir:
         assert verify_invite(corpo["code"], ambiente.public_key).email == "fulano@exemplo.com"
         assert [s.email_sent for s in ambiente.store.list_sent()] == [False]
 
-    @pytest.mark.parametrize("senha", ["senha-errada-1234", ""])
+    @pytest.mark.parametrize("senha", ["senha-errada-1234", " ", "x" * 200])
     def test_senha_da_chave_errada_retorna_400_sem_enviar_nem_gravar(
         self, ambiente: Ambiente, senha: str
     ) -> None:
@@ -465,15 +622,130 @@ class TestEmitir:
         assert ambiente.envio.chamadas == []
         assert not ambiente.store.sent_path.exists()
 
-    @pytest.mark.parametrize("email", ["", "semarroba", "a@b", "a b@c.de", "@c.de", "a@@c.de"])
-    def test_email_malformado_retorna_422(self, ambiente: Ambiente, email: str) -> None:
-        """Sem EmailStr: padrão simples algo@algo.algo; o resto é 422."""
+    @pytest.mark.parametrize(
+        "email",
+        [
+            "",
+            "   ",
+            "semarroba",
+            "a@b",
+            "a b@c.de",
+            "@c.de",
+            "a@@c.de",
+            "fulano@x.com;",  # colado do Outlook
+            "fulano@x.com,",
+            "<fulano@x.com>",
+            "Fulano Silva <fulano@x.com>",
+            "fulano@x.com.",
+            "fulano@x..com",
+            "fulano@x.com\nbeltrano@x.com",
+            "fulano @x.com",
+            "fulano@x.com beltrano@x.com",
+            "fulano@x_y.com",
+            "fulano@x.com;beltrano@x.com",
+            "'fulano@x.com'",
+            "\"fulano@x.com\"",
+            "fulano@exemplo.cõm",
+        ],
+    )
+    def test_email_malformado_retorna_422_em_portugues_sem_emitir(
+        self, ambiente: Ambiente, email: str
+    ) -> None:
+        """Padrão estrito depois do strip; o detail é texto em português, nada é emitido."""
         ambiente.configurar_emissor()
         ambiente.como(EMISSOR)
         resposta = ambiente.client.post(
             "/api/invites", json={"email": email, "key_password": KEY_PASSWORD}
         )
-        assert resposta.status_code == 422
+        assert resposta.status_code == 422, resposta.text
+        assert resposta.json()["detail"] == (
+            "E-mail inválido. Digite só o endereço, sem nome, ponto e vírgula ou sinais."
+        )
+        assert ambiente.envio.chamadas == []
+        assert not ambiente.store.sent_path.exists()
+
+    @pytest.mark.parametrize(
+        "email",
+        ["fulano@x.com", "a.b_c%d+e-f@sub.exemplo.com.br", " Fulano@X.com\n", "1@2-3.co"],
+    )
+    def test_email_dentro_do_padrao_e_aceito(self, ambiente: Ambiente, email: str) -> None:
+        """Contraprova da tabela: endereço limpo (com strip) emite o convite."""
+        ambiente.configurar_emissor()
+        ambiente.como(EMISSOR)
+        resposta = ambiente.client.post(
+            "/api/invites", json={"email": email, "key_password": KEY_PASSWORD}
+        )
+        assert resposta.status_code == 201, resposta.text
+        assert resposta.json()["email"] == email.strip().casefold()
+
+    def test_senha_da_chave_vazia_retorna_422_em_portugues_sem_tentar_abrir_a_chave(
+        self, ambiente: Ambiente
+    ) -> None:
+        """Campo em branco: pede a senha em vez de dizer que ela está incorreta."""
+        ambiente.configurar_emissor()
+        ambiente.como(EMISSOR)
+        resposta = ambiente.client.post(
+            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": ""}
+        )
+        assert resposta.status_code == 422, resposta.text
+        detalhe = resposta.json()["detail"]
+        assert isinstance(detalhe, str)
+        assert "senha da chave" in detalhe.lower()
+        assert ambiente.envio.chamadas == []
+
+    @pytest.mark.parametrize(
+        "corpo",
+        [{}, {"email": "a@b.co"}, {"key_password": "x"}, {"email": 1, "key_password": "x"},
+         {"email": "a@b.co", "key_password": None}],
+    )  # fmt: skip
+    def test_corpo_incompleto_ou_de_tipo_errado_retorna_422_em_portugues(
+        self, ambiente: Ambiente, corpo: dict[str, object]
+    ) -> None:
+        """Nada do 422 padrão do FastAPI: detail é uma frase em português."""
+        ambiente.configurar_emissor()
+        ambiente.como(EMISSOR)
+        resposta = ambiente.client.post("/api/invites", json=corpo)
+        assert resposta.status_code == 422, resposta.text
+        detalhe = resposta.json()["detail"]
+        assert isinstance(detalhe, str)
+        assert "tente de novo" in detalhe
+
+    def test_chave_privada_que_nao_e_par_da_publica_retorna_409_sem_enviar_nem_gravar(
+        self, ambiente: Ambiente
+    ) -> None:
+        """Emissor rodou `init --force` e não instalou o release novo: convite sairia morto."""
+        outro_pem, _ = generate_keypair(KEY_PASSWORD)
+        ambiente.store.write_issuer(
+            IssuerConfig(EMISSOR, SMTP_USER, encrypt_secret(APP_PASSWORD, KEY_PASSWORD))
+        )
+        ambiente.store.write_private_key(outro_pem)  # par diferente do invites.yaml em uso
+        ambiente.como(EMISSOR)
+
+        resposta = ambiente.client.post(
+            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+        )
+
+        assert resposta.status_code == 409, resposta.text
+        assert resposta.json()["detail"] == (
+            "A chave de convites deste computador não é a da versão instalada. Instale a "
+            "versão do MCRA gerada depois da troca da chave e tente de novo."
+        )
+        assert ambiente.envio.chamadas == []
+        assert not ambiente.store.sent_path.exists()
+        assert "MCRA1" not in resposta.text
+
+    def test_senha_errada_com_chave_de_outro_par_continua_400(self, ambiente: Ambiente) -> None:
+        """Sem abrir a chave não dá para comparar o par: a senha errada é o primeiro erro."""
+        outro_pem, _ = generate_keypair(KEY_PASSWORD)
+        ambiente.store.write_issuer(
+            IssuerConfig(EMISSOR, SMTP_USER, encrypt_secret(APP_PASSWORD, KEY_PASSWORD))
+        )
+        ambiente.store.write_private_key(outro_pem)
+        ambiente.como(EMISSOR)
+        resposta = ambiente.client.post(
+            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": "errada-12345"}
+        )
+        assert resposta.status_code == 400
 
     def test_email_com_espacos_nas_pontas_e_normalizado(self, ambiente: Ambiente) -> None:
         """Quem cola o e-mail com espaço ou maiúscula leva um convite para o e-mail limpo."""
@@ -496,17 +768,65 @@ class TestEmitir:
         [enviado] = ambiente.store.list_sent()
         assert enviado.expires_at - enviado.issued_at == timedelta(days=3)
 
-    def test_emissor_corrompido_retorna_500_com_o_nome_do_arquivo(
+    def test_emissor_corrompido_retorna_409_com_o_nome_do_arquivo(
         self, ambiente: Ambiente
     ) -> None:
-        """invite_issuer.yaml ilegível → 500 que diz qual arquivo refazer."""
+        """invite_issuer.yaml ilegível → 409 que diz qual arquivo refazer (a tela não vê 5xx)."""
         ambiente.store.issuer_path.write_text("issuer: [", encoding="utf-8")
         ambiente.como(EMISSOR)
         resposta = ambiente.client.post(
             "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
         )
-        assert resposta.status_code == 500
+        assert resposta.status_code == 409
         assert "invite_issuer.yaml" in resposta.json()["detail"]
+
+    @pytest.mark.parametrize("conteudo", [b"", b"lixo", b"a.b", b"\xff\xfe"])
+    def test_chave_privada_corrompida_retorna_409_com_o_nome_do_arquivo(
+        self, ambiente: Ambiente, conteudo: bytes
+    ) -> None:
+        """invite_key.pem corrompido não é 'senha incorreta' (400): é 409 com o arquivo."""
+        ambiente.configurar_emissor(com_chave=False)
+        ambiente.store.write_private_key(conteudo)
+        ambiente.como(EMISSOR)
+
+        resposta = ambiente.client.post(
+            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+        )
+
+        assert resposta.status_code == 409, resposta.text
+        assert "invite_key.pem" in resposta.json()["detail"]
+        assert ambiente.envio.chamadas == []
+        assert not ambiente.store.sent_path.exists()
+
+    def test_segredo_de_envio_corrompido_retorna_409_com_o_nome_do_arquivo(
+        self, ambiente: Ambiente
+    ) -> None:
+        """A senha de app cifrada ilegível no invite_issuer.yaml: 409, sem e-mail e sem registro."""
+        ambiente.store.write_issuer(IssuerConfig(EMISSOR, SMTP_USER, "isto-esta-corrompido"))
+        ambiente.store.write_private_key(ambiente.pem)
+        ambiente.como(EMISSOR)
+
+        resposta = ambiente.client.post(
+            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+        )
+
+        assert resposta.status_code == 409, resposta.text
+        assert "invite_issuer.yaml" in resposta.json()["detail"]
+        assert ambiente.envio.chamadas == []
+        assert not ambiente.store.sent_path.exists()
+
+    def test_invites_yaml_ilegivel_na_emissao_retorna_409_com_o_nome_do_arquivo(
+        self, ambiente: Ambiente
+    ) -> None:
+        """invites.yaml quebrado: 409 que diz qual arquivo, não 500."""
+        ambiente.configurar_emissor()
+        ambiente.como(EMISSOR)
+        ambiente.invites_path.write_text("public_key: [\n", encoding="utf-8")
+        resposta = ambiente.client.post(
+            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+        )
+        assert resposta.status_code == 409
+        assert "invites.yaml" in resposta.json()["detail"]
 
 
 # --------------------------------------------------------------------------- listagem
@@ -569,6 +889,16 @@ class TestListar:
         resposta = ambiente.client.get("/api/invites")
         assert resposta.status_code == 403
         assert resposta.json()["detail"]
+
+    def test_emissor_corrompido_retorna_409_com_o_nome_do_arquivo(
+        self, ambiente: Ambiente
+    ) -> None:
+        """A lista também diz qual arquivo refazer, em 409 (não 500)."""
+        ambiente.store.issuer_path.write_text("issuer: [", encoding="utf-8")
+        ambiente.como(EMISSOR)
+        resposta = ambiente.client.get("/api/invites")
+        assert resposta.status_code == 409
+        assert "invite_issuer.yaml" in resposta.json()["detail"]
 
 
 # --------------------------------------------------------------------------- login obrigatório

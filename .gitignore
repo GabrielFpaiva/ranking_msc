@@ -46,6 +46,11 @@ config/invite_key.pem
 config/invite_issuer.yaml
 config/invites_sent.jsonl
 config/invites_used.json
+# Temporários das gravações atômicas (`.<nome>.tmp`, trocados por os.replace): uma queda no
+# meio deixaria a sobra do segredo (ou do invites.yaml) à vista do `git add config/`.
+config/.invite_*.tmp
+config/.invites_*.tmp
+config/.invites.yaml.tmp
 
 # Git worktrees
 .worktrees/

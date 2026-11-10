@@ -102,3 +102,7 @@ class InviteUsedError(InviteError):
 
 class InviteKeyPasswordError(InviteError):
     """Senha da chave de convites incorreta."""
+
+
+class InviteKeyMismatchError(InviteError):
+    """A chave privada local não é o par da chave pública embutida na versão instalada."""
