@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
+
 import { NavLink, useNavigate } from 'react-router-dom';
 
+import { api } from '../api/client';
 import { authStore } from '../store/auth';
 import { NavIcon } from './NavIcon';
 import type { IconName } from './NavIcon';
@@ -47,6 +50,13 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+// Só aparece para quem `GET /api/invites/capability` diz que pode convidar;
+// para os demais o menu fica idêntico ao de antes. Entra antes do grupo Ajuda.
+const GRUPO_CONVITES: NavGroup = {
+  label: 'Administração',
+  items: [{ to: '/convidar', label: 'Convidar', icon: 'convidar' }],
+};
+
 function userInitials(name: string | null): string {
   if (!name) return 'U';
   return name.slice(0, 2).toUpperCase();
@@ -63,6 +73,26 @@ interface SidebarProps {
 export function Sidebar({ open = false, onClose, onBeforeLogout }: SidebarProps) {
   const user = authStore.getUser();
   const navigate = useNavigate();
+  const [podeConvidar, setPodeConvidar] = useState(false);
+
+  useEffect(() => {
+    let cancelado = false;
+    api
+      .inviteCapability()
+      .then((pode) => {
+        if (!cancelado) setPodeConvidar(pode);
+      })
+      .catch(() => {
+        // Falha na consulta (API antiga, rede): sem o item, como para todos os outros.
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const grupos = podeConvidar
+    ? [...NAV_GROUPS.slice(0, -1), GRUPO_CONVITES, ...NAV_GROUPS.slice(-1)]
+    : NAV_GROUPS;
 
   function handleLogout() {
     onBeforeLogout?.();
@@ -84,7 +114,7 @@ export function Sidebar({ open = false, onClose, onBeforeLogout }: SidebarProps)
       </div>
 
       <nav>
-        {NAV_GROUPS.map((group) => (
+        {grupos.map((group) => (
           <div key={group.label}>
             <div className="samid-nav-section">{group.label}</div>
             {group.items.map((item) => (

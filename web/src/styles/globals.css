@@ -461,6 +461,26 @@ a:focus-visible { outline-offset: 2px; }
 
 .samid-login-help { text-align: center; font-size: 1rem; color: var(--fg-2); text-decoration: underline; }
 .samid-login-help:hover { color: var(--jp-red); }
+.samid-login-switch {
+  background: none; border: none; padding: 0; cursor: pointer;
+  text-align: center; font-size: 1rem; font-family: var(--font-body);
+  color: var(--fg-2); text-decoration: underline;
+}
+.samid-login-switch:hover { color: var(--jp-red); }
+.samid-login-code { resize: vertical; font-family: var(--font-mono); font-size: 0.9rem; word-break: break-all; }
+
+/* ===== Convidar ===== */
+.samid-convidar-form { display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
+.samid-convidar-field { display: flex; flex-direction: column; gap: 4px; }
+.samid-convidar-label { font-size: 15px; color: var(--fg-2); }
+.samid-convidar-form .samid-btn { align-self: flex-start; }
+.samid-convidar-erro { color: var(--samid-erro); margin: 0; }
+.samid-convidar-ok { color: var(--samid-ok); background: var(--samid-ok-bg); border-radius: 8px; padding: 10px 14px; margin: 0; }
+.samid-convidar-aviso { display: flex; flex-direction: column; gap: 10px; color: var(--samid-alerta); background: var(--samid-alerta-bg); border-radius: 8px; padding: 12px 14px; }
+.samid-convidar-aviso p { margin: 0; }
+.samid-convidar-code { resize: vertical; word-break: break-all; }
+.samid-convidar-copia { font-size: 15px; color: var(--fg-2); }
+.samid-convidar-table tbody tr { cursor: default; }
 
 /* ===== Ajuda (FAQ) ===== */
 .samid-ajuda-page { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }

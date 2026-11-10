@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import { Ajuda } from './screens/Ajuda';
 import { Caixa } from './screens/Caixa';
 import { Comparar } from './screens/Comparar';
+import { Convidar } from './screens/Convidar';
 import Entregas from './screens/Entregas';
 import { Execucao } from './screens/Execucao';
 import { Executivo } from './screens/Executivo';
@@ -50,6 +51,7 @@ export function App() {
         <Route path="comparar" element={<Comparar />} />
         <Route path="entregas" element={<Entregas />} />
         <Route path="uso" element={<MeuTempo />} />
+        <Route path="convidar" element={<Convidar />} />
         <Route path="*" element={<Navigate to="/inicio" replace />} />
       </Route>
     </Routes>

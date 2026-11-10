@@ -24,12 +24,29 @@ beforeEach(() => {
 });
 
 describe('Ajuda', () => {
-  it('renderiza as 12 perguntas do faq.json', () => {
+  it('renderiza as 13 perguntas do faq.json', () => {
     renderAjuda();
 
     const botoes = screen.getAllByRole('button', { expanded: false });
     expect(botoes.map((b) => b.textContent)).toEqual(faq.map((f) => f.pergunta));
-    expect(botoes).toHaveLength(12);
+    expect(botoes).toHaveLength(13);
+  });
+
+  it('o convite e a senha esquecida mandam pedir um novo convite e não mandam apagar o settings.yaml', async () => {
+    const user = userEvent.setup();
+    renderAjuda();
+
+    await user.click(screen.getByRole('button', { name: 'Esqueci a senha, e agora?' }));
+    const resposta = document.getElementById('ajuda-senha') as HTMLElement;
+
+    expect(resposta.textContent).toContain('Peça um novo convite ao responsável técnico');
+    expect(resposta.textContent).toContain('Tenho um convite');
+    expect(resposta.textContent).toContain('guia de operação');
+    expect(resposta.textContent).not.toContain('settings.yaml');
+
+    await user.click(screen.getByRole('button', { name: 'Recebi um convite por e-mail. Como entro?' }));
+    expect(screen.getByText(/Clique em Entrar com convite/)).toBeTruthy();
+    expect(screen.queryByRole('img')).toBeNull();
   });
 
   it('abrir pergunta com gif mostra a imagem', async () => {
@@ -50,7 +67,9 @@ describe('Ajuda', () => {
 
     await user.click(screen.getByRole('button', { name: 'Esqueci a senha, e agora?' }));
 
-    expect(screen.getByText(faq[10].passos[0])).toBeTruthy();
+    const senha = faq.find((f) => f.id === 'senha');
+    expect(senha).toBeDefined();
+    expect(screen.getByText((senha as { passos: string[] }).passos[0])).toBeTruthy();
     expect(screen.queryByRole('img')).toBeNull();
   });
 
@@ -62,7 +81,9 @@ describe('Ajuda', () => {
     await user.click(screen.getByRole('button', { name: 'Como envio a MSC do mês?' }));
 
     expect(screen.queryByText(faq[0].passos[0])).toBeNull();
-    expect(screen.getByText(faq[1].passos[0])).toBeTruthy();
+    const enviar = faq.find((f) => f.id === 'enviar-msc');
+    expect(enviar).toBeDefined();
+    expect(screen.getByText((enviar as { passos: string[] }).passos[0])).toBeTruthy();
   });
 
   it('voltar leva para o login quando nao ha sessao', () => {
