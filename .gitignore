@@ -39,6 +39,14 @@ scripts/gen_*.py
 # Config real (só o .example vai pro repo)
 config/settings.yaml
 
+# Estado local do convite assinado (segredo ou dado de quem convida): fora do desktop a
+# pasta de estado é config/, e um `git add config/` levaria a senha de app cifrada.
+# Só config/invites.yaml (chave pública, sem segredo) é versionado.
+config/invite_key.pem
+config/invite_issuer.yaml
+config/invites_sent.jsonl
+config/invites_used.json
+
 # Git worktrees
 .worktrees/
 

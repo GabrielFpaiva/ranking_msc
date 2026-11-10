@@ -47,6 +47,38 @@ def config_has_users(config_path: Path) -> bool:
     return bool(users)
 
 
+def find_username(config_path: Path, email: str) -> str | None:
+    """Acha o ``username`` já gravado que corresponde ao e-mail, sem diferenciar caixa.
+
+    O login compara com ``strip().casefold()``, mas o ``provision_user`` compara
+    o ``username`` cru; quem cadastra por e-mail (convite) usa esta busca para
+    reaproveitar o nome gravado (``Fulano@X.com``) em vez de criar um segundo
+    usuário para ``fulano@x.com``.
+
+    Como ``config_has_users``, inspeciona o YAML cru: arquivo ausente ou ilegível
+    conta como "sem usuários".
+
+    Args:
+        config_path: caminho do settings.yaml.
+        email: e-mail procurado (é normalizado com ``strip().casefold()``).
+
+    Returns:
+        O ``username`` exatamente como está gravado, ou ``None`` se não existir.
+    """
+    if not config_path.exists():
+        return None
+    try:
+        raw: dict[str, Any] = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return None
+    wanted = email.strip().casefold()
+    for user in (raw.get("security") or {}).get("users") or []:
+        username = str(user.get("username", ""))
+        if username.strip().casefold() == wanted:
+            return username
+    return None
+
+
 def provision_user(
     config_path: Path,
     username: str,

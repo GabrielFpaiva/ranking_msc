@@ -11,7 +11,7 @@ import yaml
 
 from ranking_msc.config.settings import load_settings
 from ranking_msc.exceptions import ConfigError
-from ranking_msc.services.users import config_has_users, provision_user
+from ranking_msc.services.users import config_has_users, find_username, provision_user
 
 _EXAMPLE = Path(__file__).resolve().parents[1] / "config" / "settings.yaml.example"
 
@@ -38,6 +38,50 @@ class TestConfigHasUsers:
         config_path = tmp_path / "settings.yaml"
         config_path.write_text("security: [invalido\n  users:", encoding="utf-8")
         assert config_has_users(config_path) is False
+
+
+class TestFindUsername:
+    def _config(self, tmp_path: Path, *usernames: str) -> Path:
+        config_path = tmp_path / "settings.yaml"
+        for username in usernames:
+            provision_user(config_path, username, "senha-forte", example_path=_EXAMPLE)
+        return config_path
+
+    def test_acha_em_outra_caixa_e_devolve_o_nome_gravado(self, tmp_path: Path) -> None:
+        """'fulano@x.com' acha o usuário gravado como 'Fulano@X.com' e devolve o nome gravado."""
+        config_path = self._config(tmp_path, "Fulano@X.com")
+        assert find_username(config_path, "fulano@x.com") == "Fulano@X.com"
+
+    def test_espacos_em_volta_do_email_sao_ignorados(self, tmp_path: Path) -> None:
+        """A busca faz strip(): ' FULANO@x.com\\n' acha o mesmo usuário."""
+        config_path = self._config(tmp_path, "fulano@x.com")
+        assert find_username(config_path, " FULANO@x.com\n") == "fulano@x.com"
+
+    def test_acha_entre_varios_usuarios(self, tmp_path: Path) -> None:
+        """Com 3 usuários, devolve o certo (não o primeiro nem o último por engano)."""
+        config_path = self._config(tmp_path, "a@x.com", "Meio@x.com", "z@x.com")
+        assert find_username(config_path, "MEIO@x.com") == "Meio@x.com"
+
+    def test_inexistente_retorna_none(self, tmp_path: Path) -> None:
+        """E-mail de ninguém → None; 'a@x.co' não casa por prefixo com 'a@x.com'."""
+        config_path = self._config(tmp_path, "a@x.com")
+        assert find_username(config_path, "a@x.co") is None
+
+    def test_arquivo_ausente_retorna_none(self, tmp_path: Path) -> None:
+        """Config inexistente → None, sem exceção."""
+        assert find_username(tmp_path / "nao-existe.yaml", "a@x.com") is None
+
+    def test_sem_usuarios_retorna_none(self, tmp_path: Path) -> None:
+        """Config com secret mas sem users → None."""
+        config_path = tmp_path / "settings.yaml"
+        config_path.write_text('security:\n  secret_key: "abc"\n', encoding="utf-8")
+        assert find_username(config_path, "a@x.com") is None
+
+    def test_yaml_invalido_retorna_none(self, tmp_path: Path) -> None:
+        """YAML ilegível → None (como config_has_users)."""
+        config_path = tmp_path / "settings.yaml"
+        config_path.write_text("security: [invalido\n  users:", encoding="utf-8")
+        assert find_username(config_path, "a@x.com") is None
 
 
 class TestProvisionUser:
