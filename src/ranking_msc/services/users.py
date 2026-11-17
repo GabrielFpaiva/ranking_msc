@@ -9,13 +9,22 @@ entrypoint Docker e pelo endpoint de primeiro acesso (``POST /api/auth/setup``).
 
 Nota: o YAML é regravado via PyYAML — comentários do arquivo são perdidos.
 A documentação de cada campo permanece em ``config/settings.yaml.example``.
+
+A regravação é atômica (temporário na mesma pasta + ``os.replace``) e serializada
+por um lock do processo: quem lê o arquivo durante a gravação vê a versão antiga
+ou a nova, nunca um arquivo truncado, e duas gravações simultâneas não perdem
+usuário uma da outra.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 import shutil
+import tempfile
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +35,46 @@ from ranking_msc.config.settings import _INSECURE_SECRETS
 from ranking_msc.exceptions import ConfigError
 
 logger = logging.getLogger("ranking_msc")
+
+# Serializa ler → alterar → gravar o settings.yaml dentro do processo (o app desktop
+# serve a API num processo só, com rotas síncronas em threads): sem ele, o aceite de
+# convite e o primeiro acesso gravando juntos perderiam o usuário um do outro.
+_SETTINGS_LOCK = threading.Lock()
+
+# No Windows o ``os.replace`` falha com PermissionError enquanto outro leitor tem o
+# destino aberto (o login lê o settings.yaml a cada tentativa). Leitura é rápida:
+# poucas tentativas curtas bastam antes de desistir com ConfigError.
+_REPLACE_TENTATIVAS = 5
+_REPLACE_ESPERA_S = 0.05
+
+
+def _write_text_atomic(destino: Path, conteudo: str) -> None:
+    """Grava ``conteudo`` em ``destino`` via temporário na mesma pasta + ``os.replace``.
+
+    Raises:
+        ConfigError: se o destino seguir bloqueado depois das tentativas (o arquivo
+            antigo fica intacto e o temporário é apagado).
+    """
+    fd, tmp_nome = tempfile.mkstemp(dir=destino.parent, prefix=".settings-", suffix=".tmp")
+    tmp = Path(tmp_nome)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as arquivo:
+            arquivo.write(conteudo)
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        for tentativa in range(1, _REPLACE_TENTATIVAS + 1):
+            try:
+                os.replace(tmp, destino)
+                return
+            except PermissionError as exc:
+                if tentativa == _REPLACE_TENTATIVAS:
+                    raise ConfigError(
+                        f"Não foi possível gravar {destino}: o arquivo está em uso por "
+                        "outro programa. Feche-o e tente de novo."
+                    ) from exc
+                time.sleep(_REPLACE_ESPERA_S)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def config_has_users(config_path: Path) -> bool:
@@ -103,9 +152,17 @@ def provision_user(
         Path do arquivo de configuração gravado.
 
     Raises:
-        ConfigError: se nem o config nem o example existirem, ou se o YAML
-            existente for inválido.
+        ConfigError: se nem o config nem o example existirem, se o YAML
+            existente for inválido, ou se o arquivo seguir bloqueado para gravação.
     """
+    with _SETTINGS_LOCK:
+        return _provision_user_locked(config_path, username, password, example_path)
+
+
+def _provision_user_locked(
+    config_path: Path, username: str, password: str, example_path: Path
+) -> Path:
+    """Corpo de ``provision_user``; quem chama já segura ``_SETTINGS_LOCK``."""
     if not config_path.exists():
         if not example_path.exists():
             raise ConfigError(
@@ -134,9 +191,9 @@ def provision_user(
     security["users"] = users
     raw["security"] = security
 
-    config_path.write_text(
+    _write_text_atomic(
+        config_path,
         yaml.safe_dump(raw, allow_unicode=True, sort_keys=False, default_flow_style=False),
-        encoding="utf-8",
     )
     logger.info("Usuário '%s' gravado em %s.", username, config_path)
     return config_path
