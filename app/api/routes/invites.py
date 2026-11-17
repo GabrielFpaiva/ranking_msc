@@ -22,6 +22,7 @@ nova do convidado.
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable, Coroutine
 from email.message import EmailMessage
 from pathlib import Path
@@ -98,6 +99,12 @@ public_router = APIRouter(prefix="/api/auth", tags=["auth"], route_class=_Portug
 router = APIRouter(prefix="/api/invites", tags=["invites"], route_class=_PortugueseValidationRoute)
 
 _EXAMPLE_PATH: Path = PROJECT_ROOT / "config" / "settings.yaml.example"
+
+# Um aceite por vez neste processo (o app desktop serve a API num processo só, com
+# rotas síncronas em threads). Sem ele, dois aceites simultâneos do mesmo código
+# passavam juntos pelo ``ensure_unused`` antes de qualquer ``mark_used``, e o convite
+# de uso único criava a conta duas vezes.
+_ACCEPT_LOCK = threading.Lock()
 
 EmailSender = Callable[[EmailMessage, str, str], bool]
 """``sender(mensagem, usuário SMTP, senha de app) -> enviou?`` — trocado nos testes."""
@@ -345,7 +352,9 @@ def accept_invite(
 
     Se o e-mail já tem conta neste computador, a senha dela é trocada (usando o
     ``username`` como está gravado); senão a conta nasce com o e-mail normalizado.
-    O ``jti`` só é marcado como usado depois de a conta gravada.
+    O ``jti`` só é marcado como usado depois de a conta gravada; conferir o uso,
+    gravar a conta e marcar o ``jti`` acontecem sob ``_ACCEPT_LOCK``, então dois
+    aceites simultâneos do mesmo código não passam os dois (o segundo leva 409).
 
     Raises:
         HTTPException 422: código vazio, ou senha fora de 8 caracteres a 72 bytes.
@@ -360,6 +369,12 @@ def accept_invite(
         raise _unprocessable(_MSG_PASSWORD)
     if not config.enabled:
         raise _refuse(status.HTTP_403_FORBIDDEN, "recurso desligado", _MSG_DISABLED)
+    with _ACCEPT_LOCK:
+        return _accept_locked(body, config, store)
+
+
+def _accept_locked(body: AcceptIn, config: InviteConfig, store: InviteStore) -> AcceptOut:
+    """Corpo do aceite, já sob ``_ACCEPT_LOCK``: confere, grava a conta e marca o uso."""
     try:
         payload = verify_invite(body.code, config.public_key)
         store.ensure_unused(payload.jti)

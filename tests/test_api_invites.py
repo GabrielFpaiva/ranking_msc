@@ -9,12 +9,16 @@ nem lê/escreve o ``config/invites.yaml`` versionado. As chaves são descartáve
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Any
 
+import app.api.routes.invites as invites_route
 import pytest
 import yaml
 from app.api.deps import get_current_user, get_invites_config_path
@@ -315,6 +319,42 @@ class TestAceitar:
             "/api/auth/token", data={"username": "fulano@exemplo.com", "password": SENHA_NOVA}
         )
         assert mantida.status_code == 200
+
+    def test_dois_aceites_simultaneos_do_mesmo_codigo_so_um_passa(
+        self, ambiente: Ambiente, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Dois aceites ao mesmo tempo → um 201 e um 409; a conta nasce uma vez só.
+
+        ``provision_user`` fica lento de propósito: sem a trava, os dois passam pelo
+        ``ensure_unused`` antes de qualquer ``mark_used`` e o convite vale duas vezes.
+        """
+        real = invites_route.provision_user
+
+        def provision_lento(*args: Any, **kwargs: Any) -> Path:
+            time.sleep(0.3)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(invites_route, "provision_user", provision_lento)
+        code = ambiente.codigo()
+        largada = threading.Barrier(2)
+        respostas: list[int] = []
+
+        def aceitar(senha: str) -> None:
+            largada.wait()
+            respostas.append(ambiente.aceitar(code, senha).status_code)
+
+        threads = [
+            threading.Thread(target=aceitar, args=(senha,))
+            for senha in ("primeira-senha-12", "segunda-senha-34")
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+
+        assert sorted(respostas) == [201, 409]
+        raw = yaml.safe_load(ambiente.config_path.read_text(encoding="utf-8"))
+        assert [u["username"] for u in raw["security"]["users"]] == ["fulano@exemplo.com"]
 
     def test_recurso_desligado_retorna_403_antes_de_conferir(self, ambiente: Ambiente) -> None:
         """Sem chave pública nem um código válido entra: 403 e nenhuma conta."""
