@@ -28,6 +28,7 @@ from app.api.routes import competencias as competencias_routes
 from app.api.routes import contas as contas_routes
 from app.api.routes import entregas as entregas_routes
 from app.api.routes import exports as exports_routes
+from app.api.routes import invites as invites_routes
 from app.api.routes import log as log_routes
 from app.api.routes import passivos as passivos_routes
 from app.api.routes import pendencias as pendencias_routes
@@ -124,6 +125,8 @@ app = FastAPI(
 )
 
 app.include_router(auth_routes.router)
+app.include_router(invites_routes.public_router)
+app.include_router(invites_routes.router)
 app.include_router(run_routes.router)
 app.include_router(competencias_routes.router)
 app.include_router(score_routes.router)

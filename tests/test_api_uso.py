@@ -59,6 +59,14 @@ class TestHeartbeat:
         assert chave.usuario == "test-user"
         assert chave.rota == "/caixa"
 
+    def test_heartbeat_da_tela_convidar_retorna_204(self) -> None:
+        """/convidar é rota do SPA: sem estar na allowlist o heartbeat dela daria 422 por minuto."""
+        resposta = client.post(
+            "/api/uso/heartbeat",
+            json={"rota": "/convidar", "aberto_s": 60, "ativo_s": 45},
+        )
+        assert resposta.status_code == 204
+
     def test_rota_desconhecida_e_rejeitada(self) -> None:
         """Allowlist: o cliente não escreve rota arbitrária no JSONL."""
         resposta = client.post(

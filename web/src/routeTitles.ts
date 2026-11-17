@@ -24,4 +24,5 @@ export const ROUTE_TITLES: Record<string, { breadcrumb: string; title: string }>
   '/regras': { breadcrumb: 'Referência', title: 'Regras' },
   '/execucao': { breadcrumb: 'Referência', title: 'Execução' },
   '/uso': { breadcrumb: 'Minha conta', title: 'Meu tempo de uso' },
+  '/convidar': { breadcrumb: 'Administração', title: 'Convidar colaborador' },
 };

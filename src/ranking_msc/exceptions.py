@@ -14,7 +14,12 @@ Hierarquia:
     ├── RuleExecutionError   — erro durante execução de uma regra
     ├── ConcurrencyError     — conflito de concorrência entre usuários
     ├── BenchmarkError       — falha no módulo de benchmark
-    └── SiconfiIndisponivelError — falha ao consultar API do Siconfi
+    ├── SiconfiIndisponivelError — falha ao consultar API do Siconfi
+    └── InviteError          — falha no convite assinado por e-mail
+        ├── InviteInvalidError     — código malformado, adulterado ou de outra chave
+        ├── InviteExpiredError     — código válido, mas vencido
+        ├── InviteUsedError        — código já usado neste computador
+        └── InviteKeyPasswordError — senha da chave incorreta
 
 Regra geral: cada módulo levanta a exceção mais específica possível,
 sempre incluindo mensagem descritiva em português para o log.
@@ -72,3 +77,32 @@ class BenchmarkError(RankingMSCError):
 
 class SiconfiIndisponivelError(RankingMSCError):
     """A API do Siconfi não pôde ser consultada (rede, timeout ou erro HTTP)."""
+
+
+class InviteError(RankingMSCError):
+    """Falha no convite assinado por e-mail (emissão, conferência ou guarda local).
+
+    As filhas separam o que a rota de aceite traduz em status diferentes. As
+    mensagens dizem o que a pessoa deve fazer e nunca trazem o código do
+    convite, a senha da chave nem a senha de app.
+    """
+
+
+class InviteInvalidError(InviteError):
+    """Código de convite malformado, adulterado ou assinado por outra chave."""
+
+
+class InviteExpiredError(InviteError):
+    """Código de convite autêntico, mas já vencido."""
+
+
+class InviteUsedError(InviteError):
+    """Código de convite já aceito neste computador."""
+
+
+class InviteKeyPasswordError(InviteError):
+    """Senha da chave de convites incorreta."""
+
+
+class InviteKeyMismatchError(InviteError):
+    """A chave privada local não é o par da chave pública embutida na versão instalada."""

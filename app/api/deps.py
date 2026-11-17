@@ -45,6 +45,16 @@ def get_config_path() -> Path:
     return Path(env_path) if env_path else PROJECT_ROOT / "config" / "settings.yaml"
 
 
+def get_invites_config_path() -> Path:
+    """Resolve o caminho do ``config/invites.yaml`` (chave pública e link do instalador).
+
+    Sai da raiz dos recursos embutidos (``resolve_root``), não da pasta de config
+    local: o arquivo é versionado e viaja dentro do instalador. É dependência do
+    FastAPI para os testes apontarem para um arquivo descartável.
+    """
+    return PROJECT_ROOT / "config" / "invites.yaml"
+
+
 @lru_cache(maxsize=8)
 def _load_settings_cached(path: str, mtime_ns: int) -> Settings:
     """Cache de settings keyed por (caminho, mtime do arquivo)."""

@@ -131,6 +131,45 @@ export async function apiLogin(username: string, password: string): Promise<void
   authStore.setToken(data.access_token);
 }
 
+// Convite assinado. Os tipos moram aqui (e não em types.ts) porque só este
+// módulo e as telas Login e Convidar os usam.
+export interface InviteAccepted {
+  username: string;
+  password_reset: boolean;
+}
+
+export interface InviteCreated {
+  email: string;
+  /** ISO 8601 com offset. */
+  expires_at: string;
+  email_sent: boolean;
+  code: string;
+}
+
+export interface InviteSent {
+  email: string;
+  issued_at: string;
+  expires_at: string;
+  email_sent: boolean;
+}
+
+/** Rota pública: o convidado ainda não tem conta. `true` = há chave pública configurada. */
+export async function apiInviteStatus(): Promise<boolean> {
+  const res = await fetch(`${BASE}/auth/invite-status`);
+  const data = await jsonOrThrow<{ enabled: boolean }>(res);
+  return data.enabled;
+}
+
+/** Rota pública: a prova é a assinatura do código. Não guarda token; o login vem depois. */
+export async function apiAcceptInvite(code: string, password: string): Promise<InviteAccepted> {
+  const res = await fetch(`${BASE}/auth/invite/accept`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, password }),
+  });
+  return jsonOrThrow<InviteAccepted>(res);
+}
+
 function qs(params: Record<string, string | number | undefined | null>): string {
   const entries = Object.entries(params).filter(
     ([, v]) => v !== undefined && v !== null && v !== '',
@@ -287,6 +326,23 @@ export const api = {
     limit?: number;
   } = {}): Promise<LogPage> =>
     fetchAuth(`${BASE}/log${qs(params)}`).then((r) => jsonOrThrow<LogPage>(r)),
+
+  inviteCapability: (): Promise<boolean> =>
+    fetchAuth(`${BASE}/invites/capability`)
+      .then((r) => jsonOrThrow<{ can_invite: boolean }>(r))
+      .then((data) => data.can_invite),
+
+  // A senha da chave só passa por aqui: vai no corpo da requisição e não é
+  // guardada em lugar nenhum.
+  createInvite: (email: string, keyPassword: string): Promise<InviteCreated> =>
+    fetchAuth(`${BASE}/invites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, key_password: keyPassword }),
+    }).then((r) => jsonOrThrow<InviteCreated>(r)),
+
+  listInvites: (): Promise<InviteSent[]> =>
+    fetchAuth(`${BASE}/invites`).then((r) => jsonOrThrow<InviteSent[]>(r)),
 
   exportExcel: async (siconfi: string, competencia: string): Promise<void> => {
     const res = await fetchAuth(`${BASE}/exports/excel${qs({ siconfi, competencia })}`);

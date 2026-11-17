@@ -241,8 +241,8 @@ Campos e efeito operacional:
 \* Em dev puro (sem login), `secret_key` padrão + `users=[]` é aceito com warning.
 Em uso autenticado, é obrigatório configurar chave forte e ao menos um usuário.
 
-No aplicativo desktop os três usuários da equipe já vêm cadastrados no
-instalador; as senhas são entregues pessoalmente pelo responsável técnico. O
+No aplicativo desktop os usuários da equipe (os listados em
+`config/settings.desktop.yaml`) já vêm cadastrados no instalador; as senhas são entregues pessoalmente pelo responsável técnico. O
 que segue vale para quem roda a API fora do instalador (desenvolvimento
 local), onde nenhum caminho exige gerar hash na mão:
 

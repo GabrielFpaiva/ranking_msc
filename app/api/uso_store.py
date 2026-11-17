@@ -45,7 +45,7 @@ LOCK_USO = threading.RLock()
 # texto arbitrário dentro do JSONL.
 ROTAS_VALIDAS: frozenset[str] = frozenset({
     "/inicio", "/pendencias", "/caixa", "/passivos", "/superavit",
-    "/executivo", "/comparar", "/entregas", "/regras", "/execucao", "/uso",
+    "/executivo", "/comparar", "/entregas", "/regras", "/execucao", "/uso", "/convidar",
 })
 
 # Teto por heartbeat. O front bate a cada 60 s; 120 s dá folga para atraso de

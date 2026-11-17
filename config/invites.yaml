@@ -1,0 +1,17 @@
+# Configuração do convite assinado por e-mail (versionada e embutida no instalador).
+# Nada aqui é segredo: a chave privada e a senha de app ficam só no computador de
+# quem convida (pasta de config local), nunca neste arquivo.
+
+# Chave pública Ed25519, em base64, que confere os códigos de convite.
+# Vazio = convites desligados: nem "Tenho um convite" nem "Convidar" aparecem.
+# Quem gera e grava a chave é o responsável técnico, com
+# `python scripts/setup_invites.py init` (ver doc/guia_operacao.md); não edite à mão.
+public_key: ""
+
+# Pasta do Drive com o instalador, citada no e-mail do convite.
+# Para trocar o link: `python scripts/setup_invites.py set-url <link>` (ou edite
+# esta linha), faça o commit e gere um instalador novo.
+installer_url: "https://drive.google.com/drive/folders/199DhZdFV-VfM46Bj83IYo2tX5e-FBLiA"
+
+# Quantos dias um convite vale, a contar do momento em que é emitido.
+validity_days: 7

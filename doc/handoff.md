@@ -61,9 +61,13 @@ Hoje a entrega e um instalador Windows por maquina:
   do GitHub Actions. Instala em Arquivos de Programas e cria atalho no menu
   iniciar e na area de trabalho.
 - O instalador verifica o Edge WebView2 e instala se estiver faltando.
-- Login por e-mail e senha. Tres usuarios ja vem cadastrados no instalador; as
-  senhas sao entregues pelo responsavel tecnico por um canal separado do
-  convite (`doc/convite_treinamento.md`).
+- Login por e-mail e senha. Os usuarios iniciais ja vem cadastrados no
+  instalador (a lista esta em `config/settings.desktop.yaml`); as senhas sao
+  entregues pelo responsavel tecnico por um canal separado do convite
+  (`doc/convite_treinamento.md`).
+- Novos colaboradores entram por convite assinado (ver "Convites" no guia de
+  operacao, `doc/guia_operacao.md`). As contas criadas por convite ficam no
+  `settings.yaml` do computador: apagar esse arquivo apaga essas contas.
 - O executavel nao e assinado: o Windows SmartScreen mostra aviso na primeira
   execucao, e o antivirus corporativo pode bloquear. Precisa ser testado numa
   maquina real da prefeitura antes do treinamento.
