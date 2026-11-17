@@ -657,8 +657,15 @@ permissao de edicao nela):
 O acesso pedido ao Drive e o completo da conta autorizada (a pasta foi criada
 a mao, e o escopo restrito so enxerga arquivos criados pelo proprio rclone). Por
 isso, prefira uma conta Google dedicada ao MCRA, com permissao de edicao so
-nessa pasta. O rclone e instalado no runner pelo Chocolatey, um pacote mantido
-por terceiros.
+nessa pasta.
+
+O rclone e baixado do release oficial no GitHub, em versao fixa, num passo
+proprio ("Instalar o rclone") que nao recebe os segredos, e so e usado se o
+SHA-256 do zip bater com o valor gravado no workflow. Para atualizar o rclone,
+troque `MCRA_RCLONE_VERSAO` e `MCRA_RCLONE_SHA256` em
+`.github/workflows/release.yml` pelos valores da linha `windows-amd64.zip` do
+`SHA256SUMS` do release novo. Se a instalacao falhar, o envio e pulado e o
+release segue normal.
 
 ### Perdeu a chave ou a senha da chave
 

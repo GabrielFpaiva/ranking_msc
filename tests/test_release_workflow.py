@@ -76,3 +76,61 @@ def test_passo_do_drive_usa_nome_fixo_e_a_pasta_da_variavel() -> None:
     assert "secrets.GDRIVE_CLIENT_SECRET" in str(env["RCLONE_CONFIG_MCRADRIVE_CLIENT_SECRET"])
     assert "mcradrive:MCRA-Setup.exe" in passo["run"]
     assert "copyto" in passo["run"]
+
+
+_NOME_DA_INSTALACAO = "Instalar o rclone"
+
+
+def _passo_de_instalacao() -> dict[str, Any]:
+    """Acha o passo que instala o rclone."""
+    achados = [p for p in _passos() if p.get("name") == _NOME_DA_INSTALACAO]
+    assert len(achados) == 1, f"esperado um passo '{_NOME_DA_INSTALACAO}', achei {len(achados)}"
+    return achados[0]
+
+
+def test_rclone_e_instalado_entre_o_artefato_e_o_envio() -> None:
+    """Instala depois do artefato (falha não toca o instalador) e antes de publicar."""
+    nomes = [p.get("name") for p in _passos()]
+    indice_artefato = next(
+        i for i, p in enumerate(_passos()) if "upload-artifact" in str(p.get("uses", ""))
+    )
+    indice_instalacao = nomes.index(_NOME_DA_INSTALACAO)
+    assert indice_artefato < indice_instalacao < nomes.index(_NOME_DO_PASSO)
+
+
+def test_instalacao_do_rclone_nao_ve_segredo_e_nao_derruba_o_release() -> None:
+    """Script de instalação nunca roda com as credenciais do Drive no ambiente."""
+    passo = _passo_de_instalacao()
+    assert "secrets." not in str(passo)
+    assert passo.get("continue-on-error") is True
+    assert passo.get("if") == _passo_do_drive_sem_dependencia_da_instalacao()
+
+
+def _passo_do_drive_sem_dependencia_da_instalacao() -> str:
+    """O ``if`` do envio sem a cláusula que exige a instalação ter dado certo."""
+    condicao = str(_passo_do_drive()["if"])
+    return condicao.replace(" && steps.rclone.outcome == 'success' }}", " }}")
+
+
+def test_rclone_vem_do_release_oficial_com_versao_e_hash_fixos() -> None:
+    """Zip oficial em versão fixa, conferido por SHA-256 antes de rodar; nada de choco."""
+    passo = _passo_de_instalacao()
+    env = passo["env"]
+    assert str(env["MCRA_RCLONE_VERSAO"]).startswith("v")
+    assert len(str(env["MCRA_RCLONE_SHA256"])) == 64
+    assert "github.com/rclone/rclone/releases/download" in passo["run"]
+    assert "Get-FileHash" in passo["run"]
+    assert "GITHUB_PATH" in passo["run"]
+    for p in _passos():
+        assert "choco" not in str(p.get("run", "")), p.get("name")
+
+
+def test_instalacao_nao_usa_variavel_que_o_rclone_le_como_flag() -> None:
+    """O rclone lê toda RCLONE_* do ambiente como flag (RCLONE_VERSION vira --version)."""
+    assert not [k for k in _passo_de_instalacao()["env"] if k.startswith("RCLONE_")]
+
+
+def test_envio_so_roda_se_o_rclone_foi_instalado() -> None:
+    """Instalação falhou (com continue-on-error) → o envio é pulado, não quebra no PATH."""
+    assert "steps.rclone.outcome == 'success'" in str(_passo_do_drive()["if"])
+    assert _passo_de_instalacao().get("id") == "rclone"
