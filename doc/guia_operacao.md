@@ -620,6 +620,53 @@ Depois faca o commit, um release novo e instale-o no computador do emissor: o
 link e lido do `invites.yaml` embutido no instalador, e quem monta o e-mail e o
 MCRA do emissor. Convites ja enviados continuam com o link antigo.
 
+### Instalador no Drive (envio automatico, opcional)
+
+O workflow `Release desktop` tem um passo que envia o instalador para a pasta
+do Drive, sempre com o nome `MCRA-Setup.exe` (o arquivo anterior e substituido,
+entao o link da pasta nao muda). O passo fica **desligado** ate a configuracao
+abaixo existir, e nunca derruba o release: se o envio falhar, o instalador
+continua como artefato do Actions e pode ser copiado a mao, como hoje.
+
+**Ainda nao foi testado de ponta a ponta**: na primeira vez, confira na pasta
+do Drive se o arquivo chegou.
+
+Configuracao, uma vez, por quem administra a conta Google dona da pasta (ou com
+permissao de edicao nela):
+
+1. No Google Cloud Console, crie um projeto, ative a **Google Drive API** e crie
+   uma credencial OAuth do tipo "App para computador". Na tela de consentimento,
+   publique o app ("Em producao"): em modo de teste a autorizacao vence em uma
+   semana. O rclone exige credencial propria; a compartilhada dele esta sendo
+   desativada em 2026.
+2. Num computador com navegador e o rclone instalado, logado na conta Google da
+   pasta:
+
+   ```powershell
+   rclone authorize "drive" "<client_id>" "<client_secret>"
+   ```
+
+   Copie o JSON que ele imprime (o token).
+3. No GitHub, em Settings > Secrets and variables > Actions, crie:
+   - segredos `GDRIVE_CLIENT_ID`, `GDRIVE_CLIENT_SECRET` e `GDRIVE_TOKEN` (o
+     JSON do passo 2);
+   - variavel `GDRIVE_FOLDER_ID` com o ID da pasta (o trecho depois de
+     `/folders/` no link do Drive).
+4. Rode o `Release desktop` e confira o passo "Publicar o instalador no Drive".
+
+O acesso pedido ao Drive e o completo da conta autorizada (a pasta foi criada
+a mao, e o escopo restrito so enxerga arquivos criados pelo proprio rclone). Por
+isso, prefira uma conta Google dedicada ao MCRA, com permissao de edicao so
+nessa pasta.
+
+O rclone e baixado do release oficial no GitHub, em versao fixa, num passo
+proprio ("Instalar o rclone") que nao recebe os segredos, e so e usado se o
+SHA-256 do zip bater com o valor gravado no workflow. Para atualizar o rclone,
+troque `MCRA_RCLONE_VERSAO` e `MCRA_RCLONE_SHA256` em
+`.github/workflows/release.yml` pelos valores da linha `windows-amd64.zip` do
+`SHA256SUMS` do release novo. Se a instalacao falhar, o envio e pulado e o
+release segue normal.
+
 ### Perdeu a chave ou a senha da chave
 
 Nao ha recuperacao. Repita a cerimonia do passo 1 com `--force`:

@@ -9,6 +9,10 @@ on:
 jobs:
   windows:
     runs-on: windows-latest
+    # O contexto `secrets` não pode ser lido em `if:` de passo. Aqui vai só o
+    # sinal verdadeiro/falso; os segredos ficam restritos ao passo do Drive.
+    env:
+      GDRIVE_CONFIGURED: ${{ secrets.GDRIVE_TOKEN != '' && secrets.GDRIVE_CLIENT_ID != '' && secrets.GDRIVE_CLIENT_SECRET != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -78,3 +82,55 @@ jobs:
         with:
           name: MCRA-Setup
           path: installer/Output/*.exe
+
+      # Publica o instalador na pasta do Drive que o e-mail do convite aponta
+      # (`installer_url` em config/invites.yaml), sempre com o mesmo nome de
+      # arquivo, para o link não mudar a cada versão. Só roda quando a variável
+      # GDRIVE_FOLDER_ID e os três segredos existem (ver "Instalador no Drive" em
+      # doc/guia_operacao.md). Vem depois do artefato e nunca derruba o release:
+      # se o envio falhar, o instalador continua disponível no Actions.
+      #
+      # O rclone é instalado num passo à parte, sem nenhum segredo no ambiente, e
+      # só é usado depois de o SHA-256 do zip oficial bater com o valor fixo abaixo:
+      # nem o download nem um binário adulterado chegam a rodar com as credenciais
+      # do Drive. Para atualizar, troque versão e hash pelos do SHA256SUMS do
+      # release novo (https://github.com/rclone/rclone/releases). As variáveis não
+      # começam com RCLONE_ porque o rclone lê toda RCLONE_* do ambiente como flag
+      # (RCLONE_VERSION vira --version e derruba o comando).
+      - name: Instalar o rclone
+        id: rclone
+        if: ${{ vars.GDRIVE_FOLDER_ID != '' && env.GDRIVE_CONFIGURED == 'true' }}
+        continue-on-error: true
+        shell: pwsh
+        env:
+          MCRA_RCLONE_VERSAO: v1.76.0
+          MCRA_RCLONE_SHA256: 8b4fd2737ade4e70c057ef4a49deb7cffe94b0fb9d7587c189d149823f21a1dc
+        run: |
+          $nome = "rclone-$env:MCRA_RCLONE_VERSAO-windows-amd64"
+          $zip = Join-Path $env:RUNNER_TEMP "$nome.zip"
+          Invoke-WebRequest -Uri "https://github.com/rclone/rclone/releases/download/$env:MCRA_RCLONE_VERSAO/$nome.zip" -OutFile $zip
+          $obtido = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($obtido -ne $env:MCRA_RCLONE_SHA256) { throw "SHA-256 do rclone não confere: $obtido" }
+          Expand-Archive -Path $zip -DestinationPath $env:RUNNER_TEMP -Force
+          $pasta = Join-Path $env:RUNNER_TEMP $nome
+          & (Join-Path $pasta "rclone.exe") version
+          if ($LASTEXITCODE -ne 0) { throw "rclone version retornou $LASTEXITCODE" }
+          Add-Content -Path $env:GITHUB_PATH -Value $pasta
+
+      - name: Publicar o instalador no Drive
+        if: ${{ vars.GDRIVE_FOLDER_ID != '' && env.GDRIVE_CONFIGURED == 'true' && steps.rclone.outcome == 'success' }}
+        continue-on-error: true
+        shell: pwsh
+        env:
+          RCLONE_CONFIG_MCRADRIVE_TYPE: drive
+          RCLONE_CONFIG_MCRADRIVE_SCOPE: drive
+          RCLONE_CONFIG_MCRADRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          RCLONE_CONFIG_MCRADRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          RCLONE_CONFIG_MCRADRIVE_TOKEN: ${{ secrets.GDRIVE_TOKEN }}
+          RCLONE_CONFIG_MCRADRIVE_ROOT_FOLDER_ID: ${{ vars.GDRIVE_FOLDER_ID }}
+        run: |
+          $instalador = Get-ChildItem installer\Output\*.exe | Select-Object -First 1
+          if (-not $instalador) { throw "Instalador não encontrado em installer\Output" }
+          rclone copyto $instalador.FullName "mcradrive:MCRA-Setup.exe"
+          if ($LASTEXITCODE -ne 0) { throw "rclone copyto retornou $LASTEXITCODE" }
+          Write-Host "Instalador publicado no Drive como MCRA-Setup.exe"
