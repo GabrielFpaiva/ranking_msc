@@ -97,13 +97,13 @@ security:
   access_token_expire_minutes: 480
   users:
   - username: be.zmarcelino@gmail.com
-    hashed_password: $2b$12$Qy6u4b/IX1l2uy1XNu6xje7qJ4CnD5cMeQMsdoG5SRIqTaPiDig9G
+    hashed_password: $2b$12$yfTGFeUcs3HhYc4HWfbFmO0XKufL/rL0XnoEx4rxOt/h.IINWogtm
   - username: laeliajoyce@gmail.com
-    hashed_password: $2b$12$ECNvajO1xM6lFiMTH.gFlePW0Z/hDJYC.Qae8MDH.Yy0BHjoMjbla
+    hashed_password: $2b$12$7dZa2fRQHrE59FfX.OuLBuGfXnDV1JBhiWQ3siQoCKqBaEUpQzjkK
   - username: thialle.soli@gmail.com
-    hashed_password: $2b$12$fs./cIlp01AObVc/ZEnR7.cvZOQn1cYy9l5CaSTlIpkuUJhv/58Eu
-  - username: detup.4@gmail.com
-    hashed_password: $2b$12$eUNK6EUnDlwCgnFFFCCwi.xPXX6iPqjRl7ljU2JdZzG4WcTsR/G2.
+    hashed_password: $2b$12$Hn.50vloOhUErOcoG5bRRuLCT2FFHVQcSTGvfvF8gFyP00I0nlV9G
+  - username: teste@mcra.local
+    hashed_password: $2b$12$9bvbZu404KeeSiLeyPS7PukpeU6U9uupwVD1IYG72XSVU9kd.4jvO
 siconfi:
   id_ente: 2507507
   cache_ttl_horas: 24

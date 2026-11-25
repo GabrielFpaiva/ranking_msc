@@ -238,6 +238,8 @@ export function MeuTempo() {
   const [tentativaAnual, setTentativaAnual] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [relatorioBusy, setRelatorioBusy] = useState(false);
+  const [relatorioError, setRelatorioError] = useState<string | null>(null);
 
   // Busca inicial (ou de troca de escala/ref) mais um refresh silencioso a
   // cada 60s — mesma cadência do `UsoMini` na sidebar, para os dois números
@@ -414,6 +416,20 @@ export function MeuTempo() {
     minutosLegenda,
   );
 
+  /** Baixa o PDF do período selecionado (mesma escala e referência da tela). */
+  function emitirRelatorio(): void {
+    setRelatorioError(null);
+    setRelatorioBusy(true);
+    api
+      .usoRelatorio(escala, ref)
+      .catch((err: unknown) => {
+        setRelatorioError(
+          err instanceof ApiError ? err.userMessage : 'Erro ao emitir o relatório.',
+        );
+      })
+      .finally(() => setRelatorioBusy(false));
+  }
+
   function navegar(direcao: DirecaoJanela): void {
     setRef((atual) => moverPeriodo(escala, atual, direcao));
   }
@@ -437,19 +453,36 @@ export function MeuTempo() {
               {busy && !data ? 'Carregando…' : 'Meu tempo de uso'}
             </h2>
           </div>
-          <div className="uso-escala-chips" role="group" aria-label="Escala do período">
-            {ESCALAS.map((item) => (
-              <button
-                key={item.valor}
-                type="button"
-                className={`samid-chip${escala === item.valor ? ' active' : ''}`}
-                onClick={() => setEscala(item.valor)}
-              >
-                {item.rotulo}
-              </button>
-            ))}
+          <div className="uso-acoes">
+            <div className="uso-escala-chips" role="group" aria-label="Escala do período">
+              {ESCALAS.map((item) => (
+                <button
+                  key={item.valor}
+                  type="button"
+                  className={`samid-chip${escala === item.valor ? ' active' : ''}`}
+                  onClick={() => setEscala(item.valor)}
+                >
+                  {item.rotulo}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="samid-btn samid-btn-gold"
+              disabled={relatorioBusy}
+              data-testid="uso-relatorio"
+              onClick={emitirRelatorio}
+            >
+              {relatorioBusy ? 'Gerando…' : '📄 Emitir relatório'}
+            </button>
           </div>
         </div>
+
+        {relatorioError && (
+          <p className="samid-pill samid-pill-erro" role="alert">
+            {relatorioError}
+          </p>
+        )}
 
         {error && (
           <p className="samid-pill samid-pill-erro" role="alert">

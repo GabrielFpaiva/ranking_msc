@@ -8,18 +8,18 @@ O usuário **nunca** é parâmetro: sai sempre do ``sub`` do JWT via
 ``get_current_user``. Não existindo rota que aceite "de quem", não existe a
 classe de bug em que um ``?usuario=`` mal validado vaza o tempo do colega.
 
-As três rotas declaram ``Depends(get_current_user)`` por função, em vez do
+As rotas declaram ``Depends(get_current_user)`` por função, em vez do
 padrão de outros módulos de rota (``Depends`` no ``APIRouter``, aplicado a
 todas as rotas de uma vez). É deliberado: aqui o username não é só um portão
 de acesso — é consumido diretamente por cada handler (chave de agregação,
 filtro do acumulador). Se um dia alguém "padronizar" isto para o
-``APIRouter``, as três rotas param de receber ``usuario`` como parâmetro.
+``APIRouter``, as rotas param de receber ``usuario`` como parâmetro.
 """
 
 from __future__ import annotations
 
 import calendar
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -42,6 +42,12 @@ from app.api.uso_store import (
     agregado_do_periodo,
     dia_local,
     ler_mes,
+)
+from ranking_msc.outputs.uso_pdf import (
+    UsoLinha,
+    UsoPdfPayload,
+    render_uso_pdf,
+    titulo_rota,
 )
 
 router = APIRouter(prefix="/api", tags=["uso"])
@@ -240,4 +246,54 @@ def get_uso_anual(
         total_aberto_s=sum(item.aberto_s for item in meses),
         total_ativo_s=sum(item.ativo_s for item in meses),
         meses=meses,
+    )
+
+
+@router.get(
+    "/uso/relatorio",
+    response_class=Response,
+    summary="PDF do relatório de uso do usuário autenticado",
+)
+def get_uso_relatorio(
+    escala: Literal["dia", "semana", "mes"] = Query(..., description="Bucket do período"),
+    ref: str = Query(..., description="Data de referência YYYY-MM-DD"),
+    usuario: str = Depends(get_current_user),  # noqa: B008
+) -> Response:
+    """Emite o relatório de uso em PDF para o período de ``escala`` que contém ``ref``.
+
+    Reaproveita ``get_uso_historico`` para que o PDF mostre exatamente os
+    mesmos números da tela "Meu tempo de uso". Como lá, o usuário sai do JWT:
+    ninguém emite o relatório de outra pessoa.
+
+    Raises:
+        HTTPException 422: se ``ref`` não for uma data ISO válida.
+    """
+    historico = get_uso_historico(escala=escala, ref=ref, usuario=usuario)
+    payload = UsoPdfPayload(
+        usuario=usuario,
+        escala=historico.escala,
+        inicio=historico.inicio,
+        fim=historico.fim,
+        total_aberto_s=historico.total_aberto_s,
+        total_ativo_s=historico.total_ativo_s,
+        data_geracao=datetime.now().astimezone().strftime("%d/%m/%Y %H:%M"),
+        rotas=[
+            UsoLinha(rotulo=titulo_rota(item.rota), aberto_s=item.aberto_s, ativo_s=item.ativo_s)
+            for item in historico.rotas
+        ],
+        dias=[
+            UsoLinha(
+                rotulo=date.fromisoformat(item.dia).strftime("%d/%m/%Y"),
+                aberto_s=item.aberto_s,
+                ativo_s=item.ativo_s,
+            )
+            for item in historico.dias
+            if historico.inicio <= item.dia <= historico.fim
+        ],
+    )
+    filename = f"uso_{historico.inicio}_{historico.fim}.pdf"
+    return Response(
+        content=render_uso_pdf(payload),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

@@ -536,3 +536,44 @@ class TestUsoAnual:
 
         corpo = client.get(f"/api/uso/anual?ano={ano_corrente}").json()
         assert corpo["total_aberto_s"] == 0
+
+
+
+class TestRelatorio:
+    def test_relatorio_retorna_pdf_do_proprio_usuario(self) -> None:
+        """O PDF sai com o usuário do token e o tempo registrado no período."""
+        from app.api.uso_store import dia_local
+
+        client.post(
+            "/api/uso/heartbeat",
+            json={"rota": "/pendencias", "aberto_s": 120, "ativo_s": 90},
+        )
+        resposta = client.get("/api/uso/relatorio", params={"escala": "semana", "ref": dia_local()})
+        assert resposta.status_code == 200
+        assert resposta.headers["content-type"] == "application/pdf"
+        assert "attachment" in resposta.headers["content-disposition"]
+        corpo = resposta.content
+        assert corpo.startswith(b"%PDF")
+        assert b"test-user" in corpo
+        assert b"Pend" in corpo
+        assert b"2min" in corpo
+
+    def test_relatorio_sem_uso_ainda_gera_pdf(self) -> None:
+        """Período vazio não é erro: o PDF diz que não há uso registrado."""
+        resposta = client.get("/api/uso/relatorio", params={"escala": "mes", "ref": "2025-01-15"})
+        assert resposta.status_code == 200
+        assert b"Sem uso registrado" in resposta.content
+
+    def test_relatorio_rejeita_data_invalida(self) -> None:
+        resposta = client.get("/api/uso/relatorio", params={"escala": "dia", "ref": "ontem"})
+        assert resposta.status_code == 422
+
+    def test_relatorio_nao_aceita_outro_usuario(self) -> None:
+        """Parâmetro ``usuario`` é ignorado: o relatório é sempre de quem está logado."""
+        resposta = client.get(
+            "/api/uso/relatorio",
+            params={"escala": "mes", "ref": "2025-01-15", "usuario": "outra@pessoa.com"},
+        )
+        assert resposta.status_code == 200
+        assert b"outra@pessoa.com" not in resposta.content
+        assert b"test-user" in resposta.content

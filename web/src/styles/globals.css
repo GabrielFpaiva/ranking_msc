@@ -539,6 +539,7 @@ a:focus-visible { outline-offset: 2px; }
 .uso-screen { --font-display: var(--font-body); }
 .uso-duration { font-family: var(--font-body); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .uso-escala-chips { display: flex; gap: 8px; }
+.uso-acoes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .uso-total { font-size: 40px; font-weight: 600; color: var(--fg-1); line-height: 1; }
 /* Número grande e o trio aberto/ativo/ocioso lado a lado, não mais
    empilhados — o ponto deste redesenho é usar espaço horizontal (F6-01);

@@ -352,6 +352,16 @@ export const api = {
     _triggerBlobDownload(await res.blob(), `pendencias_${siconfi}_${competencia}.xlsx`);
   },
 
+  usoRelatorio: async (escala: EscalaUso, ref: string): Promise<void> => {
+    const res = await fetchAuth(`${BASE}/uso/relatorio${qs({ escala, ref })}`);
+    if (!res.ok) {
+      throw new ApiError(res.status, (await extractDetail(res)) ?? res.statusText);
+    }
+    const disposicao = res.headers.get('Content-Disposition') ?? '';
+    const nome = /filename="([^"]+)"/.exec(disposicao)?.[1] ?? `uso_${ref}.pdf`;
+    _triggerBlobDownload(await res.blob(), nome);
+  },
+
   exportPdf: async (siconfi: string, competencia: string): Promise<void> => {
     const res = await fetchAuth(`${BASE}/exports/pdf${qs({ siconfi, competencia })}`);
     if (!res.ok) {
