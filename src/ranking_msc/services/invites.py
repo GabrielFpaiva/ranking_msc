@@ -220,8 +220,9 @@ _MSG_INVALID = (
 _MSG_EXPIRED = "O convite venceu. Peça um novo convite ao responsável técnico."
 _MSG_KEY_PASSWORD = "Senha da chave incorreta. Confira a senha e tente de novo."
 _MSG_KEY_MISMATCH = (
-    "A chave de convites deste computador não é a da versão instalada. Instale a versão "
-    "do MCRA gerada depois da troca da chave e tente de novo."
+    "A chave de convites deste computador não é a da versão instalada. Se você recebeu "
+    "um código de ativação novo, clique em \"Esqueci a senha da chave\" e ative de novo "
+    "com ele; senão, instale a versão do MCRA mais recente."
 )
 
 MSG_INVALID_EMAIL = "E-mail inválido. Digite só o endereço, sem nome, ponto e vírgula ou sinais."

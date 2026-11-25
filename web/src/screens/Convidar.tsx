@@ -129,7 +129,9 @@ export function Convidar() {
       void carregarLista();
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 403) {
-        setSemPermissao(true);
+        // Arquivos locais sumiram com a tela aberta: o emissor ativa de novo.
+        if (acesso?.can_activate) setAcesso({ ...acesso, can_invite: false });
+        else setSemPermissao(true);
       } else {
         setErro(friendlySendError(err));
       }

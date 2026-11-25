@@ -195,6 +195,17 @@ describe('Convidar — ativação pelo app (sem Python na máquina de quem convi
     expect(screen.getByText('nova@gmail.com')).toBeTruthy();
   });
 
+  it('403 ao enviar, para quem pode ativar, leva à ativação e não a "Sem permissão"', async () => {
+    const user = userEvent.setup();
+    createInviteMock.mockRejectedValue(new ApiError(403, 'Sem permissão para convidar.'));
+    renderConvidar();
+
+    await emitir(user);
+
+    expect(await screen.findByText('Ativar os convites neste computador')).toBeTruthy();
+    expect(screen.queryByText('Sem permissão para convidar')).toBeNull();
+  });
+
   it('"Esqueci a senha da chave" abre a reativação', async () => {
     const user = userEvent.setup();
     renderConvidar();
@@ -270,6 +281,7 @@ describe('Convidar — sem permissão', () => {
   });
 
   it('403 ao enviar (permissão perdida) troca o formulário pelo aviso', async () => {
+    inviteAccessMock.mockResolvedValue({ ...ACESSO_EMISSOR, can_activate: false });
     createInviteMock.mockRejectedValue(new ApiError(403, 'Sem permissão para convidar.'));
     const user = userEvent.setup();
     renderConvidar();

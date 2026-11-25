@@ -579,6 +579,15 @@ class TestActivationCode:
         assert not dentro.exists()
         assert load_invite_config(com_issuer).public_key == ""
 
+    def test_recusa_gravar_o_codigo_em_qualquer_repositorio_git(
+        self, com_issuer: Path, tmp_path: Path
+    ) -> None:
+        """Checkout principal que contém a worktree também é repositório: recusa."""
+        outro_repo = tmp_path / "outro-repo"
+        (outro_repo / ".git").mkdir(parents=True)
+        assert self._rodar(com_issuer, outro_repo / "sub" / "codigo.txt") == 2
+        assert not (outro_repo / "sub" / "codigo.txt").exists()
+
     def test_invites_yaml_sem_linha_issuer_recusa(
         self, invites_file: Path, tmp_path: Path
     ) -> None:

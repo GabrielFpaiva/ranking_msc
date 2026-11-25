@@ -950,8 +950,9 @@ class TestEmitir:
 
         assert resposta.status_code == 409, resposta.text
         assert resposta.json()["detail"] == (
-            "A chave de convites deste computador não é a da versão instalada. Instale a "
-            "versão do MCRA gerada depois da troca da chave e tente de novo."
+            "A chave de convites deste computador não é a da versão instalada. Se você "
+            "recebeu um código de ativação novo, clique em \"Esqueci a senha da chave\" e "
+            "ative de novo com ele; senão, instale a versão do MCRA mais recente."
         )
         assert ambiente.envio.chamadas == []
         assert not ambiente.store.sent_path.exists()

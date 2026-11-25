@@ -315,7 +315,11 @@ def _run_activation_code(args: argparse.Namespace) -> int:
     invites_file = (
         Path(args.invites_file).expanduser() if args.invites_file else _DEFAULT_INVITES_FILE
     )
-    if out.is_relative_to(_PROJECT_ROOT.resolve()):
+    # Qualquer repositório git acima do --out (a worktree, o checkout principal que a
+    # contém): um `git add .` descuidado publicaria a chave privada num repo público.
+    if out.is_relative_to(_PROJECT_ROOT.resolve()) or any(
+        (parent / ".git").exists() for parent in out.parents
+    ):
         raise ConfigError(
             "--out precisa ficar fora do repositório: o código de ativação é segredo e não "
             "pode ir para commit."
