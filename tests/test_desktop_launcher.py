@@ -249,3 +249,28 @@ def test_fora_do_windows_nao_toca_em_ctypes(tmp_path: Path, monkeypatch) -> None
     assert main([]) == 1
 
     ctypes_falso.windll.user32.MessageBoxW.assert_not_called()
+
+
+def test_janela_liga_downloads_antes_de_criar_a_janela(monkeypatch) -> None:
+    """Sem ALLOW_DOWNLOADS o pywebview cancela todo download (relatório, Excel, PDF)."""
+    import sys
+    import types
+
+    chamadas: list[str] = []
+    settings: dict[str, bool] = {"ALLOW_DOWNLOADS": False}
+    falso = types.ModuleType("webview")
+
+    def create_window(*args: object, **kwargs: object) -> None:
+        chamadas.append(f"create_window downloads={settings['ALLOW_DOWNLOADS']}")
+
+    def start() -> None:
+        chamadas.append("start")
+
+    falso.settings = settings  # type: ignore[attr-defined]
+    falso.create_window = create_window  # type: ignore[attr-defined]
+    falso.start = start  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "webview", falso)
+
+    launcher_module._abrir_janela("http://127.0.0.1:1234")
+
+    assert chamadas == ["create_window downloads=True", "start"]

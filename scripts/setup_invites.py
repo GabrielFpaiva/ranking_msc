@@ -56,9 +56,11 @@ from ranking_msc.services.invites import (  # noqa: E402
     InviteStore,
     IssuerConfig,
     encrypt_secret,
+    generate_activation_code,
     generate_keypair,
     is_valid_email,
     load_invite_config,
+    normalize_email,
 )
 from ranking_msc.services.users import find_username  # noqa: E402
 
@@ -83,7 +85,39 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Instala a chave do convite assinado e troca o link do instalador.",
     )
-    commands = parser.add_subparsers(dest="command", required=True, metavar="{init,set-url}")
+    commands = parser.add_subparsers(
+        dest="command", required=True, metavar="{activation-code,init,set-url}"
+    )
+
+    activation = commands.add_parser(
+        "activation-code",
+        help="Gera a chave e o código de ativação para quem convida ativar no próprio app.",
+        description=(
+            "Gera o par de chaves, grava a chave pública e o login de quem convida em "
+            "config/invites.yaml e o código de ativação (a chave privada) no arquivo --out. "
+            "Quem convida cola o código na tela Convidar do MCRA instalado: não precisa de "
+            "Python nem do clone."
+        ),
+    )
+    activation.add_argument(
+        "--issuer",
+        required=True,
+        help="Login no MCRA de quem vai convidar (só ele vê a ativação).",
+    )
+    activation.add_argument(
+        "--out",
+        required=True,
+        help="Arquivo onde gravar o código de ativação (fora do repositório; é segredo).",
+    )
+    activation.add_argument(
+        "--invites-file",
+        help="Caminho do invites.yaml (padrão: config/invites.yaml do repositório).",
+    )
+    activation.add_argument(
+        "--force",
+        action="store_true",
+        help="Troca a chave existente (os convites antigos deixam de valer).",
+    )
 
     init = commands.add_parser(
         "init",
@@ -269,6 +303,51 @@ def _run_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_activation_code(args: argparse.Namespace) -> int:
+    """Executa ``activation-code``: chave nova, ``invites.yaml`` e o código no ``--out``.
+
+    O código nunca é impresso: vai só para o arquivo ``--out``, que precisa ficar
+    fora do repositório. Recusa sobrescrever chave pública ou arquivo existente sem
+    ``--force``.
+    """
+    issuer = normalize_email(_clean_address(args.issuer, "--issuer"))
+    out = Path(args.out).expanduser().resolve()
+    invites_file = (
+        Path(args.invites_file).expanduser() if args.invites_file else _DEFAULT_INVITES_FILE
+    )
+    if out.is_relative_to(_PROJECT_ROOT.resolve()):
+        raise ConfigError(
+            "--out precisa ficar fora do repositório: o código de ativação é segredo e não "
+            "pode ir para commit."
+        )
+    invites_text = _read_invites_text(invites_file)
+    replace_yaml_value(invites_text, "public_key", "")  # confere que as linhas existem
+    replace_yaml_value(invites_text, "issuer", "")
+    if load_invite_config(invites_file).public_key and not args.force:
+        raise ConfigError(
+            f"Já existe uma chave pública no {invites_file.name}. Trocá-la invalida todos os "
+            "convites já emitidos e exige ativar de novo. Para trocar mesmo assim, rode de "
+            "novo com --force."
+        )
+    if out.exists() and not args.force:
+        raise ConfigError(f"O arquivo {out} já existe. Escolha outro --out ou use --force.")
+
+    code, public_key = generate_activation_code()
+    new_text = replace_yaml_value(invites_text, "public_key", public_key)
+    new_text = replace_yaml_value(new_text, "issuer", issuer)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(code + "\n", encoding="utf-8")
+    _write_invites_text(invites_file, new_text)
+
+    print(f"Código de ativação gravado em: {out}")
+    print(f"Chave pública e emissor ({issuer}) gravados em: {invites_file}")
+    print(
+        "Próximos passos: commit do invites.yaml, release, e envie o código de ativação a "
+        f"{issuer} por canal privado. Ele cola o código em Convidar, no MCRA instalado."
+    )
+    return 0
+
+
 def _run_set_url(args: argparse.Namespace) -> int:
     """Executa ``set-url``: troca só a linha ``installer_url:`` do invites.yaml.
 
@@ -301,6 +380,8 @@ def run_cli(argv: list[str] | None = None) -> int:
     try:
         if args.command == "init":
             return _run_init(args)
+        if args.command == "activation-code":
+            return _run_activation_code(args)
         return _run_set_url(args)
     except (ConfigError, InviteError) as exc:
         print(f"ERRO: {exc}", file=sys.stderr)

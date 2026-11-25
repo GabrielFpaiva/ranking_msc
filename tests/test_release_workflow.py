@@ -134,3 +134,34 @@ def test_envio_so_roda_se_o_rclone_foi_instalado() -> None:
     """Instalação falhou (com continue-on-error) → o envio é pulado, não quebra no PATH."""
     assert "steps.rclone.outcome == 'success'" in str(_passo_do_drive()["if"])
     assert _passo_de_instalacao().get("id") == "rclone"
+
+
+def _passo_da_release() -> dict[str, Any]:
+    achados = [p for p in _passos() if p.get("name") == "Publicar na Release do GitHub"]
+    assert len(achados) == 1
+    return achados[0]
+
+
+def test_release_do_github_vem_depois_do_artefato_e_so_em_tag() -> None:
+    """O e-mail do convite aponta para releases/latest: a tag precisa publicar a Release."""
+    nomes = [p.get("uses", p.get("name")) for p in _passos()]
+    artefato = next(i for i, n in enumerate(nomes) if str(n).startswith("actions/upload-artifact"))
+    assert nomes.index("Publicar na Release do GitHub") > artefato
+    assert "refs/tags/v" in str(_passo_da_release()["if"])
+
+
+def test_release_publica_o_nome_fixo_do_link_do_convite() -> None:
+    """installer_url usa releases/latest/download/MCRA-Setup.exe: o nome não pode mudar."""
+    passo = _passo_da_release()
+    assert "MCRA-Setup.exe" in passo["run"]
+    assert "--clobber" in passo["run"]
+    invites = yaml.safe_load(
+        (_WORKFLOW.parents[2] / "config" / "invites.yaml").read_text(encoding="utf-8")
+    )
+    assert invites["installer_url"].endswith("/releases/latest/download/MCRA-Setup.exe")
+
+
+def test_release_confere_tag_contra_a_versao_e_tem_permissao_de_escrita() -> None:
+    passo = _passo_da_release()
+    assert "steps.versao.outputs.valor" in passo["env"]["VERSAO"]
+    assert _job()["permissions"]["contents"] == "write"

@@ -30,6 +30,7 @@ from ranking_msc.services.invites import (
     InviteStore,
     IssuerConfig,
     encrypt_secret,
+    generate_activation_code,
     generate_keypair,
     issue_invite,
     verify_invite,
@@ -44,6 +45,9 @@ SENHA_NOVA = "senha-nova-do-convidado-9"
 EMISSOR = "gabriel@exemplo.com"
 SMTP_USER = "envio@gmail.com"
 INSTALLER_URL = "https://drive.example/pasta-do-instalador"
+
+PODE_CONVIDAR = {"can_invite": True, "can_activate": False, "smtp_user": SMTP_USER}
+NAO_PODE = {"can_invite": False, "can_activate": False, "smtp_user": None}
 
 
 @dataclass
@@ -108,13 +112,16 @@ class Ambiente:
         )
 
 
-def _escrever_invites(path: Path, public_key: str, validity_days: int = 7) -> None:
+def _escrever_invites(
+    path: Path, public_key: str, validity_days: int = 7, issuer: str = ""
+) -> None:
     path.write_text(
         yaml.safe_dump(
             {
                 "public_key": public_key,
                 "installer_url": INSTALLER_URL,
                 "validity_days": validity_days,
+                "issuer": issuer,
             }
         ),
         encoding="utf-8",
@@ -515,13 +522,13 @@ class TestCapability:
         ambiente.como(EMISSOR)
         resposta = ambiente.client.get("/api/invites/capability")
         assert resposta.status_code == 200
-        assert resposta.json() == {"can_invite": True}
+        assert resposta.json() == PODE_CONVIDAR
 
     def test_comparacao_do_emissor_ignora_caixa_e_espacos(self, ambiente: Ambiente) -> None:
         """O username gravado pode ser Gabriel@Exemplo.com; o emissor está normalizado."""
         ambiente.configurar_emissor()
         ambiente.como(" Gabriel@EXEMPLO.com ")
-        assert ambiente.client.get("/api/invites/capability").json() == {"can_invite": True}
+        assert ambiente.client.get("/api/invites/capability").json() == PODE_CONVIDAR
 
     @pytest.mark.parametrize(
         "cenario", ["outro_usuario", "sem_chave_privada", "sem_emissor", "recurso_desligado"]
@@ -542,7 +549,7 @@ class TestCapability:
             ambiente.configurar_emissor()
             ambiente.desligar()
         ambiente.como(usuario)
-        assert ambiente.client.get("/api/invites/capability").json() == {"can_invite": False}
+        assert ambiente.client.get("/api/invites/capability").json() == NAO_PODE
 
     @pytest.mark.parametrize(
         "defeito", ["yaml_ilegivel", "chave_publica_malformada", "emissor_ilegivel"]
@@ -562,11 +569,187 @@ class TestCapability:
         with caplog.at_level(logging.WARNING, logger="ranking_msc"):
             resposta = ambiente.client.get("/api/invites/capability")
         assert resposta.status_code == 200
-        assert resposta.json() == {"can_invite": False}
+        assert resposta.json() == NAO_PODE
         assert any(r.levelno == logging.WARNING for r in caplog.records)
 
 
 # --------------------------------------------------------------------------- emissão
+
+
+class TestAtivacao:
+    """Ativação pelo app: o P.O. não tem Python nem clone, então o CLI não roda lá."""
+
+    SENHA_ESCOLHIDA = "minha-senha-da-chave-42"
+
+    @pytest.fixture
+    def ativavel(self, ambiente: Ambiente) -> tuple[Ambiente, str]:
+        """invites.yaml com issuer = EMISSOR e chave pública do par do código de ativação."""
+        codigo, publica = generate_activation_code()
+        _escrever_invites(ambiente.invites_path, publica, issuer=" Gabriel@Exemplo.com ")
+        ambiente.como(EMISSOR)
+        return ambiente, codigo
+
+    def _ativar(self, ambiente: Ambiente, codigo: str, **mudancas: str):  # noqa: ANN202
+        corpo = {
+            "activation_code": codigo,
+            "key_password": self.SENHA_ESCOLHIDA,
+            "smtp_user": SMTP_USER,
+            "smtp_password": APP_PASSWORD,
+        }
+        corpo.update(mudancas)
+        return ambiente.client.post("/api/invites/activate", json=corpo)
+
+    def test_issuer_antes_de_ativar_pode_ativar_mas_nao_convidar(
+        self, ativavel: tuple[Ambiente, str]
+    ) -> None:
+        ambiente, _ = ativavel
+        assert ambiente.client.get("/api/invites/capability").json() == {
+            "can_invite": False,
+            "can_activate": True,
+            "smtp_user": None,
+        }
+
+    def test_outro_usuario_nao_ve_a_ativacao(self, ativavel: tuple[Ambiente, str]) -> None:
+        ambiente, _ = ativavel
+        ambiente.como("colega@exemplo.com")
+        assert ambiente.client.get("/api/invites/capability").json() == NAO_PODE
+
+    def test_ativar_e_depois_convidar_com_a_senha_escolhida(
+        self, ativavel: tuple[Ambiente, str]
+    ) -> None:
+        """Fluxo inteiro sem CLI: ativa, emite, e o código emitido é aceito."""
+        ambiente, codigo = ativavel
+        resposta = self._ativar(ambiente, f"  {codigo[:20]}\n{codigo[20:]} ")
+        assert resposta.status_code == 200
+        assert resposta.json() == {
+            "can_invite": True,
+            "can_activate": True,
+            "smtp_user": SMTP_USER,
+        }
+
+        emitido = ambiente.client.post(
+            "/api/invites",
+            json={"email": "novo@exemplo.com", "key_password": self.SENHA_ESCOLHIDA},
+        )
+        assert emitido.status_code == 201
+        _, usuario_smtp, senha_smtp = ambiente.envio.chamadas[-1]
+        assert (usuario_smtp, senha_smtp) == (SMTP_USER, APP_PASSWORD.replace(" ", ""))
+        ambiente.sem_login()
+        assert ambiente.aceitar(emitido.json()["code"]).status_code == 201
+
+    def test_codigo_de_outra_chave_retorna_409_sem_gravar(
+        self, ativavel: tuple[Ambiente, str]
+    ) -> None:
+        ambiente, _ = ativavel
+        outro, _ = generate_activation_code()
+        resposta = self._ativar(ambiente, outro)
+        assert resposta.status_code == 409
+        assert "versão" in resposta.json()["detail"]
+        assert not ambiente.store.has_private_key()
+        assert ambiente.store.read_issuer() is None
+
+    @pytest.mark.parametrize("lixo", ["MCRA1.abc.def", "MCRA-ATIVACAO1.!!", "MCRA-ATIVACAO1.AAAA"])
+    def test_texto_que_nao_e_codigo_retorna_400(
+        self, ativavel: tuple[Ambiente, str], lixo: str
+    ) -> None:
+        ambiente, _ = ativavel
+        resposta = self._ativar(ambiente, lixo)
+        assert resposta.status_code == 400
+        assert "código de ativação é inválido" in resposta.json()["detail"]
+        assert not ambiente.store.has_private_key()
+
+    def test_quem_nao_e_o_issuer_leva_403_mesmo_com_o_codigo(
+        self, ativavel: tuple[Ambiente, str]
+    ) -> None:
+        ambiente, codigo = ativavel
+        ambiente.como("colega@exemplo.com")
+        assert self._ativar(ambiente, codigo).status_code == 403
+        assert not ambiente.store.has_private_key()
+
+    def test_sem_issuer_no_invites_yaml_ninguem_ativa(self, ambiente: Ambiente) -> None:
+        codigo, publica = generate_activation_code()
+        _escrever_invites(ambiente.invites_path, publica)
+        ambiente.como(EMISSOR)
+        assert self._ativar(ambiente, codigo).status_code == 403
+
+    @pytest.mark.parametrize(
+        ("campo", "valor", "trecho"),
+        [
+            ("activation_code", "  ", "Cole o código de ativação"),
+            ("key_password", "curta", "12 caracteres"),
+            ("smtp_user", "Fulano <a@b.co>", "Conta do Gmail"),
+            ("smtp_password", "   ", "senha de app"),
+        ],
+    )
+    def test_campos_invalidos_retornam_422_em_portugues(
+        self, ativavel: tuple[Ambiente, str], campo: str, valor: str, trecho: str
+    ) -> None:
+        ambiente, codigo = ativavel
+        resposta = self._ativar(ambiente, codigo, **{campo: valor})
+        assert resposta.status_code == 422
+        assert trecho in resposta.json()["detail"]
+        assert not ambiente.store.has_private_key()
+
+    def test_reativar_troca_a_senha_da_chave(self, ativavel: tuple[Ambiente, str]) -> None:
+        """Esqueceu a senha da chave: reativa com o código e escolhe outra."""
+        ambiente, codigo = ativavel
+        assert self._ativar(ambiente, codigo).status_code == 200
+        reativado = self._ativar(ambiente, codigo, key_password="outra-senha-da-chave")
+        assert reativado.status_code == 200
+        antiga = ambiente.client.post(
+            "/api/invites", json={"email": "a@exemplo.com", "key_password": self.SENHA_ESCOLHIDA}
+        )
+        nova = ambiente.client.post(
+            "/api/invites", json={"email": "a@exemplo.com", "key_password": "outra-senha-da-chave"}
+        )
+        assert (antiga.status_code, nova.status_code) == (400, 201)
+
+    def test_nada_secreto_vai_para_o_log(
+        self, ativavel: tuple[Ambiente, str], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        ambiente, codigo = ativavel
+        with caplog.at_level(logging.DEBUG, logger="ranking_msc"):
+            self._ativar(ambiente, codigo)
+            self._ativar(ambiente, codigo, key_password="x")
+        tudo = caplog.text + "".join(str(r.__dict__) for r in caplog.records)
+        for segredo in (codigo, codigo.split(".")[1], self.SENHA_ESCOLHIDA, "abcdefghijklmnop"):
+            assert segredo not in tudo
+
+
+class TestContaDeEnvio:
+    def _trocar(self, ambiente: Ambiente, **mudancas: str):  # noqa: ANN202
+        corpo = {
+            "key_password": KEY_PASSWORD,
+            "smtp_user": "outra.conta@gmail.com",
+            "smtp_password": "wxyz wxyz wxyz wxyz",
+        }
+        corpo.update(mudancas)
+        return ambiente.client.put("/api/invites/sender", json=corpo)
+
+    def test_troca_a_conta_e_o_envio_usa_a_nova(self, ambiente: Ambiente) -> None:
+        ambiente.configurar_emissor()
+        ambiente.como(EMISSOR)
+        resposta = self._trocar(ambiente)
+        assert resposta.status_code == 200
+        assert resposta.json()["smtp_user"] == "outra.conta@gmail.com"
+        ambiente.client.post(
+            "/api/invites", json={"email": "b@exemplo.com", "key_password": KEY_PASSWORD}
+        )
+        _, usuario_smtp, senha_smtp = ambiente.envio.chamadas[-1]
+        assert (usuario_smtp, senha_smtp) == ("outra.conta@gmail.com", "wxyzwxyzwxyzwxyz")
+
+    def test_senha_da_chave_errada_retorna_400_sem_gravar(self, ambiente: Ambiente) -> None:
+        ambiente.configurar_emissor()
+        ambiente.como(EMISSOR)
+        resposta = self._trocar(ambiente, key_password="errada-errada-1")
+        assert resposta.status_code == 400
+        issuer = ambiente.store.read_issuer()
+        assert issuer is not None and issuer.smtp_user == SMTP_USER
+
+    def test_quem_nao_pode_convidar_leva_403(self, ambiente: Ambiente) -> None:
+        ambiente.configurar_emissor()
+        ambiente.como("colega@exemplo.com")
+        assert self._trocar(ambiente).status_code == 403
 
 
 class TestEmitir:

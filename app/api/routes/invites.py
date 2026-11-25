@@ -11,12 +11,20 @@ POST /api/auth/invite/accept  — aceita um código: cria a conta ou troca a sen
 
 Com login (só quem é o emissor, no computador que tem a chave):
 
-GET  /api/invites/capability  — o usuário logado pode convidar?
+GET  /api/invites/capability  — o usuário logado pode convidar? pode ativar?
+POST /api/invites/activate    — ativa os convites neste computador (código de ativação).
+PUT  /api/invites/sender      — troca a conta do Gmail ou a senha de app.
 POST /api/invites             — emite um convite e o envia por e-mail.
 GET  /api/invites             — convites emitidos neste computador.
 
-Nunca vai para log: o código do convite, a senha da chave, a senha de app e a senha
-nova do convidado.
+A ativação existe porque a cerimônia pelo CLI (``scripts/setup_invites.py init``)
+exige Python e o clone do repositório, e o computador de quem convida (o P.O.) não
+tem nenhum dos dois: o convite nunca chegou a funcionar lá. Pelo app, quem é o
+``issuer`` do ``invites.yaml`` cola o código de ativação, escolhe a senha da chave e
+informa a conta do Gmail, sem depender de ninguém.
+
+Nunca vai para log: o código do convite, o código de ativação, a senha da chave, a
+senha de app e a senha nova do convidado.
 """
 
 from __future__ import annotations
@@ -49,16 +57,21 @@ from ranking_msc.exceptions import (
 )
 from ranking_msc.services.invite_email import build_invite_message, send_invite_email
 from ranking_msc.services.invites import (
+    MIN_KEY_PASSWORD_LENGTH,
     MSG_INVALID_EMAIL,
+    MSG_SHORT_KEY_PASSWORD,
     InviteConfig,
     InviteStore,
     IssuerConfig,
+    check_key_password,
     decrypt_secret,
+    encrypt_secret,
     is_valid_email,
     issue_invite,
     load_invite_config,
     load_public_key,
     normalize_email,
+    seal_activation_code,
     verify_invite,
 )
 from ranking_msc.services.users import find_username, provision_user
@@ -127,6 +140,13 @@ _MSG_PASSWORD = (
     "Escolha outra senha."
 )
 _MSG_KEY_PASSWORD_EMPTY = "Digite a senha da chave."
+_MSG_NOT_ACTIVATOR = (
+    "Só o responsável pelos convites, entrando com o login dele, pode ativar os convites "
+    "neste computador."
+)
+_MSG_ACTIVATION_EMPTY = "Cole o código de ativação que o responsável técnico enviou."
+_MSG_SMTP_PASSWORD_EMPTY = "Digite a senha de app do Gmail."
+_MSG_SMTP_USER = f"Conta do Gmail: {MSG_INVALID_EMAIL}"
 _MSG_SETTINGS = (
     "Não foi possível gravar a conta: o arquivo de configuração do MCRA está com problema. "
     "Peça ajuda ao responsável técnico."
@@ -189,9 +209,33 @@ class AcceptOut(BaseModel):
 
 
 class CapabilityOut(BaseModel):
-    """O usuário logado pode emitir convites neste computador?"""
+    """O que o usuário logado pode fazer com convites neste computador.
+
+    ``can_activate`` é verdadeiro para o ``issuer`` do ``invites.yaml`` mesmo depois de
+    ativado: reativar com o código é o caminho de "esqueci a senha da chave".
+    ``smtp_user`` só vem para quem pode convidar.
+    """
 
     can_invite: bool
+    can_activate: bool = False
+    smtp_user: str | None = None
+
+
+class ActivateIn(BaseModel):
+    """Código de ativação, a senha da chave escolhida e a conta de envio."""
+
+    activation_code: str
+    key_password: str
+    smtp_user: str
+    smtp_password: str
+
+
+class SenderIn(BaseModel):
+    """Conta de envio nova, autorizada pela senha da chave."""
+
+    key_password: str
+    smtp_user: str
+    smtp_password: str
 
 
 class InviteIn(BaseModel):
@@ -431,12 +475,137 @@ def capability(
     config = _usable_config(path)
     if config is None:
         return CapabilityOut(can_invite=False)
+    can_activate = _is_activator(current_user, config)
     try:
         issuer = _issuer_for(current_user, config, store)
     except ConfigError as exc:
+        # Arquivo local ilegível: quem pode ativar refaz a ativação por cima dele.
         logger.warning("Convite: sem permissão para convidar, arquivo ilegível: %s", exc)
-        return CapabilityOut(can_invite=False)
-    return CapabilityOut(can_invite=issuer is not None)
+        return CapabilityOut(can_invite=False, can_activate=can_activate)
+    return CapabilityOut(
+        can_invite=issuer is not None,
+        can_activate=can_activate,
+        smtp_user=issuer.smtp_user if issuer is not None else None,
+    )
+
+
+def _is_activator(user: str, config: InviteConfig) -> bool:
+    """Indica se ``user`` é o ``issuer`` do ``invites.yaml`` (com o recurso ligado)."""
+    return config.enabled and bool(config.issuer) and config.issuer == normalize_email(user)
+
+
+def _clean_sender(smtp_user: str, smtp_password: str) -> tuple[str, str]:
+    """Valida a conta de envio; a senha de app sai sem espaços (o Google a mostra em blocos).
+
+    Raises:
+        HTTPException 422: conta fora do padrão estrito, ou senha de app vazia.
+    """
+    user = smtp_user.strip()
+    if not is_valid_email(user):
+        raise _unprocessable(_MSG_SMTP_USER)
+    password = "".join(smtp_password.split())
+    if not password:
+        raise _unprocessable(_MSG_SMTP_PASSWORD_EMPTY)
+    return user, password
+
+
+@router.post(
+    "/activate",
+    response_model=CapabilityOut,
+    summary="Ativa os convites neste computador com o código de ativação",
+)
+def activate_invites(
+    body: ActivateIn,
+    current_user: str = Depends(get_current_user),  # noqa: B008
+    config: InviteConfig = Depends(get_invite_config),  # noqa: B008
+    store: InviteStore = Depends(get_invite_store),  # noqa: B008
+) -> CapabilityOut:
+    """Grava a chave privada (cifrada com a senha escolhida) e a conta de envio.
+
+    Só o ``issuer`` do ``invites.yaml`` ativa, e só com o código que é o par da chave
+    pública instalada: o login sozinho não basta, nem o código sozinho. Reativar
+    por cima de uma ativação anterior é permitido (troca a senha da chave).
+
+    Raises:
+        HTTPException 403: convites desligados, ou o usuário não é o ``issuer``.
+        HTTPException 422: campo vazio, conta do Gmail inválida ou senha da chave curta.
+        HTTPException 400: o texto não é um código de ativação.
+        HTTPException 409: o código não é desta versão, ou arquivo de convite ilegível.
+    """
+    if not config.enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_MSG_DISABLED)
+    if not _is_activator(current_user, config):
+        logger.warning("Convite: ativação recusada para '%s' (não é o emissor).", current_user)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_MSG_NOT_ACTIVATOR)
+    if not body.activation_code.strip():
+        raise _unprocessable(_MSG_ACTIVATION_EMPTY)
+    if len(body.key_password) < MIN_KEY_PASSWORD_LENGTH:
+        raise _unprocessable(MSG_SHORT_KEY_PASSWORD)
+    smtp_user, smtp_password = _clean_sender(body.smtp_user, body.smtp_password)
+    try:
+        pem = seal_activation_code(body.activation_code, body.key_password, config.public_key)
+    except InviteInvalidError as exc:
+        logger.warning("Convite: ativação recusada (código de ativação inválido).")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except InviteKeyMismatchError as exc:
+        logger.warning("Convite: ativação recusada (código de outra chave).")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ConfigError as exc:
+        raise _config_error(exc) from exc
+
+    store.write_private_key(pem)
+    store.write_issuer(
+        IssuerConfig(
+            email=config.issuer,
+            smtp_user=smtp_user,
+            smtp_password_encrypted=encrypt_secret(smtp_password, body.key_password),
+        )
+    )
+    logger.info("Convites ativados neste computador: emissor=%s envio=%s", config.issuer, smtp_user)
+    return CapabilityOut(can_invite=True, can_activate=True, smtp_user=smtp_user)
+
+
+@router.put(
+    "/sender",
+    response_model=CapabilityOut,
+    summary="Troca a conta do Gmail ou a senha de app que envia os convites",
+)
+def update_sender(
+    body: SenderIn,
+    current_user: str = Depends(get_current_user),  # noqa: B008
+    config: InviteConfig = Depends(get_invite_config),  # noqa: B008
+    store: InviteStore = Depends(get_invite_store),  # noqa: B008
+) -> CapabilityOut:
+    """Regrava a conta de envio, cifrando a senha de app com a senha da chave.
+
+    Raises:
+        HTTPException 403: sem permissão para convidar neste computador.
+        HTTPException 422: campo vazio ou conta do Gmail inválida.
+        HTTPException 400: senha da chave incorreta (nada é gravado).
+        HTTPException 409: arquivo de convite ilegível.
+    """
+    issuer = _require_issuer(current_user, config, store)
+    if not body.key_password:
+        raise _unprocessable(_MSG_KEY_PASSWORD_EMPTY)
+    smtp_user, smtp_password = _clean_sender(body.smtp_user, body.smtp_password)
+    try:
+        check_key_password(store.read_private_key(), body.key_password)
+    except InviteKeyPasswordError as exc:
+        logger.warning("Convite: troca da conta de envio recusada (senha da chave incorreta).")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except ConfigError as exc:
+        raise _config_error(exc) from exc
+    store.write_issuer(
+        IssuerConfig(
+            email=issuer.email,
+            smtp_user=smtp_user,
+            smtp_password_encrypted=encrypt_secret(smtp_password, body.key_password),
+        )
+    )
+    logger.info("Convite: conta de envio trocada para %s.", smtp_user)
+    return CapabilityOut(
+        can_invite=True, can_activate=_is_activator(current_user, config), smtp_user=smtp_user
+    )
 
 
 @router.post(

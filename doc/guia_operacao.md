@@ -468,9 +468,21 @@ stack) fica preservado em `doc/legacy/`, caso a decisao seja revista.
 ### Como o instalador e gerado
 
 O workflow `Release desktop` do GitHub Actions builda o instalador Windows
-(`MCRA-Setup-<versao>.exe`) a partir de uma tag `v*` (ou disparo manual) e o
-anexa como artefato da execucao (`upload-artifact`), para baixar na aba
-Actions; o workflow nao cria Release no GitHub. O instalador:
+(`MCRA-Setup-<versao>.exe`) e o anexa como artefato da execucao
+(`upload-artifact`). Numa tag `v*` ele tambem publica a **Release do GitHub**
+da tag (cria a Release se ainda nao existir) com o instalador versionado e uma
+copia de nome fixo `MCRA-Setup.exe`, que e o link do e-mail do convite. O
+disparo manual so gera o artefato.
+
+Para lancar uma versao:
+
+1. Suba `__version__` em `src/ranking_msc/__init__.py` (e `version` no
+   `pyproject.toml`).
+2. Depois do merge na `main`: `git tag v<versao>` e `git push origin v<versao>`.
+   O workflow recusa publicar se a tag nao bater com `__version__`.
+
+A v0.1.0 (25/11/2026) foi publicada assim, mas a mao (disparo manual e upload
+do `.exe` na Release); a partir da v0.1.1 o workflow faz sozinho. O instalador:
 
 - instala o aplicativo em Arquivos de Programas;
 - cria atalho no menu iniciar e na area de trabalho;
@@ -504,14 +516,15 @@ embutida no instalador.
 
 **O recurso fica desligado enquanto `public_key` estiver vazio em
 `config/invites.yaml`.** Desligado, nao aparecem "Tenho um convite" na tela de
-entrada nem "Convidar" no menu. A chave publica so e preenchida pela cerimonia
-abaixo.
+entrada nem "Convidar" no menu. A chave publica so e preenchida pela geracao da
+chave abaixo.
 
 O que fica onde:
 
 | O que | Onde | Segredo? |
 |---|---|---|
-| Chave publica, link do instalador, validade | `config/invites.yaml` (versionado e embutido no instalador) | nao |
+| Chave publica, login de quem convida (`issuer`), link do instalador, validade | `config/invites.yaml` (versionado e embutido no instalador) | nao |
+| Codigo de ativacao (a chave privada em texto) | so com quem convida e com quem gerou, fora do repositorio | sim |
 | Chave privada (o arquivo guarda a chave cifrada com a senha da chave) | `invite_key.pem`, na pasta de config local | sim |
 | Emissor, conta do Gmail e senha de app (cifrada) | `invite_issuer.yaml`, na pasta de config local | sim |
 | Convites emitidos (sem o codigo) | `invites_sent.jsonl`, na pasta de config local | nao |
@@ -522,17 +535,56 @@ A pasta de config local e a do `settings.yaml` em uso. No aplicativo desktop e
 
 **Cuidado ao desinstalar o MCRA:** o desinstalador pergunta se deve apagar os
 dados do usuario (`%LOCALAPPDATA%\MCRA`). Responder "Sim" apaga tambem o
-`invite_key.pem` e o `invite_issuer.yaml`. Antes de desinstalar no computador do
-emissor, guarde a copia dos dois arquivos (passo 5 da cerimonia abaixo) e, depois
-de reinstalar, devolva os dois a `%LOCALAPPDATA%\MCRA\config`. So a chave nao
-basta: sem o `invite_issuer.yaml` o item "Convidar" nao aparece, e recria-lo
-exige `init --force`, que troca a chave.
+`invite_key.pem` e o `invite_issuer.yaml`. Depois de reinstalar, quem convida
+ativa de novo em **Convidar** com o mesmo codigo de ativacao (ver abaixo); os
+convites ja emitidos continuam valendo.
 
-### Cerimonia do emissor (uma vez)
+### Ativacao pelo app (o caminho normal)
 
-Rode no PowerShell, da raiz do clone do repositorio, com o ambiente virtual do
-projeto (ative com `.\.venv\Scripts\Activate.ps1` ou troque `python` por
-`.\.venv\Scripts\python.exe`):
+A cerimonia pelo CLI (secao seguinte) exige Python e o clone do repositorio no
+computador de quem convida. O P.O., que e quem convida, nao tem nenhum dos dois,
+e por isso o convite nunca funcionou no computador dele (25/11/2026). A ativacao
+pelo app tira essa dependencia: o responsavel tecnico gera a chave uma vez, e
+dali em diante quem convida resolve tudo sozinho, no MCRA instalado.
+
+1. **Responsavel tecnico, uma vez**, no clone (PowerShell, com o `.venv`):
+
+   ```powershell
+   python scripts/setup_invites.py activation-code --issuer <login de quem convida> --out "$HOME\Documents\MCRA-codigo-de-ativacao.txt"
+   ```
+
+   Grava a chave publica e o `issuer` em `config/invites.yaml` e o **codigo de
+   ativacao** (a chave privada, `MCRA-ATIVACAO1.…`) no arquivo `--out`, que
+   precisa ficar fora do repositorio. O codigo nao e impresso na tela.
+2. Commit do `config/invites.yaml`, merge e tag de versao (ver "Como o
+   instalador e gerado"): o release publica o instalador na Release do GitHub.
+3. Envie o codigo de ativacao a quem convida por canal privado (nunca no grupo,
+   nunca por e-mail junto com o login).
+4. **Quem convida**, no MCRA instalado (versao nova): entra com o login do
+   `issuer`, abre **Convidar** no menu e preenche o codigo de ativacao, a senha
+   da chave que ele escolhe (12 caracteres ou mais, pedida a cada convite), a
+   conta do Gmail que envia e a senha de app dela. O app confere que o codigo e
+   o par da chave publica instalada antes de gravar.
+
+Depois disso, pela mesma tela e sem ninguem mais:
+
+- **Trocar a conta do Gmail ou a senha de app:** botao "Trocar conta ou senha de
+  app do Gmail" (pede a senha da chave).
+- **Esqueceu a senha da chave:** botao "Esqueci a senha da chave"; ativa de novo
+  com o mesmo codigo e escolhe outra senha. Os convites ja emitidos continuam.
+- **Trocou de computador ou reinstalou apagando os dados:** ativa de novo com o
+  mesmo codigo.
+
+So o login do `issuer` ve "Convidar" antes de ativar; os outros usuarios nao veem
+nada. O login sozinho nao ativa (precisa do codigo), e o codigo sozinho tambem
+nao (precisa do login).
+
+### Alternativa: cerimonia pelo CLI
+
+So para quem tem o clone no proprio computador (o desenvolvedor que tambem
+convida). Rode no PowerShell, da raiz do clone do repositorio, com o ambiente
+virtual do projeto (ative com `.\.venv\Scripts\Activate.ps1` ou troque `python`
+por `.\.venv\Scripts\python.exe`):
 
 1. Gere a chave e grave o emissor:
 
@@ -550,8 +602,8 @@ projeto (ative com `.\.venv\Scripts\Activate.ps1` ou troque `python` por
    `%LOCALAPPDATA%\MCRA\config`, e a chave publica em `config/invites.yaml`.
    Nenhum segredo e impresso na tela.
 2. Faca o commit do `config/invites.yaml` (so a chave publica mudou) e o merge.
-3. Rode o workflow `Release desktop` e ponha o instalador novo na pasta do
-   Drive (o link da pasta esta em `installer_url`).
+3. Crie a tag de versao: o `Release desktop` publica o instalador na Release do
+   GitHub, que e o link (`installer_url`) do e-mail do convite.
 4. Instale a versao nova no computador do emissor. Entrando com o e-mail do
    passo 1, o item **Convidar** aparece no menu.
 5. Guarde uma copia do `invite_key.pem` e do `invite_issuer.yaml` num lugar
@@ -606,9 +658,16 @@ cola o codigo e escolhe a senha (8 a 72 caracteres). Se o e-mail dele ja tem
 conta naquele computador, o convite **troca a senha** dessa conta: e assim que
 se atende "esqueci a senha".
 
-### Trocar o link do Drive
+### Link do instalador no e-mail
 
-O link do instalador fica so no `config/invites.yaml`. Para trocar:
+O e-mail do convite aponta para
+`https://github.com/GabrielFpaiva/ranking_msc/releases/latest/download/MCRA-Setup.exe`:
+o instalador da ultima Release do GitHub, que o `Release desktop` publica sozinho
+a cada tag `v*` (com o nome versionado e com o nome fixo `MCRA-Setup.exe`). Assim
+o link nao muda entre versoes e ninguem copia o instalador a mao. O repositorio e
+publico, entao o link baixa sem login.
+
+O link fica so no `config/invites.yaml`. Para trocar:
 
 ```powershell
 python scripts/setup_invites.py set-url <link>
@@ -621,6 +680,10 @@ link e lido do `invites.yaml` embutido no instalador, e quem monta o e-mail e o
 MCRA do emissor. Convites ja enviados continuam com o link antigo.
 
 ### Instalador no Drive (envio automatico, opcional)
+
+Desde a ativacao pelo app, o link do convite e a Release do GitHub (secao
+anterior) e o Drive deixou de ser necessario. Este passo continua no workflow
+para quem quiser manter uma copia na pasta do Drive.
 
 O workflow `Release desktop` tem um passo que envia o instalador para a pasta
 do Drive, sempre com o nome `MCRA-Setup.exe` (o arquivo anterior e substituido,
@@ -669,7 +732,13 @@ release segue normal.
 
 ### Perdeu a chave ou a senha da chave
 
-Nao ha recuperacao. Repita a cerimonia do passo 1 com `--force`:
+**Esqueceu so a senha da chave, ou perdeu os arquivos locais:** quem convida
+ativa de novo pela tela Convidar com o mesmo codigo de ativacao (ver "Ativacao
+pelo app"). Nada muda para os outros e os convites ja emitidos continuam.
+
+**Perdeu tambem o codigo de ativacao (ou ele vazou):** nao ha recuperacao; gere
+uma chave nova com `activation-code --force` (ou, no caminho do CLI, repita a
+cerimonia com `--force`):
 
 ```powershell
 python scripts/setup_invites.py init --issuer <e-mail> --smtp-user <conta do Gmail> --force

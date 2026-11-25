@@ -525,6 +525,67 @@ class TestInit:
 # --------------------------------------------------------------------------- como script
 
 
+class TestActivationCode:
+    """Gera a chave para quem convida ativar no app, sem Python na máquina dele."""
+
+    @pytest.fixture
+    def com_issuer(self, invites_file: Path) -> Path:
+        invites_file.write_bytes((INVITES_YAML + 'issuer: ""\n').encode("utf-8"))
+        return invites_file
+
+    def _rodar(self, invites: Path, out: Path, *extras: str) -> int:
+        return cli.run_cli(
+            [
+                "activation-code",
+                "--issuer",
+                " P.O@Exemplo.com ",
+                "--out",
+                str(out),
+                "--invites-file",
+                str(invites),
+                *extras,
+            ]
+        )
+
+    def test_grava_publica_issuer_e_codigo_que_casam(
+        self, com_issuer: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from ranking_msc.services.invites import seal_activation_code
+
+        out = tmp_path / "fora" / "codigo.txt"
+        assert self._rodar(com_issuer, out) == 0
+        config = load_invite_config(com_issuer)
+        assert config.issuer == "p.o@exemplo.com"
+        codigo = out.read_text(encoding="utf-8").strip()
+        assert codigo.startswith("MCRA-ATIVACAO1.")
+        seal_activation_code(codigo, SENHA_CHAVE, config.public_key)  # é o par: não levanta
+        assert codigo not in capsys.readouterr().out
+        assert "# Quantos dias um convite vale." in com_issuer.read_text(encoding="utf-8")
+
+    def test_recusa_trocar_chave_existente_sem_force(
+        self, com_issuer: Path, tmp_path: Path
+    ) -> None:
+        assert self._rodar(com_issuer, tmp_path / "a.txt") == 0
+        publica = load_invite_config(com_issuer).public_key
+        assert self._rodar(com_issuer, tmp_path / "b.txt") == 2
+        assert load_invite_config(com_issuer).public_key == publica
+        assert not (tmp_path / "b.txt").exists()
+        assert self._rodar(com_issuer, tmp_path / "b.txt", "--force") == 0
+        assert load_invite_config(com_issuer).public_key != publica
+
+    def test_recusa_gravar_o_codigo_dentro_do_repositorio(self, com_issuer: Path) -> None:
+        dentro = _SCRIPT.parents[1] / "codigo-ativacao.txt"
+        assert self._rodar(com_issuer, dentro) == 2
+        assert not dentro.exists()
+        assert load_invite_config(com_issuer).public_key == ""
+
+    def test_invites_yaml_sem_linha_issuer_recusa(
+        self, invites_file: Path, tmp_path: Path
+    ) -> None:
+        assert self._rodar(invites_file, tmp_path / "c.txt") == 2
+        assert not (tmp_path / "c.txt").exists()
+
+
 class TestComoScript:
     @staticmethod
     def _rodar(cwd: Path, *args: str) -> subprocess.CompletedProcess[bytes]:

@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError, api } from '../api/client';
-import type { InviteCreated, InviteSent } from '../api/client';
+import type { InviteAccess, InviteCreated, InviteSent } from '../api/client';
 import { App } from '../App';
 import { authStore } from '../store/auth';
 import { DrawerProvider } from '../store/drawer';
@@ -24,6 +24,9 @@ vi.mock('../api/client', async (importOriginal) => {
       createInvite: vi.fn(),
       listInvites: vi.fn(),
       inviteCapability: vi.fn(),
+      inviteAccess: vi.fn(),
+      activateInvites: vi.fn(),
+      updateInviteSender: vi.fn(),
       usoHoje: vi.fn(),
       usoHeartbeat: vi.fn(),
     },
@@ -32,6 +35,15 @@ vi.mock('../api/client', async (importOriginal) => {
 
 const createInviteMock = vi.mocked(api.createInvite);
 const listInvitesMock = vi.mocked(api.listInvites);
+const inviteAccessMock = vi.mocked(api.inviteAccess);
+const activateMock = vi.mocked(api.activateInvites);
+const updateSenderMock = vi.mocked(api.updateInviteSender);
+
+const ACESSO_EMISSOR: InviteAccess = {
+  can_invite: true,
+  can_activate: true,
+  smtp_user: 'envio@gmail.com',
+};
 
 const CONVITE: InviteCreated = {
   email: 'ana@pmjp.gov.br',
@@ -71,6 +83,127 @@ beforeEach(() => {
   createInviteMock.mockReset();
   listInvitesMock.mockReset();
   listInvitesMock.mockResolvedValue([]);
+  inviteAccessMock.mockReset();
+  inviteAccessMock.mockResolvedValue(ACESSO_EMISSOR);
+  activateMock.mockReset();
+  updateSenderMock.mockReset();
+});
+
+describe('Convidar — ativação pelo app (sem Python na máquina de quem convida)', () => {
+  it('emissor ainda não ativado vê o formulário de ativação, não o de convite', async () => {
+    inviteAccessMock.mockResolvedValue({ can_invite: false, can_activate: true, smtp_user: null });
+    renderConvidar();
+
+    expect(await screen.findByText('Ativar os convites neste computador')).toBeTruthy();
+    expect(screen.queryByLabelText('E-mail do colaborador')).toBeNull();
+    expect(listInvitesMock).not.toHaveBeenCalled();
+  });
+
+  it('ativa com código, senha e Gmail e passa a mostrar o formulário de convite', async () => {
+    const user = userEvent.setup();
+    inviteAccessMock.mockResolvedValue({ can_invite: false, can_activate: true, smtp_user: null });
+    activateMock.mockResolvedValue(ACESSO_EMISSOR);
+    renderConvidar();
+
+    await user.type(await screen.findByLabelText('Código de ativação'), 'MCRA-ATIVACAO1.abc');
+    await user.type(
+      screen.getByLabelText('Nova senha da chave (12 caracteres ou mais)'),
+      'senha-da-chave-12',
+    );
+    await user.type(screen.getByLabelText('Repita a senha da chave'), 'senha-da-chave-12');
+    await user.type(screen.getByLabelText('Conta do Gmail que envia os convites'), 'envio@gmail.com');
+    await user.type(screen.getByLabelText('Senha de app do Gmail'), 'abcd efgh');
+    await user.click(screen.getByRole('button', { name: 'Ativar convites' }));
+
+    expect(activateMock).toHaveBeenCalledWith('MCRA-ATIVACAO1.abc', {
+      keyPassword: 'senha-da-chave-12',
+      smtpUser: 'envio@gmail.com',
+      smtpPassword: 'abcd efgh',
+    });
+    expect(await screen.findByLabelText('E-mail do colaborador')).toBeTruthy();
+    expect(screen.getByText('envio@gmail.com')).toBeTruthy();
+  });
+
+  it('senhas da chave diferentes não chamam a API', async () => {
+    const user = userEvent.setup();
+    inviteAccessMock.mockResolvedValue({ can_invite: false, can_activate: true, smtp_user: null });
+    renderConvidar();
+
+    await user.type(await screen.findByLabelText('Código de ativação'), 'MCRA-ATIVACAO1.abc');
+    await user.type(
+      screen.getByLabelText('Nova senha da chave (12 caracteres ou mais)'),
+      'senha-da-chave-12',
+    );
+    await user.type(screen.getByLabelText('Repita a senha da chave'), 'senha-da-chave-13');
+    await user.type(screen.getByLabelText('Conta do Gmail que envia os convites'), 'e@gmail.com');
+    await user.type(screen.getByLabelText('Senha de app do Gmail'), 'x');
+    await user.click(screen.getByRole('button', { name: 'Ativar convites' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('diferentes');
+    expect(activateMock).not.toHaveBeenCalled();
+  });
+
+  it('código de outra versão mostra o detail da API', async () => {
+    const user = userEvent.setup();
+    inviteAccessMock.mockResolvedValue({ can_invite: false, can_activate: true, smtp_user: null });
+    activateMock.mockRejectedValue(new ApiError(409, 'Este código de ativação não é o desta versão.'));
+    renderConvidar();
+
+    await user.type(await screen.findByLabelText('Código de ativação'), 'MCRA-ATIVACAO1.abc');
+    await user.type(
+      screen.getByLabelText('Nova senha da chave (12 caracteres ou mais)'),
+      'senha-da-chave-12',
+    );
+    await user.type(screen.getByLabelText('Repita a senha da chave'), 'senha-da-chave-12');
+    await user.type(screen.getByLabelText('Conta do Gmail que envia os convites'), 'e@gmail.com');
+    await user.type(screen.getByLabelText('Senha de app do Gmail'), 'x');
+    await user.click(screen.getByRole('button', { name: 'Ativar convites' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Este código de ativação não é o desta versão.',
+    );
+  });
+
+  it('quem não é emissor nem pode ativar vê "Sem permissão"', async () => {
+    inviteAccessMock.mockResolvedValue({ can_invite: false, can_activate: false, smtp_user: null });
+    renderConvidar();
+
+    expect(await screen.findByText('Sem permissão para convidar')).toBeTruthy();
+  });
+
+  it('troca a conta de envio com a senha da chave', async () => {
+    const user = userEvent.setup();
+    updateSenderMock.mockResolvedValue({ ...ACESSO_EMISSOR, smtp_user: 'nova@gmail.com' });
+    renderConvidar();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Trocar conta ou senha de app do Gmail' }),
+    );
+    const conta = screen.getByLabelText('Conta do Gmail');
+    await user.clear(conta);
+    await user.type(conta, 'nova@gmail.com');
+    await user.type(screen.getByLabelText('Nova senha de app do Gmail'), 'wxyz');
+    await user.type(screen.getByLabelText('Senha da chave (para autorizar)'), 'senha-da-chave-12');
+    await user.click(screen.getByRole('button', { name: 'Salvar conta de envio' }));
+
+    expect(updateSenderMock).toHaveBeenCalledWith({
+      keyPassword: 'senha-da-chave-12',
+      smtpUser: 'nova@gmail.com',
+      smtpPassword: 'wxyz',
+    });
+    expect(await screen.findByText('Conta de envio atualizada.')).toBeTruthy();
+    expect(screen.getByText('nova@gmail.com')).toBeTruthy();
+  });
+
+  it('"Esqueci a senha da chave" abre a reativação', async () => {
+    const user = userEvent.setup();
+    renderConvidar();
+
+    await user.click(await screen.findByRole('button', { name: 'Esqueci a senha da chave' }));
+
+    expect(screen.getByText('Escolher uma nova senha da chave')).toBeTruthy();
+    expect(screen.getByLabelText('Código de ativação')).toBeTruthy();
+  });
 });
 
 describe('Convidar — lista dos convites emitidos', () => {
