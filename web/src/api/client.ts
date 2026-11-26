@@ -396,6 +396,18 @@ export const api = {
   listInvites: (): Promise<InviteSent[]> =>
     fetchAuth(`${BASE}/invites`).then((r) => jsonOrThrow<InviteSent[]>(r)),
 
+  /** Troca a senha do usuário logado. 400 = senha atual incorreta (não desloga). */
+  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
+    const res = await fetchAuth(`${BASE}/auth/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    if (!res.ok) {
+      throw new ApiError(res.status, (await extractDetail(res)) ?? res.statusText);
+    }
+  },
+
   exportExcel: async (siconfi: string, competencia: string): Promise<void> => {
     const res = await fetchAuth(`${BASE}/exports/excel${qs({ siconfi, competencia })}`);
     if (!res.ok) {

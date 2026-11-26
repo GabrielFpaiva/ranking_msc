@@ -120,7 +120,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="MCRA PMJP API",
     description="API que expõe o motor ranking_msc para o frontend MCRA.",
-    version="0.1.1",
+    version="0.1.2",
     lifespan=lifespan,
 )
 

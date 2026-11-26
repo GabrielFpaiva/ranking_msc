@@ -143,6 +143,9 @@ export function Sidebar({ open = false, onClose, onBeforeLogout }: SidebarProps)
             <div className="samid-user-role">PMJP</div>
           </div>
         </div>
+        <NavLink to="/senha" onClick={onClose} className="samid-trocar-senha">
+          Trocar senha
+        </NavLink>
         <button type="button" className="samid-logout" onClick={handleLogout}>
           <NavIcon name="sair" />
           <span>Sair</span>

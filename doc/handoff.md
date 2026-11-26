@@ -29,7 +29,7 @@ sistema de forma autonoma e o projeto possa ser encerrado formalmente.
 
 ## Versao publicada
 
-- Versao do pacote: `0.1.1` (`src/ranking_msc/__init__.py`).
+- Versao do pacote: `0.1.2` (`src/ranking_msc/__init__.py`).
 - Estado funcional: `78/78` regras implementadas; score, historico, comparacao,
   exportacoes (Excel + PDF), autenticacao JWT e superavit por FR.
 - Branch de referencia: `main` (commit no momento do handoff: `<a definir na distribuicao>`;
