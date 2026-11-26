@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ranking-msc"
-version = "0.1.0"
+version = "0.1.1"
 description = "Motor de validação contábil MSC para o Ranking SICONFI"
 readme = "README.md"
 requires-python = ">=3.11"

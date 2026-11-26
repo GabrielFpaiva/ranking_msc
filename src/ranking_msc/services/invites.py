@@ -69,6 +69,7 @@ FUSO = ZoneInfo("America/Recife")
 """Fuso das datas de validade mostradas à pessoa (o mesmo de ``app/api/uso_store.py``)."""
 
 CODE_PREFIX = "MCRA1"
+ACTIVATION_PREFIX = "MCRA-ATIVACAO1"
 PAYLOAD_VERSION = 1
 DEFAULT_VALIDITY_DAYS = 7
 MIN_KEY_PASSWORD_LENGTH = 12
@@ -92,11 +93,17 @@ _SALT_BYTES = 16
 
 @dataclass(frozen=True)
 class InviteConfig:
-    """Configuração versionada do convite (``config/invites.yaml``)."""
+    """Configuração versionada do convite (``config/invites.yaml``).
+
+    ``issuer`` é o login de quem convida (normalizado). Só esse login vê o item
+    "Convidar" antes da ativação, para colar o código de ativação no próprio app.
+    Vazio = ninguém ativa pelo app (a cerimônia continua possível pelo CLI).
+    """
 
     public_key: str
     installer_url: str
     validity_days: int
+    issuer: str = ""
 
     @property
     def enabled(self) -> bool:
@@ -213,12 +220,29 @@ _MSG_INVALID = (
 _MSG_EXPIRED = "O convite venceu. Peça um novo convite ao responsável técnico."
 _MSG_KEY_PASSWORD = "Senha da chave incorreta. Confira a senha e tente de novo."
 _MSG_KEY_MISMATCH = (
-    "A chave de convites deste computador não é a da versão instalada. Instale a versão "
-    "do MCRA gerada depois da troca da chave e tente de novo."
+    "A chave de convites deste computador não é a da versão instalada. Se você recebeu "
+    "um código de ativação novo, clique em \"Esqueci a senha da chave\" e ative de novo "
+    "com ele; senão, instale a versão do MCRA mais recente."
 )
 
 MSG_INVALID_EMAIL = "E-mail inválido. Digite só o endereço, sem nome, ponto e vírgula ou sinais."
 """Texto único para endereço fora do padrão (rota de emissão e CLI de instalação)."""
+
+MSG_SHORT_KEY_PASSWORD = (
+    f"A senha da chave precisa ter {MIN_KEY_PASSWORD_LENGTH} caracteres ou mais."
+)
+MSG_ACTIVATION_INVALID = (
+    "O código de ativação é inválido. Copie o código inteiro, exatamente como foi enviado "
+    "pelo responsável técnico (começa com MCRA-ATIVACAO1)."
+)
+MSG_ACTIVATION_MISMATCH = (
+    "Este código de ativação não é o desta versão do MCRA. Instale a versão mais recente "
+    "ou peça o código atual ao responsável técnico."
+)
+_MSG_REDO = (
+    "Refaça a ativação na tela Convidar, com o código de ativação, ou restaure uma cópia "
+    "do arquivo."
+)
 
 
 # --------------------------------------------------------------------------- configuração
@@ -254,6 +278,7 @@ def load_invite_config(path: Path) -> InviteConfig:
         public_key=str(raw.get("public_key") or "").strip(),
         installer_url=str(raw.get("installer_url") or "").strip(),
         validity_days=days,
+        issuer=normalize_email(str(raw.get("issuer") or "")),
     )
 
 
@@ -277,18 +302,94 @@ def generate_keypair(passphrase: str) -> tuple[bytes, str]:
     Raises:
         InviteError: senha da chave curta demais.
     """
-    if len(passphrase) < MIN_KEY_PASSWORD_LENGTH:
-        raise InviteError(
-            f"A senha da chave precisa ter {MIN_KEY_PASSWORD_LENGTH} caracteres ou mais."
-        )
     private = Ed25519PrivateKey.generate()
+    return _seal_private_key(private, passphrase), _public_key_b64(private.public_key())
+
+
+def _seal_private_key(private: Ed25519PrivateKey, passphrase: str) -> bytes:
+    """Cifra a chave privada com a senha da chave: o conteúdo do ``invite_key.pem``.
+
+    Raises:
+        InviteError: senha da chave curta demais.
+    """
+    if len(passphrase) < MIN_KEY_PASSWORD_LENGTH:
+        raise InviteError(MSG_SHORT_KEY_PASSWORD)
     pem = private.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     )
-    token = encrypt_secret(pem.decode("ascii"), passphrase)
-    return token.encode("ascii"), _public_key_b64(private.public_key())
+    return encrypt_secret(pem.decode("ascii"), passphrase).encode("ascii")
+
+
+def generate_activation_code() -> tuple[str, str]:
+    """Gera um par Ed25519 e devolve ``(código de ativação, chave pública base64)``.
+
+    O código de ativação é a própria chave privada, em texto
+    (``MCRA-ATIVACAO1.<32 bytes base64url>``): quem o cola na tela "Convidar"
+    passa a emitir convites naquele computador, sem Python nem clone do
+    repositório. É segredo: vai só para quem convida, por canal privado, e nunca
+    para o repositório, log ou mensagem de erro.
+    """
+    private = Ed25519PrivateKey.generate()
+    raw = private.private_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    return f"{ACTIVATION_PREFIX}.{_b64url_encode(raw)}", _public_key_b64(private.public_key())
+
+
+def _private_from_activation(code: str) -> Ed25519PrivateKey:
+    """Lê o código de ativação colado (espaços e quebras de linha são ignorados).
+
+    Raises:
+        InviteInvalidError: texto que não é um código de ativação.
+    """
+    partes = "".join(code.split()).split(".")
+    if len(partes) != 2 or partes[0] != ACTIVATION_PREFIX:
+        raise InviteInvalidError(MSG_ACTIVATION_INVALID)
+    try:
+        raw = _b64url_decode_strict(partes[1])
+    except ValueError as exc:
+        raise InviteInvalidError(MSG_ACTIVATION_INVALID) from exc
+    if len(raw) != 32:
+        raise InviteInvalidError(MSG_ACTIVATION_INVALID)
+    return Ed25519PrivateKey.from_private_bytes(raw)
+
+
+def seal_activation_code(code: str, key_password: str, expected_public_key: str) -> bytes:
+    """Confere o código de ativação contra a versão instalada e o cifra com a senha da chave.
+
+    Args:
+        code: código de ativação como colado.
+        key_password: senha da chave escolhida por quem convida (12 caracteres ou mais).
+        expected_public_key: chave pública embutida na versão instalada (``invites.yaml``).
+
+    Returns:
+        Conteúdo do ``invite_key.pem`` (a chave privada cifrada).
+
+    Raises:
+        InviteInvalidError: o texto não é um código de ativação.
+        InviteKeyMismatchError: o código não é o par da chave pública instalada.
+        InviteError: senha da chave curta demais.
+        ConfigError: chave pública instalada inválida.
+    """
+    private = _private_from_activation(code)
+    expected = load_public_key(expected_public_key)
+    if _raw_public_key(private.public_key()) != _raw_public_key(expected):
+        raise InviteKeyMismatchError(MSG_ACTIVATION_MISMATCH)
+    return _seal_private_key(private, key_password)
+
+
+def check_key_password(private_key_blob: bytes, key_password: str) -> None:
+    """Confere a senha da chave abrindo o ``invite_key.pem`` (nada é devolvido).
+
+    Raises:
+        InviteKeyPasswordError: a senha da chave não abre o arquivo.
+        ConfigError: arquivo corrompido.
+    """
+    _load_private_key(private_key_blob, key_password)
 
 
 def _public_key_b64(key: Ed25519PublicKey) -> str:
@@ -357,8 +458,7 @@ def encrypt_secret(secret: str, passphrase: str) -> str:
 def _corrupt_secret(source: str) -> ConfigError:
     """Erro de arquivo cifrado ilegível, com o nome do arquivo e o que fazer (sem conteúdo)."""
     return ConfigError(
-        f"O arquivo {source} está corrompido ou em formato desconhecido. Restaure uma cópia "
-        "dele ou refaça a configuração com `python scripts/setup_invites.py init --force`."
+        f"O arquivo {source} está corrompido ou em formato desconhecido. {_MSG_REDO}"
     )
 
 
@@ -607,8 +707,7 @@ class InviteStore:
         if not self.issuer_path.exists():
             return None
         corrompido = ConfigError(
-            f"O arquivo {ISSUER_FILENAME} está ilegível ou incompleto. "
-            "Refaça a configuração com `python scripts/setup_invites.py init --force`."
+            f"O arquivo {ISSUER_FILENAME} está ilegível ou incompleto. {_MSG_REDO}"
         )
         try:
             raw: Any = yaml.safe_load(self.issuer_path.read_text(encoding="utf-8"))

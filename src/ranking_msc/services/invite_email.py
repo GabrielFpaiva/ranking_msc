@@ -109,7 +109,7 @@ def build_invite_message(
         sender: endereço de envio (a conta do Gmail).
         recipient: e-mail do convidado.
         code: código do convite (``MCRA1.…``).
-        installer_url: link da pasta do Drive com o instalador.
+        installer_url: link do instalador (a última release do GitHub).
         expires_at: fim da validade, com fuso.
 
     Returns:
@@ -123,7 +123,7 @@ def build_invite_message(
         "Você foi convidado(a) para usar o MCRA, o aplicativo que confere a MSC do mês "
         "contra as regras do Ranking SICONFI.\n"
         "\n"
-        "1. Baixe e instale o MCRA a partir desta pasta do Drive:\n"
+        "1. Baixe o instalador do MCRA por este link e instale:\n"
         f"   {installer_url}\n"
         "\n"
         '2. Abra o MCRA e, na tela de entrada, clique em "Tenho um convite".\n'
@@ -149,7 +149,7 @@ def build_invite_message(
         "<p>Você foi convidado(a) para usar o MCRA, o aplicativo que confere a MSC do mês "
         "contra as regras do Ranking SICONFI.</p>\n"
         "<ol>\n"
-        f'<li>Baixe e instale o MCRA a partir <a href="{url_html}">desta pasta do Drive</a>.</li>\n'
+        f'<li><a href="{url_html}">Baixe o instalador do MCRA</a> e instale.</li>\n'
         '<li>Abra o MCRA e, na tela de entrada, clique em <b>"Tenho um convite"</b>.</li>\n'
         "<li>Cole o código abaixo e escolha a sua senha. Você mesmo cria a senha: "
         "ninguém precisa saber dela.</li>\n"

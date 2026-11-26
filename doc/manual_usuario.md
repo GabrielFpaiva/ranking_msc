@@ -54,6 +54,26 @@ dados (snapshots, relatorios, logs) continuam onde estavam.
 Se a sua versao do aplicativo ainda nao tem **Tenho um convite**, o responsavel
 tecnico segue o procedimento do guia de operacao (`doc/guia_operacao.md`).
 
+### Convidar colaboradores (so para quem e o responsavel pelos convites)
+
+Tudo e feito no proprio aplicativo; nao precisa instalar mais nada.
+
+1. Entre com o seu login e abra **Convidar** no menu.
+2. **Primeira vez:** aparece "Ativar os convites neste computador". Cole o
+   codigo de ativacao que o responsavel tecnico enviou (comeca com
+   `MCRA-ATIVACAO1`), escolha a **senha da chave** (12 caracteres ou mais),
+   informe a **conta do Gmail** que envia os convites e a **senha de app** dela
+   (gerada em myaccount.google.com/apppasswords, com a verificacao em duas
+   etapas ligada; nao e a senha normal do Gmail). Clique em **Ativar convites**.
+3. Para convidar: digite o e-mail do colaborador e a senha da chave e clique em
+   **Enviar convite**. Ele recebe o link do instalador e o codigo.
+4. Trocou a senha de app ou a conta do Gmail? **Trocar conta ou senha de app do
+   Gmail**. Esqueceu a senha da chave? **Esqueci a senha da chave** e ative de
+   novo com o mesmo codigo.
+
+Guarde o codigo de ativacao em lugar seguro: com ele voce ativa de novo se
+trocar de computador.
+
 ---
 
 ## Fluxo recomendado
@@ -65,7 +85,9 @@ tecnico segue o procedimento do guia de operacao (`doc/guia_operacao.md`).
 5. Revisar score, principais regras e pendencias.
 6. Abrir **Pendencias** para filtrar por regra, severidade ou conta.
 7. Usar **Regras** e o drawer de detalhes para entender o motivo da pendencia.
-8. Exportar Excel/PDF quando precisar compartilhar evidencias.
+8. Exportar Excel/PDF quando precisar compartilhar evidencias. Ao clicar em
+   exportar (ou em **Emitir relatorio**, na tela Meu tempo de uso), o Windows
+   abre a janela "Salvar como" ja na pasta Downloads: confirme o nome e salve.
 9. Comparar competencias anteriores em **Comparar** quando houver historico.
 
 ---

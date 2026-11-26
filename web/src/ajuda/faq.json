@@ -143,10 +143,23 @@
     ]
   },
   {
+    "id": "ativar-convites",
+    "pergunta": "Sou o responsável pelos convites: como ativo e convido?",
+    "passos": [
+      "Entre no MCRA com o seu login de responsável pelos convites e abra Convidar, no menu.",
+      "Na primeira vez aparece Ativar os convites neste computador: cole o código de ativação (começa com MCRA-ATIVACAO1) que o responsável técnico enviou.",
+      "Escolha a senha da chave (12 caracteres ou mais). Ela é pedida a cada convite e só você sabe.",
+      "Informe a conta do Gmail que vai enviar os convites e a senha de app dela (gerada em myaccount.google.com/apppasswords, com a verificação em duas etapas ligada). Clique em Ativar convites.",
+      "Pronto: digite o e-mail do colaborador e a senha da chave e clique em Enviar convite. Ele recebe o link do instalador e o código.",
+      "Para trocar a conta do Gmail ou a senha de app, use Trocar conta ou senha de app do Gmail. Esqueceu a senha da chave? Clique em Esqueci a senha da chave e ative de novo com o mesmo código.",
+      "Guarde o código de ativação em lugar seguro: com ele você ativa de novo se trocar de computador."
+    ]
+  },
+  {
     "id": "antivirus",
     "pergunta": "O app não abre / o antivírus bloqueou",
     "passos": [
-      "No Google Drive, se aparecer \"Não foi possível verificar vírus\", clique em Baixar mesmo assim. O arquivo é o instalador do MCRA.",
+      "Se o instalador veio do Google Drive e aparecer \"Não foi possível verificar vírus\", clique em Baixar mesmo assim. O arquivo é o instalador do MCRA.",
       "No Chrome, se aparecer \"não é baixado com frequência\", clique nos três pontinhos ao lado do arquivo e escolha Manter.",
       "No Windows, se a tela azul do SmartScreen aparecer, clique em Mais informações e depois em Executar assim mesmo.",
       "Se o antivírus ainda bloquear ou o app não abrir, peça para a TI liberar o programa C:\\Program Files\\MCRA\\MCRA.exe.",

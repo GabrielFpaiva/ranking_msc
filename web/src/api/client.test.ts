@@ -182,6 +182,76 @@ describe('convite — emissão (com token)', () => {
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok-valido');
   });
 
+  it('api.inviteCapability mostra o item também para o emissor que ainda vai ativar', async () => {
+    authStore.setToken('tok-valido');
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(200, { can_invite: false, can_activate: true, smtp_user: null }),
+        ),
+    );
+
+    await expect(api.inviteCapability()).resolves.toBe(true);
+  });
+
+  it('api.inviteAccess preenche can_activate e smtp_user quando a API antiga não manda', async () => {
+    authStore.setToken('tok-valido');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, { can_invite: true })));
+
+    await expect(api.inviteAccess()).resolves.toEqual({
+      can_invite: true,
+      can_activate: false,
+      smtp_user: null,
+    });
+  });
+
+  it('api.activateInvites envia código, senha da chave e conta de envio', async () => {
+    authStore.setToken('tok-valido');
+    const acesso = { can_invite: true, can_activate: true, smtp_user: 'envio@gmail.com' };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, acesso));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      api.activateInvites('MCRA-ATIVACAO1.xyz', {
+        keyPassword: 'senha-da-chave-12',
+        smtpUser: 'envio@gmail.com',
+        smtpPassword: 'abcd efgh',
+      }),
+    ).resolves.toEqual(acesso);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/invites/activate');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({
+      activation_code: 'MCRA-ATIVACAO1.xyz',
+      key_password: 'senha-da-chave-12',
+      smtp_user: 'envio@gmail.com',
+      smtp_password: 'abcd efgh',
+    });
+  });
+
+  it('api.updateInviteSender usa PUT /api/invites/sender', async () => {
+    authStore.setToken('tok-valido');
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(200, { can_invite: true, can_activate: true, smtp_user: 'nova@gmail.com' }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.updateInviteSender({
+      keyPassword: 'senha-da-chave-12',
+      smtpUser: 'nova@gmail.com',
+      smtpPassword: 'wxyz',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/invites/sender');
+    expect(init.method).toBe('PUT');
+  });
+
   it('api.createInvite envia e-mail e senha da chave e devolve o convite', async () => {
     authStore.setToken('tok-valido');
     const convite = {

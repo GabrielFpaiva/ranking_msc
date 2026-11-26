@@ -152,6 +152,23 @@ def _configurar_logging(home: Path) -> Path:
     return log_path
 
 
+def _abrir_janela(url: str) -> None:
+    """Abre a janela do WebView2 apontada para ``url`` e bloqueia até ela fechar.
+
+    ``ALLOW_DOWNLOADS`` é ligado antes de criar a janela: o pywebview vem com
+    downloads desligados e cancela em silêncio todo download iniciado pela
+    página (``on_download_starting``), e era assim que "Emitir relatório", o
+    Excel de pendências e o PDF executivo não faziam nada no app instalado
+    (v0.1.0, 25/11/2026). Ligado, o pywebview abre o "Salvar como" do Windows
+    na pasta Downloads.
+    """
+    import webview
+
+    webview.settings["ALLOW_DOWNLOADS"] = True
+    webview.create_window(_TITULO, url, width=1440, height=900)
+    webview.start()
+
+
 def main(argv: list[str] | None = None) -> int:
     """Prepara o ambiente, sobe o servidor e abre a janela.
 
@@ -191,10 +208,7 @@ def main(argv: list[str] | None = None) -> int:
             codigo = 0
         else:
             etapa = "abertura da janela"
-            import webview
-
-            webview.create_window(_TITULO, servidor.url, width=1440, height=900)
-            webview.start()
+            _abrir_janela(servidor.url)
             codigo = 0
     except Exception:
         logger.exception("Falha na etapa de %s. Consulte o log em %s", etapa, log_path)

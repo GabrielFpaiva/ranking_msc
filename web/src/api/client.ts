@@ -153,6 +153,22 @@ export interface InviteSent {
   email_sent: boolean;
 }
 
+/** O que o usuário logado pode fazer com convites neste computador. */
+export interface InviteAccess {
+  can_invite: boolean;
+  /** É o emissor do invites.yaml: pode (re)ativar os convites com o código de ativação. */
+  can_activate: boolean;
+  /** Conta do Gmail que envia (só para quem pode convidar). */
+  smtp_user: string | null;
+}
+
+/** Conta de envio; a senha da chave autoriza a troca. */
+export interface InviteSenderInput {
+  keyPassword: string;
+  smtpUser: string;
+  smtpPassword: string;
+}
+
 /** Rota pública: o convidado ainda não tem conta. `true` = há chave pública configurada. */
 export async function apiInviteStatus(): Promise<boolean> {
   const res = await fetch(`${BASE}/auth/invite-status`);
@@ -327,10 +343,46 @@ export const api = {
   } = {}): Promise<LogPage> =>
     fetchAuth(`${BASE}/log${qs(params)}`).then((r) => jsonOrThrow<LogPage>(r)),
 
+  /** Mostra o item "Convidar" no menu? (pode convidar, ou é o emissor e ainda vai ativar). */
   inviteCapability: (): Promise<boolean> =>
+    api.inviteAccess().then((data) => data.can_invite || data.can_activate),
+
+  inviteAccess: (): Promise<InviteAccess> =>
     fetchAuth(`${BASE}/invites/capability`)
-      .then((r) => jsonOrThrow<{ can_invite: boolean }>(r))
-      .then((data) => data.can_invite),
+      .then((r) => jsonOrThrow<Partial<InviteAccess> & { can_invite: boolean }>(r))
+      .then((data) => ({
+        can_invite: data.can_invite,
+        can_activate: data.can_activate ?? false,
+        smtp_user: data.smtp_user ?? null,
+      })),
+
+  // Código de ativação, senha da chave e senha de app só passam por aqui, no
+  // corpo da requisição; nada é guardado.
+  activateInvites: (
+    activationCode: string,
+    sender: InviteSenderInput,
+  ): Promise<InviteAccess> =>
+    fetchAuth(`${BASE}/invites/activate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        activation_code: activationCode,
+        key_password: sender.keyPassword,
+        smtp_user: sender.smtpUser,
+        smtp_password: sender.smtpPassword,
+      }),
+    }).then((r) => jsonOrThrow<InviteAccess>(r)),
+
+  updateInviteSender: (sender: InviteSenderInput): Promise<InviteAccess> =>
+    fetchAuth(`${BASE}/invites/sender`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        key_password: sender.keyPassword,
+        smtp_user: sender.smtpUser,
+        smtp_password: sender.smtpPassword,
+      }),
+    }).then((r) => jsonOrThrow<InviteAccess>(r)),
 
   // A senha da chave só passa por aqui: vai no corpo da requisição e não é
   // guardada em lugar nenhum.

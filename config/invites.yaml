@@ -6,12 +6,20 @@
 # Vazio = convites desligados: nem "Tenho um convite" nem "Convidar" aparecem.
 # Quem gera e grava a chave é o responsável técnico, com
 # `python scripts/setup_invites.py init` (ver doc/guia_operacao.md); não edite à mão.
-public_key: ""
+public_key: "NkefMr3mqVtIa3lcDImhT8fzprPD+wdeOiUc9ye3Dj4="
 
-# Pasta do Drive com o instalador, citada no e-mail do convite.
-# Para trocar o link: `python scripts/setup_invites.py set-url <link>` (ou edite
-# esta linha), faça o commit e gere um instalador novo.
-installer_url: "https://drive.google.com/drive/folders/199DhZdFV-VfM46Bj83IYo2tX5e-FBLiA"
+# Login no MCRA de quem convida. Só ele vê "Convidar" e ativa os convites no
+# próprio app, colando o código de ativação (sem Python nem clone na máquina dele).
+# Gravado junto com a chave pública por `python scripts/setup_invites.py
+# activation-code`; não edite à mão.
+issuer: "teste@mcra.local"
+
+# Link do instalador citado no e-mail do convite. Aponta para o instalador da
+# última release do GitHub (o workflow "Release desktop" publica sempre uma
+# cópia com o nome fixo MCRA-Setup.exe), então não muda a cada versão e
+# ninguém precisa copiar o instalador para lugar nenhum.
+# Para trocar: `python scripts/setup_invites.py set-url <link>`, commit e release.
+installer_url: "https://github.com/GabrielFpaiva/ranking_msc/releases/latest/download/MCRA-Setup.exe"
 
 # Quantos dias um convite vale, a contar do momento em que é emitido.
 validity_days: 7

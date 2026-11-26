@@ -9,6 +9,9 @@ on:
 jobs:
   windows:
     runs-on: windows-latest
+    # contents: write para criar a Release da tag e anexar o instalador.
+    permissions:
+      contents: write
     # O contexto `secrets` não pode ser lido em `if:` de passo. Aqui vai só o
     # sinal verdadeiro/falso; os segredos ficam restritos ao passo do Drive.
     env:
@@ -82,6 +85,39 @@ jobs:
         with:
           name: MCRA-Setup
           path: installer/Output/*.exe
+
+      # Publica o instalador na Release do GitHub da tag (cria a Release se ainda
+      # não existir) com dois nomes: o versionado e o fixo MCRA-Setup.exe. O fixo é
+      # o que o e-mail do convite aponta (installer_url em config/invites.yaml:
+      # releases/latest/download/MCRA-Setup.exe), então o link não muda a cada
+      # versão e ninguém precisa copiar o instalador à mão. A v0.1.0 foi publicada
+      # à mão (25/11/2026) e só com o nome versionado: sem MCRA-Setup.exe nela o
+      # link do convite dá 404. Só em push de tag v*: o workflow_dispatch
+      # continua gerando só o artefato.
+      - name: Publicar na Release do GitHub
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSAO: ${{ steps.versao.outputs.valor }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          if ($env:TAG -ne "v$env:VERSAO") {
+            throw "A tag $env:TAG não bate com a versão $env:VERSAO de src/ranking_msc/__init__.py"
+          }
+          $instalador = Get-ChildItem installer\Output\*.exe | Select-Object -First 1
+          if (-not $instalador) { throw "Instalador não encontrado em installer\Output" }
+          $fixo = Join-Path $env:RUNNER_TEMP "MCRA-Setup.exe"
+          Copy-Item $instalador.FullName $fixo
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:TAG --title "MCRA PMJP $env:TAG" --notes "Instalador Windows do MCRA PMJP $env:TAG."
+            if ($LASTEXITCODE -ne 0) { throw "gh release create retornou $LASTEXITCODE" }
+          }
+          gh release upload $env:TAG $instalador.FullName $fixo --clobber
+          if ($LASTEXITCODE -ne 0) { throw "gh release upload retornou $LASTEXITCODE" }
+          Write-Host "Instalador publicado na Release $env:TAG (também como MCRA-Setup.exe)"
 
       # Publica o instalador na pasta do Drive que o e-mail do convite aponta
       # (`installer_url` em config/invites.yaml), sempre com o mesmo nome de

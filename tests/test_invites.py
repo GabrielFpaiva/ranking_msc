@@ -30,10 +30,12 @@ from ranking_msc.services.invites import (
     IssuerConfig,
     decrypt_secret,
     encrypt_secret,
+    generate_activation_code,
     generate_keypair,
     issue_invite,
     load_invite_config,
     normalize_email,
+    seal_activation_code,
     verify_invite,
 )
 
@@ -225,7 +227,7 @@ class TestKeypair:
         """Chave privada que não é o par da pública esperada → nada é emitido (C1)."""
         pem, _ = keypair
         _, outra_publica = generate_keypair(KEY_PASSWORD)
-        with pytest.raises(InviteKeyMismatchError, match="Instale a versão"):
+        with pytest.raises(InviteKeyMismatchError, match="Esqueci a senha da chave"):
             issue_invite(
                 pem, KEY_PASSWORD, "a@b.co", "g@b.co", now=AGORA, expected_public_key=outra_publica
             )
@@ -442,6 +444,48 @@ class TestEmitirEVerificar:
         for excecao in (vencido, invalido):
             assert codigo.split(".")[1] not in str(excecao.value)
             assert codigo.split(".")[2][:20] not in str(excecao.value)
+
+
+class TestCodigoDeAtivacao:
+    def test_codigo_selado_emite_convite_que_a_publica_confere(self) -> None:
+        """O código de ativação é a chave privada: selado, assina convites válidos."""
+        codigo, publica = generate_activation_code()
+        assert codigo.startswith("MCRA-ATIVACAO1.")
+        pem = seal_activation_code(codigo, KEY_PASSWORD, publica)
+        assert codigo.split(".")[1].encode("ascii") not in pem
+        convite = issue_invite(
+            pem, KEY_PASSWORD, "a@b.co", "emissor@b.co", now=AGORA, expected_public_key=publica
+        )
+        assert verify_invite(convite.code, publica, now=AGORA).email == "a@b.co"
+
+    def test_codigo_de_outro_par_levanta_mismatch(self) -> None:
+        codigo, _ = generate_activation_code()
+        _, outra_publica = generate_activation_code()
+        with pytest.raises(InviteKeyMismatchError):
+            seal_activation_code(codigo, KEY_PASSWORD, outra_publica)
+
+    @pytest.mark.parametrize(
+        "lixo", ["", "MCRA-ATIVACAO1", "MCRA-ATIVACAO1.a.b", "OUTRO.AAAA", "MCRA-ATIVACAO1.AAAA"]
+    )
+    def test_texto_que_nao_e_codigo_levanta_invalido(self, lixo: str) -> None:
+        _, publica = generate_activation_code()
+        with pytest.raises(InviteInvalidError):
+            seal_activation_code(lixo, KEY_PASSWORD, publica)
+
+    def test_senha_da_chave_curta_levanta_invite_error(self) -> None:
+        codigo, publica = generate_activation_code()
+        with pytest.raises(InviteError, match="12 caracteres"):
+            seal_activation_code(codigo, "curta", publica)
+
+    def test_issuer_do_invites_yaml_e_normalizado(self, tmp_path: Path) -> None:
+        caminho = tmp_path / "invites.yaml"
+        caminho.write_text('public_key: ""\nissuer: " P.O@Exemplo.COM "\n', encoding="utf-8")
+        assert load_invite_config(caminho).issuer == "p.o@exemplo.com"
+
+    def test_sem_issuer_fica_vazio(self, tmp_path: Path) -> None:
+        caminho = tmp_path / "invites.yaml"
+        caminho.write_text('public_key: ""\n', encoding="utf-8")
+        assert load_invite_config(caminho).issuer == ""
 
 
 class TestNormalizeEmail:

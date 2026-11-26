@@ -24,12 +24,12 @@ beforeEach(() => {
 });
 
 describe('Ajuda', () => {
-  it('renderiza as 13 perguntas do faq.json', () => {
+  it('renderiza as 14 perguntas do faq.json', () => {
     renderAjuda();
 
     const botoes = screen.getAllByRole('button', { expanded: false });
     expect(botoes.map((b) => b.textContent)).toEqual(faq.map((f) => f.pergunta));
-    expect(botoes).toHaveLength(13);
+    expect(botoes).toHaveLength(14);
   });
 
   it('o convite e a senha esquecida mandam pedir um novo convite e não mandam apagar o settings.yaml', async () => {

@@ -1,7 +1,8 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError, api } from '../api/client';
-import type { InviteCreated, InviteSent } from '../api/client';
+import type { InviteAccess, InviteCreated, InviteSent } from '../api/client';
+import { AtivarConvites, ContaDeEnvio } from './ConvitesConfig';
 
 const MSG_SEM_CONEXAO = 'Não foi possível conectar ao servidor. Tente novamente.';
 
@@ -62,6 +63,8 @@ export function Convidar() {
   const [erroLista, setErroLista] = useState<string | null>(null);
   const [listaPronta, setListaPronta] = useState(false);
   const [semPermissao, setSemPermissao] = useState(false);
+  const [acesso, setAcesso] = useState<InviteAccess | null>(null);
+  const [reativando, setReativando] = useState(false);
   const montado = useRef(true);
 
   const carregarLista = useCallback(async () => {
@@ -84,11 +87,34 @@ export function Convidar() {
 
   useEffect(() => {
     montado.current = true;
-    void carregarLista();
+    void (async () => {
+      let atual: InviteAccess | null = null;
+      try {
+        atual = await api.inviteAccess();
+      } catch {
+        // API antiga ou falha de rede: segue pela lista, que já trata o 403.
+      }
+      if (!montado.current) return;
+      setAcesso(atual);
+      if (atual && !atual.can_invite) {
+        // Emissor ainda não ativou (mostra a ativação) ou nem é o emissor.
+        if (!atual.can_activate) setSemPermissao(true);
+        setListaPronta(true);
+        return;
+      }
+      await carregarLista();
+    })();
     return () => {
       montado.current = false;
     };
   }, [carregarLista]);
+
+  function aoAtivar(novo: InviteAccess) {
+    setAcesso(novo);
+    setReativando(false);
+    setSemPermissao(false);
+    void carregarLista();
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -103,7 +129,9 @@ export function Convidar() {
       void carregarLista();
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 403) {
-        setSemPermissao(true);
+        // Arquivos locais sumiram com a tela aberta: o emissor ativa de novo.
+        if (acesso?.can_activate) setAcesso({ ...acesso, can_invite: false });
+        else setSemPermissao(true);
       } else {
         setErro(friendlySendError(err));
       }
@@ -139,6 +167,16 @@ export function Convidar() {
 
   if (!listaPronta) {
     return <p className="samid-muted">Carregando convites...</p>;
+  }
+
+  if (acesso && !acesso.can_invite && acesso.can_activate) {
+    return <AtivarConvites onAtivado={aoAtivar} />;
+  }
+
+  if (reativando) {
+    return (
+      <AtivarConvites reativacao onAtivado={aoAtivar} onCancelar={() => setReativando(false)} />
+    );
   }
 
   return (
@@ -266,6 +304,15 @@ export function Convidar() {
           </table>
         )}
       </section>
+
+      {acesso?.can_invite && (
+        <ContaDeEnvio
+          smtpUser={acesso.smtp_user}
+          podeReativar={acesso.can_activate}
+          onAtualizado={setAcesso}
+          onReativar={() => setReativando(true)}
+        />
+      )}
     </div>
   );
 }
