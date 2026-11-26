@@ -227,7 +227,7 @@ class TestKeypair:
         """Chave privada que não é o par da pública esperada → nada é emitido (C1)."""
         pem, _ = keypair
         _, outra_publica = generate_keypair(KEY_PASSWORD)
-        with pytest.raises(InviteKeyMismatchError, match="Instale a versão"):
+        with pytest.raises(InviteKeyMismatchError, match="Esqueci a senha da chave"):
             issue_invite(
                 pem, KEY_PASSWORD, "a@b.co", "g@b.co", now=AGORA, expected_public_key=outra_publica
             )
