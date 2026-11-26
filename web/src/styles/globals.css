@@ -66,6 +66,11 @@ button { font-family: inherit; cursor: pointer; }
 }
 .samid-logout:hover { background: var(--jp-red-lt); color: var(--jp-red); }
 .samid-logout:focus-visible { outline-offset: -2px; }
+.samid-trocar-senha {
+  display:block; margin-top:6px; padding:6px 12px; border-radius:8px;
+  color: var(--fg-2); font-size:15px; text-decoration:none;
+}
+.samid-trocar-senha:hover, .samid-trocar-senha.active { background: var(--bg-2, rgba(0,0,0,.05)); color: var(--fg-1, inherit); }
 
 /* ===== Top bar ===== */
 .samid-topbar {

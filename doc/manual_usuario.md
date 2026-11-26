@@ -45,6 +45,13 @@ usado uma vez em cada computador. Se a tela disser que o convite venceu ou ja fo
 tecnico. Se o botao **Tenho um convite** nao aparece, a sua versao do
 aplicativo ainda nao tem convites: procure o responsavel tecnico.
 
+### Trocar a senha
+
+Entrou com a senha que veio no e-mail e quer outra? Clique em **Trocar senha**,
+no rodape do menu lateral (acima de **Sair**). Digite a senha atual, a nova (8
+caracteres ou mais) e repita a nova. Voce continua conectado; a senha nova vale
+a partir da proxima entrada.
+
 ### Esqueci a senha
 
 Peca um novo convite ao responsavel tecnico e siga os passos de "Entrar com
