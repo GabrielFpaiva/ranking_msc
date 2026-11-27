@@ -80,6 +80,28 @@ Render free sem persistência (só demo). Escolhido Render free + Supabase por c
   `FACT_MSC_COLUMNS`. Mesmas regras rodam nela. Não se apaga (voltaria na próxima busca).
 - Tela por mês mostra prévia e homologada lado a lado, com score de cada uma.
 
+**Resultado do spike F7-03 (27/11/2026): a API devolve exatamente o CSV homologado.**
+João Pessoa (`id_ente=2507507`), 2025:
+
+| Matriz | Parâmetros | Linhas API = CSV | Chamadas | Tempo |
+|---|---|---|---|---|
+| 12/2025 | `co_tipo_matriz=MSCC&me_referencia=12` | 28.847 (28.742 chaves) | 25 | 49 s |
+| Encerramento (13) | `co_tipo_matriz=MSCE&me_referencia=12` | 21.725 | 24 | 39 s |
+
+Comparação por chave (conta + ICs + tipo_valor + natureza): nenhuma chave só de um lado,
+nenhum valor diferente. Notas para a F7-12:
+
+- Uma chamada por classe (1–8) × `id_tv` (`beginning_balance`, `period_change`,
+  `ending_balance`); `limit` 5000, paginar por `offset` enquanto `hasMore`.
+- Campos → IC: `poder_orgao`→PO, `financeiro_permanente`→FP, `divida_consolidada`→DC,
+  `fonte_recursos`→FR (4 dígitos, já com o dígito do exercício), `complemento_fonte`→CO,
+  `natureza_receita`→NR, `natureza_despesa`→ND, `funcao`+`subfuncao`→FS, `ano_inscricao`→AI.
+  `ano_fonte_recursos` repete o 1º dígito da FR; `educacao_saude` veio sempre vazio.
+- O dado é igual, mas a **ordem das ICs** no CSV segue o leiaute por tipo de conta (ex.: receita
+  usa PO, FR, CO, NR; despesa PO, FS, FR, CO, ND, AI). O adaptador precisa gravar nessa ordem,
+  senão regras de leiaute (R033, R082) acusam erro que a matriz homologada não tem.
+- ~40–50 s por matriz: buscar em segundo plano e mostrar a data da busca (cache).
+
 ### 7.3 Dispensar pendência
 - Chave: **regra + conta**. Vale para sempre, em todos os meses, prévia e homologada.
 - Motivo obrigatório; grava quem e quando. Qualquer usuário pode dispensar.
