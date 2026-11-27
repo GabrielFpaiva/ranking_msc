@@ -8,7 +8,6 @@ import type { InviteAccess } from '../api/client';
 // do P.O.): ativar com o código de ativação e trocar a conta do Gmail.
 
 const MSG_SEM_CONEXAO = 'Não foi possível conectar ao servidor. Tente novamente.';
-const MIN_SENHA_CHAVE = 12;
 
 /** Usa o `detail` da API (já em português, dizendo o que fazer); 5xx/rede viram "sem conexão". */
 function mensagemDeErro(err: unknown): string {
@@ -31,7 +30,7 @@ function AjudaSenhaDeApp() {
 }
 
 interface AtivarProps {
-  /** Já estava ativado: é a reativação de quem esqueceu a senha da chave. */
+  /** Já estava ativado: é a reativação (código novo, ou arquivos locais com problema). */
   reativacao?: boolean;
   onAtivado: (acesso: InviteAccess) => void;
   onCancelar?: () => void;
@@ -39,8 +38,6 @@ interface AtivarProps {
 
 export function AtivarConvites({ reativacao = false, onAtivado, onCancelar }: AtivarProps) {
   const [codigo, setCodigo] = useState('');
-  const [senha, setSenha] = useState('');
-  const [confirmacao, setConfirmacao] = useState('');
   const [smtpUser, setSmtpUser] = useState('');
   const [smtpSenha, setSmtpSenha] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -49,18 +46,9 @@ export function AtivarConvites({ reativacao = false, onAtivado, onCancelar }: At
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setErro(null);
-    if (senha.length < MIN_SENHA_CHAVE) {
-      setErro(`A senha da chave precisa ter ${MIN_SENHA_CHAVE} caracteres ou mais.`);
-      return;
-    }
-    if (senha !== confirmacao) {
-      setErro('As duas senhas da chave são diferentes. Digite de novo.');
-      return;
-    }
     setEnviando(true);
     try {
       const acesso = await api.activateInvites(codigo, {
-        keyPassword: senha,
         smtpUser,
         smtpPassword: smtpSenha,
       });
@@ -68,8 +56,6 @@ export function AtivarConvites({ reativacao = false, onAtivado, onCancelar }: At
     } catch (err: unknown) {
       setErro(mensagemDeErro(err));
     } finally {
-      setSenha('');
-      setConfirmacao('');
       setSmtpSenha('');
       setEnviando(false);
     }
@@ -80,13 +66,12 @@ export function AtivarConvites({ reativacao = false, onAtivado, onCancelar }: At
       <div>
         <div className="samid-eyebrow">Convites</div>
         <h2 className="samid-card-title">
-          {reativacao ? 'Escolher uma nova senha da chave' : 'Ativar os convites neste computador'}
+          {reativacao ? 'Ativar os convites de novo' : 'Ativar os convites neste computador'}
         </h2>
         <p className="samid-muted">
-          Cole o código de ativação que o responsável técnico enviou (começa com MCRA-ATIVACAO1),
-          escolha a senha da chave e informe a conta do Gmail que vai enviar os convites. Isso é
-          feito uma vez; depois é só convidar. Guarde o código de ativação: com ele você ativa de
-          novo se trocar de computador ou esquecer a senha da chave.
+          Só uma vez: cole o código de ativação que o responsável técnico enviou (começa com
+          MCRA-ATIVACAO1) e informe a conta do Gmail que vai enviar os convites. Depois, para
+          convidar, é só digitar o e-mail da pessoa.
         </p>
       </div>
 
@@ -100,30 +85,6 @@ export function AtivarConvites({ reativacao = false, onAtivado, onCancelar }: At
           onChange={(e) => setCodigo(e.target.value)}
           required
           className="samid-input samid-convidar-code"
-        />
-      </label>
-
-      <label className="samid-convidar-field">
-        <span className="samid-convidar-label">Nova senha da chave (12 caracteres ou mais)</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          required
-          className="samid-input"
-        />
-      </label>
-
-      <label className="samid-convidar-field">
-        <span className="samid-convidar-label">Repita a senha da chave</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          value={confirmacao}
-          onChange={(e) => setConfirmacao(e.target.value)}
-          required
-          className="samid-input"
         />
       </label>
 
@@ -188,7 +149,6 @@ export function ContaDeEnvio({ smtpUser, podeReativar, onAtualizado, onReativar 
   const [aberto, setAberto] = useState(false);
   const [novaConta, setNovaConta] = useState('');
   const [smtpSenha, setSmtpSenha] = useState('');
-  const [senhaChave, setSenhaChave] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -206,7 +166,6 @@ export function ContaDeEnvio({ smtpUser, podeReativar, onAtualizado, onReativar 
     setEnviando(true);
     try {
       const acesso = await api.updateInviteSender({
-        keyPassword: senhaChave,
         smtpUser: novaConta,
         smtpPassword: smtpSenha,
       });
@@ -216,7 +175,6 @@ export function ContaDeEnvio({ smtpUser, podeReativar, onAtualizado, onReativar 
     } catch (err: unknown) {
       setErro(mensagemDeErro(err));
     } finally {
-      setSenhaChave('');
       setSmtpSenha('');
       setEnviando(false);
     }
@@ -243,7 +201,7 @@ export function ContaDeEnvio({ smtpUser, podeReativar, onAtualizado, onReativar 
           </button>
           {podeReativar && (
             <button type="button" className="samid-btn samid-btn-ghost" onClick={onReativar}>
-              Esqueci a senha da chave
+              Ativar de novo
             </button>
           )}
         </div>
@@ -274,17 +232,6 @@ export function ContaDeEnvio({ smtpUser, podeReativar, onAtualizado, onReativar 
             />
           </label>
           <AjudaSenhaDeApp />
-          <label className="samid-convidar-field">
-            <span className="samid-convidar-label">Senha da chave (para autorizar)</span>
-            <input
-              type="password"
-              autoComplete="off"
-              value={senhaChave}
-              onChange={(e) => setSenhaChave(e.target.value)}
-              required
-              className="samid-input"
-            />
-          </label>
           {erro && (
             <p role="alert" className="samid-convidar-erro">
               {erro}

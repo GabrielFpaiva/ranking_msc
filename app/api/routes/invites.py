@@ -20,16 +20,20 @@ GET  /api/invites             — convites emitidos neste computador.
 A ativação existe porque a cerimônia pelo CLI (``scripts/setup_invites.py init``)
 exige Python e o clone do repositório, e o computador de quem convida (o P.O.) não
 tem nenhum dos dois: o convite nunca chegou a funcionar lá. Pelo app, quem é o
-``issuer`` do ``invites.yaml`` cola o código de ativação, escolhe a senha da chave e
-informa a conta do Gmail, sem depender de ninguém.
+``issuer`` do ``invites.yaml`` cola o código de ativação e informa a conta do Gmail,
+sem depender de ninguém. Depois disso, convidar é só digitar o e-mail: ninguém
+escolhe nem digita "senha da chave". O app gera um segredo local na ativação
+(``invite_local.key``) que cifra a chave privada e a senha de app, e o login do
+emissor é o que autoriza a emissão.
 
-Nunca vai para log: o código do convite, o código de ativação, a senha da chave, a
+Nunca vai para log: o código do convite, o código de ativação, o segredo local, a
 senha de app e a senha nova do convidado.
 """
 
 from __future__ import annotations
 
 import logging
+import secrets
 import threading
 from collections.abc import Callable, Coroutine
 from email.message import EmailMessage
@@ -57,13 +61,10 @@ from ranking_msc.exceptions import (
 )
 from ranking_msc.services.invite_email import build_invite_message, send_invite_email
 from ranking_msc.services.invites import (
-    MIN_KEY_PASSWORD_LENGTH,
     MSG_INVALID_EMAIL,
-    MSG_SHORT_KEY_PASSWORD,
     InviteConfig,
     InviteStore,
     IssuerConfig,
-    check_key_password,
     decrypt_secret,
     encrypt_secret,
     is_valid_email,
@@ -139,7 +140,10 @@ _MSG_PASSWORD = (
     f"{MAX_PASSWORD_BYTES} bytes (letras com acento e símbolos contam mais de um byte). "
     "Escolha outra senha."
 )
-_MSG_KEY_PASSWORD_EMPTY = "Digite a senha da chave."
+_MSG_LOCAL_MISMATCH = (
+    "Os arquivos de convite deste computador não combinam entre si. Ative os convites "
+    "de novo na tela Convidar, com o código de ativação."
+)
 _MSG_NOT_ACTIVATOR = (
     "Só o responsável pelos convites, entrando com o login dele, pode ativar os convites "
     "neste computador."
@@ -222,27 +226,24 @@ class CapabilityOut(BaseModel):
 
 
 class ActivateIn(BaseModel):
-    """Código de ativação, a senha da chave escolhida e a conta de envio."""
+    """Código de ativação e a conta de envio."""
 
     activation_code: str
-    key_password: str
     smtp_user: str
     smtp_password: str
 
 
 class SenderIn(BaseModel):
-    """Conta de envio nova, autorizada pela senha da chave."""
+    """Conta de envio nova (o login do emissor autoriza a troca)."""
 
-    key_password: str
     smtp_user: str
     smtp_password: str
 
 
 class InviteIn(BaseModel):
-    """Quem convidar e a senha da chave que autoriza a emissão."""
+    """Quem convidar: só o e-mail."""
 
     email: str
-    key_password: str
 
 
 class InviteOut(BaseModel):
@@ -309,9 +310,10 @@ def _usable_config(path: Path) -> InviteConfig | None:
 def _issuer_for(user: str, config: InviteConfig, store: InviteStore) -> IssuerConfig | None:
     """Devolve o emissor se ``user`` pode convidar aqui; senão ``None``.
 
-    As três condições da spec: chave pública configurada; ``invite_issuer.yaml``
-    existe e o emissor dele é o usuário logado (comparação normalizada); e
-    ``invite_key.pem`` existe.
+    As condições: chave pública configurada; ``invite_issuer.yaml`` existe e o
+    emissor dele é o usuário logado (comparação normalizada); ``invite_key.pem`` e
+    ``invite_local.key`` existem. Uma ativação antiga, de quando o app pedia a senha
+    da chave, não tem ``invite_local.key``: o emissor ativa de novo, uma vez.
 
     Raises:
         ConfigError: ``invite_issuer.yaml`` ilegível.
@@ -321,7 +323,7 @@ def _issuer_for(user: str, config: InviteConfig, store: InviteStore) -> IssuerCo
     issuer = store.read_issuer()
     if issuer is None or issuer.email != normalize_email(user):
         return None
-    if not store.has_private_key():
+    if not store.has_private_key() or not store.has_local_secret():
         return None
     return issuer
 
@@ -520,15 +522,15 @@ def activate_invites(
     config: InviteConfig = Depends(get_invite_config),  # noqa: B008
     store: InviteStore = Depends(get_invite_store),  # noqa: B008
 ) -> CapabilityOut:
-    """Grava a chave privada (cifrada com a senha escolhida) e a conta de envio.
+    """Grava a chave privada e a conta de envio, cifradas com um segredo local novo.
 
     Só o ``issuer`` do ``invites.yaml`` ativa, e só com o código que é o par da chave
     pública instalada: o login sozinho não basta, nem o código sozinho. Reativar
-    por cima de uma ativação anterior é permitido (troca a senha da chave).
+    por cima de uma ativação anterior é permitido (gera outro segredo local).
 
     Raises:
         HTTPException 403: convites desligados, ou o usuário não é o ``issuer``.
-        HTTPException 422: campo vazio, conta do Gmail inválida ou senha da chave curta.
+        HTTPException 422: campo vazio ou conta do Gmail inválida.
         HTTPException 400: o texto não é um código de ativação.
         HTTPException 409: o código não é desta versão, ou arquivo de convite ilegível.
     """
@@ -539,11 +541,10 @@ def activate_invites(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_MSG_NOT_ACTIVATOR)
     if not body.activation_code.strip():
         raise _unprocessable(_MSG_ACTIVATION_EMPTY)
-    if len(body.key_password) < MIN_KEY_PASSWORD_LENGTH:
-        raise _unprocessable(MSG_SHORT_KEY_PASSWORD)
     smtp_user, smtp_password = _clean_sender(body.smtp_user, body.smtp_password)
+    local_secret = secrets.token_urlsafe(32)
     try:
-        pem = seal_activation_code(body.activation_code, body.key_password, config.public_key)
+        pem = seal_activation_code(body.activation_code, local_secret, config.public_key)
     except InviteInvalidError as exc:
         logger.warning("Convite: ativação recusada (código de ativação inválido).")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -553,12 +554,13 @@ def activate_invites(
     except ConfigError as exc:
         raise _config_error(exc) from exc
 
+    store.write_local_secret(local_secret)
     store.write_private_key(pem)
     store.write_issuer(
         IssuerConfig(
             email=config.issuer,
             smtp_user=smtp_user,
-            smtp_password_encrypted=encrypt_secret(smtp_password, body.key_password),
+            smtp_password_encrypted=encrypt_secret(smtp_password, local_secret),
         )
     )
     logger.info("Convites ativados neste computador: emissor=%s envio=%s", config.issuer, smtp_user)
@@ -576,30 +578,24 @@ def update_sender(
     config: InviteConfig = Depends(get_invite_config),  # noqa: B008
     store: InviteStore = Depends(get_invite_store),  # noqa: B008
 ) -> CapabilityOut:
-    """Regrava a conta de envio, cifrando a senha de app com a senha da chave.
+    """Regrava a conta de envio, cifrando a senha de app com o segredo local.
 
     Raises:
         HTTPException 403: sem permissão para convidar neste computador.
         HTTPException 422: campo vazio ou conta do Gmail inválida.
-        HTTPException 400: senha da chave incorreta (nada é gravado).
         HTTPException 409: arquivo de convite ilegível.
     """
     issuer = _require_issuer(current_user, config, store)
-    if not body.key_password:
-        raise _unprocessable(_MSG_KEY_PASSWORD_EMPTY)
     smtp_user, smtp_password = _clean_sender(body.smtp_user, body.smtp_password)
     try:
-        check_key_password(store.read_private_key(), body.key_password)
-    except InviteKeyPasswordError as exc:
-        logger.warning("Convite: troca da conta de envio recusada (senha da chave incorreta).")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        local_secret = store.read_local_secret()
     except ConfigError as exc:
         raise _config_error(exc) from exc
     store.write_issuer(
         IssuerConfig(
             email=issuer.email,
             smtp_user=smtp_user,
-            smtp_password_encrypted=encrypt_secret(smtp_password, body.key_password),
+            smtp_password_encrypted=encrypt_secret(smtp_password, local_secret),
         )
     )
     logger.info("Convite: conta de envio trocada para %s.", smtp_user)
@@ -628,30 +624,31 @@ def create_invite(
 
     Raises:
         HTTPException 403: sem permissão (não é o emissor, ou falta a chave).
-        HTTPException 422: e-mail fora do padrão estrito, ou senha da chave vazia.
-        HTTPException 400: senha da chave incorreta.
+        HTTPException 422: e-mail fora do padrão estrito.
         HTTPException 409: a chave privada não é o par da chave pública da versão
-            instalada (nada é emitido nem enviado), ou arquivo de convite ilegível.
+            instalada, os arquivos locais não combinam entre si (nada é emitido nem
+            enviado), ou arquivo de convite ilegível.
     """
     issuer = _require_issuer(current_user, config, store)
     email = body.email.strip()
     if not is_valid_email(email):
         raise _unprocessable(MSG_INVALID_EMAIL)
-    if not body.key_password:
-        raise _unprocessable(_MSG_KEY_PASSWORD_EMPTY)
     try:
+        local_secret = store.read_local_secret()
         invite = issue_invite(
             store.read_private_key(),
-            body.key_password,
+            local_secret,
             email,
             issuer.email,
             validity_days=config.validity_days,
             expected_public_key=config.public_key,
         )
-        smtp_password = decrypt_secret(issuer.smtp_password_encrypted, body.key_password)
+        smtp_password = decrypt_secret(issuer.smtp_password_encrypted, local_secret)
     except InviteKeyPasswordError as exc:
-        logger.warning("Convite: emissão recusada (senha da chave incorreta).")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        logger.warning("Convite: emissão recusada (segredo local não abre os arquivos).")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=_MSG_LOCAL_MISMATCH
+        ) from exc
     except InviteKeyMismatchError as exc:
         logger.warning("Convite: emissão recusada (a chave privada não é o par da pública).")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc

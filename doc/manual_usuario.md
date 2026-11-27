@@ -68,15 +68,14 @@ Tudo e feito no proprio aplicativo; nao precisa instalar mais nada.
 1. Entre com o seu login e abra **Convidar** no menu.
 2. **Primeira vez:** aparece "Ativar os convites neste computador". Cole o
    codigo de ativacao que o responsavel tecnico enviou (comeca com
-   `MCRA-ATIVACAO1`), escolha a **senha da chave** (12 caracteres ou mais),
-   informe a **conta do Gmail** que envia os convites e a **senha de app** dela
+   `MCRA-ATIVACAO1`), informe a **conta do Gmail** que envia os convites e a **senha de app** dela
    (gerada em myaccount.google.com/apppasswords, com a verificacao em duas
    etapas ligada; nao e a senha normal do Gmail). Clique em **Ativar convites**.
-3. Para convidar: digite o e-mail do colaborador e a senha da chave e clique em
-   **Enviar convite**. Ele recebe o link do instalador e o codigo.
+3. Para convidar: digite so o e-mail do colaborador e clique em **Enviar
+   convite**. Ele recebe o link do instalador e o codigo.
 4. Trocou a senha de app ou a conta do Gmail? **Trocar conta ou senha de app do
-   Gmail**. Esqueceu a senha da chave? **Esqueci a senha da chave** e ative de
-   novo com o mesmo codigo.
+   Gmail**. Se o app pedir para ativar de novo, **Ativar de novo** com o mesmo
+   codigo.
 
 Guarde o codigo de ativacao em lugar seguro: com ele voce ativa de novo se
 trocar de computador.

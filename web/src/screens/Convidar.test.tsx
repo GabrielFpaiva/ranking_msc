@@ -1,4 +1,4 @@
-// Testes da tela /convidar — emissão do convite (e-mail + senha da chave),
+// Testes da tela /convidar — emissão do convite (só o e-mail),
 // resultado com e sem envio do e-mail, erros do contrato e a lista dos
 // convites já emitidos. A API é simulada; o backend é testado à parte.
 
@@ -67,13 +67,8 @@ function renderConvidar() {
   );
 }
 
-async function emitir(
-  user: ReturnType<typeof userEvent.setup>,
-  email = 'ana@pmjp.gov.br',
-  chave = 'chave-secreta-1',
-) {
+async function emitir(user: ReturnType<typeof userEvent.setup>, email = 'ana@pmjp.gov.br') {
   await user.type(await screen.findByLabelText('E-mail do colaborador'), email);
-  await user.type(screen.getByLabelText('Senha da chave'), chave);
   await user.click(screen.getByRole('button', { name: 'Enviar convite' }));
 }
 
@@ -99,48 +94,24 @@ describe('Convidar — ativação pelo app (sem Python na máquina de quem convi
     expect(listInvitesMock).not.toHaveBeenCalled();
   });
 
-  it('ativa com código, senha e Gmail e passa a mostrar o formulário de convite', async () => {
+  it('ativa com código e Gmail (sem senha da chave) e passa a mostrar o convite', async () => {
     const user = userEvent.setup();
     inviteAccessMock.mockResolvedValue({ can_invite: false, can_activate: true, smtp_user: null });
     activateMock.mockResolvedValue(ACESSO_EMISSOR);
     renderConvidar();
 
     await user.type(await screen.findByLabelText('Código de ativação'), 'MCRA-ATIVACAO1.abc');
-    await user.type(
-      screen.getByLabelText('Nova senha da chave (12 caracteres ou mais)'),
-      'senha-da-chave-12',
-    );
-    await user.type(screen.getByLabelText('Repita a senha da chave'), 'senha-da-chave-12');
+    expect(screen.queryByLabelText(/senha da chave/i)).toBeNull();
     await user.type(screen.getByLabelText('Conta do Gmail que envia os convites'), 'envio@gmail.com');
     await user.type(screen.getByLabelText('Senha de app do Gmail'), 'abcd efgh');
     await user.click(screen.getByRole('button', { name: 'Ativar convites' }));
 
     expect(activateMock).toHaveBeenCalledWith('MCRA-ATIVACAO1.abc', {
-      keyPassword: 'senha-da-chave-12',
       smtpUser: 'envio@gmail.com',
       smtpPassword: 'abcd efgh',
     });
     expect(await screen.findByLabelText('E-mail do colaborador')).toBeTruthy();
     expect(screen.getByText('envio@gmail.com')).toBeTruthy();
-  });
-
-  it('senhas da chave diferentes não chamam a API', async () => {
-    const user = userEvent.setup();
-    inviteAccessMock.mockResolvedValue({ can_invite: false, can_activate: true, smtp_user: null });
-    renderConvidar();
-
-    await user.type(await screen.findByLabelText('Código de ativação'), 'MCRA-ATIVACAO1.abc');
-    await user.type(
-      screen.getByLabelText('Nova senha da chave (12 caracteres ou mais)'),
-      'senha-da-chave-12',
-    );
-    await user.type(screen.getByLabelText('Repita a senha da chave'), 'senha-da-chave-13');
-    await user.type(screen.getByLabelText('Conta do Gmail que envia os convites'), 'e@gmail.com');
-    await user.type(screen.getByLabelText('Senha de app do Gmail'), 'x');
-    await user.click(screen.getByRole('button', { name: 'Ativar convites' }));
-
-    expect((await screen.findByRole('alert')).textContent).toContain('diferentes');
-    expect(activateMock).not.toHaveBeenCalled();
   });
 
   it('código de outra versão mostra o detail da API', async () => {
@@ -150,11 +121,6 @@ describe('Convidar — ativação pelo app (sem Python na máquina de quem convi
     renderConvidar();
 
     await user.type(await screen.findByLabelText('Código de ativação'), 'MCRA-ATIVACAO1.abc');
-    await user.type(
-      screen.getByLabelText('Nova senha da chave (12 caracteres ou mais)'),
-      'senha-da-chave-12',
-    );
-    await user.type(screen.getByLabelText('Repita a senha da chave'), 'senha-da-chave-12');
     await user.type(screen.getByLabelText('Conta do Gmail que envia os convites'), 'e@gmail.com');
     await user.type(screen.getByLabelText('Senha de app do Gmail'), 'x');
     await user.click(screen.getByRole('button', { name: 'Ativar convites' }));
@@ -171,7 +137,7 @@ describe('Convidar — ativação pelo app (sem Python na máquina de quem convi
     expect(await screen.findByText('Sem permissão para convidar')).toBeTruthy();
   });
 
-  it('troca a conta de envio com a senha da chave', async () => {
+  it('troca a conta de envio sem pedir senha da chave', async () => {
     const user = userEvent.setup();
     updateSenderMock.mockResolvedValue({ ...ACESSO_EMISSOR, smtp_user: 'nova@gmail.com' });
     renderConvidar();
@@ -183,11 +149,9 @@ describe('Convidar — ativação pelo app (sem Python na máquina de quem convi
     await user.clear(conta);
     await user.type(conta, 'nova@gmail.com');
     await user.type(screen.getByLabelText('Nova senha de app do Gmail'), 'wxyz');
-    await user.type(screen.getByLabelText('Senha da chave (para autorizar)'), 'senha-da-chave-12');
     await user.click(screen.getByRole('button', { name: 'Salvar conta de envio' }));
 
     expect(updateSenderMock).toHaveBeenCalledWith({
-      keyPassword: 'senha-da-chave-12',
       smtpUser: 'nova@gmail.com',
       smtpPassword: 'wxyz',
     });
@@ -206,13 +170,13 @@ describe('Convidar — ativação pelo app (sem Python na máquina de quem convi
     expect(screen.queryByText('Sem permissão para convidar')).toBeNull();
   });
 
-  it('"Esqueci a senha da chave" abre a reativação', async () => {
+  it('"Ativar de novo" abre a reativação', async () => {
     const user = userEvent.setup();
     renderConvidar();
 
-    await user.click(await screen.findByRole('button', { name: 'Esqueci a senha da chave' }));
+    await user.click(await screen.findByRole('button', { name: 'Ativar de novo' }));
 
-    expect(screen.getByText('Escolher uma nova senha da chave')).toBeTruthy();
+    expect(screen.getByText('Ativar os convites de novo')).toBeTruthy();
     expect(screen.getByLabelText('Código de ativação')).toBeTruthy();
   });
 });
@@ -222,16 +186,17 @@ describe('Convidar — lista dos convites emitidos', () => {
     renderConvidar();
 
     expect(await screen.findByLabelText('E-mail do colaborador')).toBeTruthy();
-    expect(screen.getByLabelText('Senha da chave')).toBeTruthy();
+    // Convidar é só o e-mail: nenhum campo de senha no formulário.
+    expect(screen.queryByLabelText(/senha/i)).toBeNull();
     expect(await screen.findByText('Nenhum convite emitido neste computador.')).toBeTruthy();
   });
 
   it('a explicação do formulário não afirma um prazo fixo (a validade é configurável)', async () => {
     renderConvidar();
 
-    const texto = await screen.findByText(/O convite tem prazo de validade/);
+    const texto = await screen.findByText(/Digite o e-mail e clique em Enviar convite/);
     expect(texto.textContent).toBe(
-      'O colaborador recebe por e-mail o link do instalador e um código. O convite tem prazo de validade: a data aparece aqui depois do envio e vai no e-mail. Ele mesmo escolhe a senha.',
+      'Digite o e-mail e clique em Enviar convite. A pessoa recebe o link para instalar o MCRA e escolhe a própria senha.',
     );
     expect(screen.queryByText(/\d+ dias/)).toBeNull();
   });
@@ -294,14 +259,14 @@ describe('Convidar — sem permissão', () => {
 });
 
 describe('Convidar — emissão', () => {
-  it('envia e-mail e senha da chave e mostra para quem foi e até quando vale', async () => {
+  it('envia só o e-mail e mostra para quem foi e até quando vale', async () => {
     createInviteMock.mockResolvedValue(CONVITE);
     const user = userEvent.setup();
     renderConvidar();
 
     await emitir(user);
 
-    expect(createInviteMock).toHaveBeenCalledWith('ana@pmjp.gov.br', 'chave-secreta-1');
+    expect(createInviteMock).toHaveBeenCalledWith('ana@pmjp.gov.br');
     const status = await screen.findByRole('status');
     expect(status.textContent).toBe(
       'Convite enviado por e-mail para ana@pmjp.gov.br. Vale até 17/11/2026 às 14:30.',
@@ -377,33 +342,6 @@ describe('Convidar — emissão', () => {
     ).toBeTruthy();
   });
 
-  it('senha da chave incorreta (400) mostra o detail, mantém o e-mail e limpa a senha', async () => {
-    createInviteMock.mockRejectedValue(new ApiError(400, 'Senha da chave incorreta.'));
-    const user = userEvent.setup();
-    renderConvidar();
-
-    await emitir(user, 'ana@pmjp.gov.br', 'chave-errada-1');
-
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe('Senha da chave incorreta.');
-    expect((screen.getByLabelText('E-mail do colaborador') as HTMLInputElement).value).toBe(
-      'ana@pmjp.gov.br',
-    );
-    expect((screen.getByLabelText('Senha da chave') as HTMLInputElement).value).toBe('');
-  });
-
-  it('400 sem detail diz o que fazer', async () => {
-    createInviteMock.mockRejectedValue(new ApiError(400, ''));
-    const user = userEvent.setup();
-    renderConvidar();
-
-    await emitir(user);
-
-    expect((await screen.findByRole('alert')).textContent).toBe(
-      'Senha da chave incorreta. Digite de novo a senha da chave de convites.',
-    );
-  });
-
   it('422 mostra o detail em português que a API devolveu', async () => {
     createInviteMock.mockRejectedValue(
       new ApiError(422, 'O e-mail do colaborador não é válido. Confira o endereço.'),
@@ -443,7 +381,6 @@ describe('Convidar — emissão', () => {
     expect((screen.getByLabelText('E-mail do colaborador') as HTMLInputElement).value).toBe(
       'ana@pmjp.gov.br',
     );
-    expect((screen.getByLabelText('Senha da chave') as HTMLInputElement).value).toBe('');
   });
 
   it.each([
@@ -464,24 +401,6 @@ describe('Convidar — emissão', () => {
     );
   });
 
-  it('a senha da chave não fica no campo, no localStorage nem no sessionStorage depois do envio', async () => {
-    createInviteMock.mockResolvedValue(CONVITE);
-    const user = userEvent.setup();
-    renderConvidar();
-
-    await emitir(user, 'ana@pmjp.gov.br', 'chave-secreta-1');
-    await screen.findByRole('status');
-
-    expect(screen.queryByDisplayValue('chave-secreta-1')).toBeNull();
-    const guardado: string[] = [];
-    for (const storage of [window.localStorage, window.sessionStorage]) {
-      for (let i = 0; i < storage.length; i += 1) {
-        const chave = storage.key(i) as string;
-        guardado.push(chave, storage.getItem(chave) ?? '');
-      }
-    }
-    expect(guardado.join('|')).not.toContain('chave-secreta-1');
-  });
 });
 
 describe('Convidar — rota', () => {

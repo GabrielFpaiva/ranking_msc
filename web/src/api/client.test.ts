@@ -207,7 +207,7 @@ describe('convite — emissão (com token)', () => {
     });
   });
 
-  it('api.activateInvites envia código, senha da chave e conta de envio', async () => {
+  it('api.activateInvites envia código e conta de envio', async () => {
     authStore.setToken('tok-valido');
     const acesso = { can_invite: true, can_activate: true, smtp_user: 'envio@gmail.com' };
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, acesso));
@@ -215,7 +215,6 @@ describe('convite — emissão (com token)', () => {
 
     await expect(
       api.activateInvites('MCRA-ATIVACAO1.xyz', {
-        keyPassword: 'senha-da-chave-12',
         smtpUser: 'envio@gmail.com',
         smtpPassword: 'abcd efgh',
       }),
@@ -226,7 +225,6 @@ describe('convite — emissão (com token)', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({
       activation_code: 'MCRA-ATIVACAO1.xyz',
-      key_password: 'senha-da-chave-12',
       smtp_user: 'envio@gmail.com',
       smtp_password: 'abcd efgh',
     });
@@ -242,7 +240,6 @@ describe('convite — emissão (com token)', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await api.updateInviteSender({
-      keyPassword: 'senha-da-chave-12',
       smtpUser: 'nova@gmail.com',
       smtpPassword: 'wxyz',
     });
@@ -252,7 +249,7 @@ describe('convite — emissão (com token)', () => {
     expect(init.method).toBe('PUT');
   });
 
-  it('api.createInvite envia e-mail e senha da chave e devolve o convite', async () => {
+  it('api.createInvite envia só o e-mail e devolve o convite', async () => {
     authStore.setToken('tok-valido');
     const convite = {
       email: 'ana@pmjp.gov.br',
@@ -263,28 +260,25 @@ describe('convite — emissão (com token)', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(201, convite));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(api.createInvite('ana@pmjp.gov.br', 'chave-secreta-1')).resolves.toEqual(convite);
+    await expect(api.createInvite('ana@pmjp.gov.br')).resolves.toEqual(convite);
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/invites');
     expect(init.method).toBe('POST');
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok-valido');
-    expect(JSON.parse(init.body as string)).toEqual({
-      email: 'ana@pmjp.gov.br',
-      key_password: 'chave-secreta-1',
-    });
+    expect(JSON.parse(init.body as string)).toEqual({ email: 'ana@pmjp.gov.br' });
   });
 
-  it('api.createInvite lança ApiError com o detail (400 senha da chave incorreta)', async () => {
+  it('api.createInvite lança ApiError com o detail (409)', async () => {
     authStore.setToken('tok-valido');
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(jsonResponse(400, { detail: 'Senha da chave incorreta.' })),
+      vi.fn().mockResolvedValue(jsonResponse(409, { detail: 'Ative os convites de novo.' })),
     );
 
-    await expect(api.createInvite('ana@pmjp.gov.br', 'errada')).rejects.toMatchObject({
-      status: 400,
-      detail: 'Senha da chave incorreta.',
+    await expect(api.createInvite('ana@pmjp.gov.br')).rejects.toMatchObject({
+      status: 409,
+      detail: 'Ative os convites de novo.',
     });
   });
 

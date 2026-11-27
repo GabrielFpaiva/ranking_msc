@@ -31,11 +31,6 @@ function formatarDataHora(iso: string): string {
 function friendlySendError(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 0 || err.status >= 500) return MSG_SEM_CONEXAO;
-    if (err.status === 400) {
-      return (
-        err.detail || 'Senha da chave incorreta. Digite de novo a senha da chave de convites.'
-      );
-    }
     if (err.status === 422) {
       return (
         err.detail || 'O e-mail informado não parece válido. Confira o endereço e tente de novo.'
@@ -51,9 +46,6 @@ type EstadoCopia = 'copiado' | 'erro' | null;
 
 export function Convidar() {
   const [email, setEmail] = useState('');
-  // A senha da chave só vive aqui até o envio terminar: é limpa em `finally`
-  // e nunca vai para storage nem para o resultado.
-  const [senhaChave, setSenhaChave] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [resultado, setResultado] = useState<InviteCreated | null>(null);
@@ -123,7 +115,7 @@ export function Convidar() {
     setCopia(null);
     setEnviando(true);
     try {
-      const convite = await api.createInvite(email, senhaChave);
+      const convite = await api.createInvite(email);
       setResultado(convite);
       setEmail('');
       void carregarLista();
@@ -136,7 +128,6 @@ export function Convidar() {
         setErro(friendlySendError(err));
       }
     } finally {
-      setSenhaChave('');
       setEnviando(false);
     }
   }
@@ -186,9 +177,8 @@ export function Convidar() {
           <div className="samid-eyebrow">Convites</div>
           <h2 className="samid-card-title">Convidar um colaborador</h2>
           <p className="samid-muted">
-            O colaborador recebe por e-mail o link do instalador e um código. O convite tem prazo
-            de validade: a data aparece aqui depois do envio e vai no e-mail. Ele mesmo escolhe a
-            senha.
+            Digite o e-mail e clique em Enviar convite. A pessoa recebe o link para instalar o
+            MCRA e escolhe a própria senha.
           </p>
         </div>
 
@@ -199,18 +189,6 @@ export function Convidar() {
             autoComplete="off"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            required
-            className="samid-input"
-          />
-        </label>
-
-        <label className="samid-convidar-field">
-          <span className="samid-convidar-label">Senha da chave</span>
-          <input
-            type="password"
-            autoComplete="off"
-            value={senhaChave}
-            onChange={(e) => setSenhaChave(e.target.value)}
             required
             className="samid-input"
           />

@@ -525,7 +525,8 @@ O que fica onde:
 |---|---|---|
 | Chave publica, login de quem convida (`issuer`), link do instalador, validade | `config/invites.yaml` (versionado e embutido no instalador) | nao |
 | Codigo de ativacao (a chave privada em texto) | so com quem convida e com quem gerou, fora do repositorio | sim |
-| Chave privada (o arquivo guarda a chave cifrada com a senha da chave) | `invite_key.pem`, na pasta de config local | sim |
+| Chave privada (cifrada com o segredo local) | `invite_key.pem`, na pasta de config local | sim |
+| Segredo local, gerado na ativacao, que cifra a chave privada e a senha de app (ninguem digita senha da chave) | `invite_local.key`, na pasta de config local | sim |
 | Emissor, conta do Gmail e senha de app (cifrada) | `invite_issuer.yaml`, na pasta de config local | sim |
 | Convites emitidos (sem o codigo) | `invites_sent.jsonl`, na pasta de config local | nao |
 | Convites ja usados neste computador | `invites_used.json`, na pasta de config local | nao |
@@ -535,7 +536,7 @@ A pasta de config local e a do `settings.yaml` em uso. No aplicativo desktop e
 
 **Cuidado ao desinstalar o MCRA:** o desinstalador pergunta se deve apagar os
 dados do usuario (`%LOCALAPPDATA%\MCRA`). Responder "Sim" apaga tambem o
-`invite_key.pem` e o `invite_issuer.yaml`. Depois de reinstalar, quem convida
+`invite_key.pem`, o `invite_local.key` e o `invite_issuer.yaml`. Depois de reinstalar, quem convida
 ativa de novo em **Convidar** com o mesmo codigo de ativacao (ver abaixo); os
 convites ja emitidos continuam valendo.
 
@@ -561,17 +562,20 @@ dali em diante quem convida resolve tudo sozinho, no MCRA instalado.
 3. Envie o codigo de ativacao a quem convida por canal privado (nunca no grupo,
    nunca por e-mail junto com o login).
 4. **Quem convida**, no MCRA instalado (versao nova): entra com o login do
-   `issuer`, abre **Convidar** no menu e preenche o codigo de ativacao, a senha
-   da chave que ele escolhe (12 caracteres ou mais, pedida a cada convite), a
+   `issuer`, abre **Convidar** no menu e preenche o codigo de ativacao, a
    conta do Gmail que envia e a senha de app dela. O app confere que o codigo e
-   o par da chave publica instalada antes de gravar.
+   o par da chave publica instalada antes de gravar. Nao ha senha da chave: o
+   app gera um segredo local (`invite_local.key`) e, dali em diante, convidar e
+   so digitar o e-mail. O que autoriza e o login do `issuer` naquele computador.
+   Ativacoes antigas (de quando o app pedia senha da chave) caem de novo na tela
+   de ativacao uma vez; e so colar o mesmo codigo.
 
 Depois disso, pela mesma tela e sem ninguem mais:
 
 - **Trocar a conta do Gmail ou a senha de app:** botao "Trocar conta ou senha de
-  app do Gmail" (pede a senha da chave).
-- **Esqueceu a senha da chave:** botao "Esqueci a senha da chave"; ativa de novo
-  com o mesmo codigo e escolhe outra senha. Os convites ja emitidos continuam.
+  app do Gmail".
+- **Ativar de novo** (arquivos locais com problema ou codigo de ativacao novo):
+  botao "Ativar de novo", com o codigo. Os convites ja emitidos continuam.
 - **Trocou de computador ou reinstalou apagando os dados:** ativa de novo com o
   mesmo codigo.
 
@@ -595,10 +599,10 @@ por `.\.venv\Scripts\python.exe`):
    - `<e-mail>` e o login do emissor no MCRA (o e-mail de quem vai convidar);
    - `<conta do Gmail>` e a conta que envia os convites.
 
-   O comando pede, sem eco: a **senha da chave** (duas vezes, 12 caracteres ou
-   mais) e a **senha de app do Gmail** (uma senha propria para aplicativos,
-   gerada na conta do Google; nao e a senha normal do Gmail). Depois grava:
-   a chave privada cifrada (`invite_key.pem`) e o `invite_issuer.yaml` em
+   O comando pede, sem eco, so a **senha de app do Gmail** (uma senha propria
+   para aplicativos, gerada na conta do Google; nao e a senha normal do Gmail).
+   Depois grava: o segredo local (`invite_local.key`), a chave privada cifrada
+   com ele (`invite_key.pem`) e o `invite_issuer.yaml` em
    `%LOCALAPPDATA%\MCRA\config`, e a chave publica em `config/invites.yaml`.
    Nenhum segredo e impresso na tela.
 2. Faca o commit do `config/invites.yaml` (so a chave publica mudou) e o merge.
@@ -606,9 +610,10 @@ por `.\.venv\Scripts\python.exe`):
    GitHub, que e o link (`installer_url`) do e-mail do convite.
 4. Instale a versao nova no computador do emissor. Entrando com o e-mail do
    passo 1, o item **Convidar** aparece no menu.
-5. Guarde uma copia do `invite_key.pem` e do `invite_issuer.yaml` num lugar
-   seguro (os dois ficam em `%LOCALAPPDATA%\MCRA\config`). Sem eles (ou sem a
-   senha da chave) nao ha como emitir convites: ver "Perdeu a chave" abaixo.
+5. Guarde uma copia do `invite_key.pem`, do `invite_local.key` e do
+   `invite_issuer.yaml` num lugar seguro (os tres ficam em
+   `%LOCALAPPDATA%\MCRA\config`). Sem eles nao ha como emitir convites: ver
+   "Perdeu a chave" abaixo.
 
 Se o e-mail do emissor ainda nao tem conta no MCRA instalado, o `init` avisa e
 o item "Convidar" nao aparece. Crie a conta (este comando tambem serve de
@@ -643,8 +648,7 @@ config\settings.yaml` (o padrao dele).
 ### Convidar alguem
 
 1. Entre no MCRA com o login do emissor e abra **Convidar** no menu.
-2. Informe o **e-mail do colaborador** e a **senha da chave** e clique em
-   **Enviar convite**.
+2. Informe so o **e-mail do colaborador** e clique em **Enviar convite**.
 3. O MCRA envia o e-mail (link do instalador, codigo e validade) e mostra
    "Convite enviado por e-mail" com a data de vencimento.
 4. Se o e-mail nao sair (Gmail recusou a senha de app, sem internet), a tela
@@ -730,9 +734,9 @@ troque `MCRA_RCLONE_VERSAO` e `MCRA_RCLONE_SHA256` em
 `SHA256SUMS` do release novo. Se a instalacao falhar, o envio e pulado e o
 release segue normal.
 
-### Perdeu a chave ou a senha da chave
+### Perdeu a chave ou os arquivos locais
 
-**Esqueceu so a senha da chave, ou perdeu os arquivos locais:** quem convida
+**Perdeu os arquivos locais:** quem convida
 ativa de novo pela tela Convidar com o mesmo codigo de ativacao (ver "Ativacao
 pelo app"). Nada muda para os outros e os convites ja emitidos continuam.
 

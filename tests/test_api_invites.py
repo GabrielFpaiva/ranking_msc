@@ -29,6 +29,7 @@ from fastapi.testclient import TestClient
 from ranking_msc.services.invites import (
     InviteStore,
     IssuerConfig,
+    decrypt_secret,
     encrypt_secret,
     generate_activation_code,
     generate_keypair,
@@ -39,7 +40,7 @@ from ranking_msc.services.users import provision_user
 
 _EXAMPLE = Path(__file__).resolve().parents[1] / "config" / "settings.yaml.example"
 
-KEY_PASSWORD = "senha-da-chave-123"
+KEY_PASSWORD = "segredo-local-de-teste-123"  # faz o papel do invite_local.key
 APP_PASSWORD = "abcd efgh ijkl mnop"
 SENHA_NOVA = "senha-nova-do-convidado-9"
 EMISSOR = "gabriel@exemplo.com"
@@ -91,12 +92,13 @@ class Ambiente:
         _escrever_invites(self.invites_path, "")
 
     def configurar_emissor(self, email: str = EMISSOR, *, com_chave: bool = True) -> None:
-        """Grava ``invite_issuer.yaml`` (senha de app cifrada) e, se pedido, a chave privada."""
+        """Grava ``invite_issuer.yaml`` (senha de app cifrada) e, se pedido, a chave e o segredo."""
         self.store.write_issuer(
             IssuerConfig(email, SMTP_USER, encrypt_secret(APP_PASSWORD, KEY_PASSWORD))
         )
         if com_chave:
             self.store.write_private_key(self.pem)
+            self.store.write_local_secret(KEY_PASSWORD)
 
     def codigo(
         self, email: str = "Fulano@Exemplo.com", *, emitido_ha: timedelta = timedelta(0)
@@ -228,7 +230,7 @@ class TestAceitar:
         ambiente.configurar_emissor()
         ambiente.como(EMISSOR)
         emitido = ambiente.client.post(
-            "/api/invites", json={"email": "Fulano@Exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "Fulano@Exemplo.com"}
         )
         assert emitido.status_code == 201, emitido.text
         code = emitido.json()["code"]
@@ -579,8 +581,6 @@ class TestCapability:
 class TestAtivacao:
     """Ativação pelo app: o P.O. não tem Python nem clone, então o CLI não roda lá."""
 
-    SENHA_ESCOLHIDA = "minha-senha-da-chave-42"
-
     @pytest.fixture
     def ativavel(self, ambiente: Ambiente) -> tuple[Ambiente, str]:
         """invites.yaml com issuer = EMISSOR e chave pública do par do código de ativação."""
@@ -592,7 +592,6 @@ class TestAtivacao:
     def _ativar(self, ambiente: Ambiente, codigo: str, **mudancas: str):  # noqa: ANN202
         corpo = {
             "activation_code": codigo,
-            "key_password": self.SENHA_ESCOLHIDA,
             "smtp_user": SMTP_USER,
             "smtp_password": APP_PASSWORD,
         }
@@ -614,7 +613,7 @@ class TestAtivacao:
         ambiente.como("colega@exemplo.com")
         assert ambiente.client.get("/api/invites/capability").json() == NAO_PODE
 
-    def test_ativar_e_depois_convidar_com_a_senha_escolhida(
+    def test_ativar_e_depois_convidar_so_com_o_email(
         self, ativavel: tuple[Ambiente, str]
     ) -> None:
         """Fluxo inteiro sem CLI: ativa, emite, e o código emitido é aceito."""
@@ -629,7 +628,7 @@ class TestAtivacao:
 
         emitido = ambiente.client.post(
             "/api/invites",
-            json={"email": "novo@exemplo.com", "key_password": self.SENHA_ESCOLHIDA},
+            json={"email": "novo@exemplo.com"},
         )
         assert emitido.status_code == 201
         _, usuario_smtp, senha_smtp = ambiente.envio.chamadas[-1]
@@ -646,6 +645,7 @@ class TestAtivacao:
         assert resposta.status_code == 409
         assert "versão" in resposta.json()["detail"]
         assert not ambiente.store.has_private_key()
+        assert not ambiente.store.has_local_secret()
         assert ambiente.store.read_issuer() is None
 
     @pytest.mark.parametrize("lixo", ["MCRA1.abc.def", "MCRA-ATIVACAO1.!!", "MCRA-ATIVACAO1.AAAA"])
@@ -676,7 +676,6 @@ class TestAtivacao:
         ("campo", "valor", "trecho"),
         [
             ("activation_code", "  ", "Cole o código de ativação"),
-            ("key_password", "curta", "12 caracteres"),
             ("smtp_user", "Fulano <a@b.co>", "Conta do Gmail"),
             ("smtp_password", "   ", "senha de app"),
         ],
@@ -690,19 +689,48 @@ class TestAtivacao:
         assert trecho in resposta.json()["detail"]
         assert not ambiente.store.has_private_key()
 
-    def test_reativar_troca_a_senha_da_chave(self, ativavel: tuple[Ambiente, str]) -> None:
-        """Esqueceu a senha da chave: reativa com o código e escolhe outra."""
+    def test_ativacao_grava_o_segredo_local_e_cifra_os_arquivos_com_ele(
+        self, ativavel: tuple[Ambiente, str]
+    ) -> None:
+        """Ninguém escolhe senha: o segredo local abre a chave e a senha de app."""
         ambiente, codigo = ativavel
         assert self._ativar(ambiente, codigo).status_code == 200
-        reativado = self._ativar(ambiente, codigo, key_password="outra-senha-da-chave")
-        assert reativado.status_code == 200
-        antiga = ambiente.client.post(
-            "/api/invites", json={"email": "a@exemplo.com", "key_password": self.SENHA_ESCOLHIDA}
+        store = ambiente.store
+        segredo = store.read_local_secret()
+        assert len(segredo) >= 32
+        issuer = store.read_issuer()
+        assert issuer is not None
+        assert decrypt_secret(issuer.smtp_password_encrypted, segredo) == APP_PASSWORD.replace(
+            " ", ""
         )
-        nova = ambiente.client.post(
-            "/api/invites", json={"email": "a@exemplo.com", "key_password": "outra-senha-da-chave"}
-        )
-        assert (antiga.status_code, nova.status_code) == (400, 201)
+        assert issue_invite(store.read_private_key(), segredo, "a@b.co", EMISSOR).code
+
+    def test_reativar_troca_o_segredo_local_e_continua_convidando(
+        self, ativavel: tuple[Ambiente, str]
+    ) -> None:
+        """Reativar com o código gera outro segredo; convidar segue só com o e-mail."""
+        ambiente, codigo = ativavel
+        assert self._ativar(ambiente, codigo).status_code == 200
+        antigo = ambiente.store.read_local_secret()
+        assert self._ativar(ambiente, codigo).status_code == 200
+        assert ambiente.store.read_local_secret() != antigo
+        nova = ambiente.client.post("/api/invites", json={"email": "a@exemplo.com"})
+        assert nova.status_code == 201
+
+    def test_ativacao_antiga_sem_segredo_local_pede_ativar_de_novo(
+        self, ativavel: tuple[Ambiente, str]
+    ) -> None:
+        """Ativada quando havia senha da chave (sem invite_local.key): volta para a ativação."""
+        ambiente, codigo = ativavel
+        assert self._ativar(ambiente, codigo).status_code == 200
+        ambiente.store.local_secret_path.unlink()
+        assert ambiente.client.get("/api/invites/capability").json() == {
+            "can_invite": False,
+            "can_activate": True,
+            "smtp_user": None,
+        }
+        assert self._ativar(ambiente, codigo).status_code == 200
+        assert ambiente.client.post("/api/invites", json={"email": "a@b.co"}).status_code == 201
 
     def test_nada_secreto_vai_para_o_log(
         self, ativavel: tuple[Ambiente, str], caplog: pytest.LogCaptureFixture
@@ -710,16 +738,16 @@ class TestAtivacao:
         ambiente, codigo = ativavel
         with caplog.at_level(logging.DEBUG, logger="ranking_msc"):
             self._ativar(ambiente, codigo)
-            self._ativar(ambiente, codigo, key_password="x")
+            ambiente.client.post("/api/invites", json={"email": "a@b.co"})
         tudo = caplog.text + "".join(str(r.__dict__) for r in caplog.records)
-        for segredo in (codigo, codigo.split(".")[1], self.SENHA_ESCOLHIDA, "abcdefghijklmnop"):
+        local = ambiente.store.read_local_secret()
+        for segredo in (codigo, codigo.split(".")[1], local, "abcdefghijklmnop"):
             assert segredo not in tudo
 
 
 class TestContaDeEnvio:
     def _trocar(self, ambiente: Ambiente, **mudancas: str):  # noqa: ANN202
         corpo = {
-            "key_password": KEY_PASSWORD,
             "smtp_user": "outra.conta@gmail.com",
             "smtp_password": "wxyz wxyz wxyz wxyz",
         }
@@ -733,16 +761,16 @@ class TestContaDeEnvio:
         assert resposta.status_code == 200
         assert resposta.json()["smtp_user"] == "outra.conta@gmail.com"
         ambiente.client.post(
-            "/api/invites", json={"email": "b@exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "b@exemplo.com"}
         )
         _, usuario_smtp, senha_smtp = ambiente.envio.chamadas[-1]
         assert (usuario_smtp, senha_smtp) == ("outra.conta@gmail.com", "wxyzwxyzwxyzwxyz")
 
-    def test_senha_da_chave_errada_retorna_400_sem_gravar(self, ambiente: Ambiente) -> None:
+    def test_conta_invalida_retorna_422_sem_gravar(self, ambiente: Ambiente) -> None:
         ambiente.configurar_emissor()
         ambiente.como(EMISSOR)
-        resposta = self._trocar(ambiente, key_password="errada-errada-1")
-        assert resposta.status_code == 400
+        resposta = self._trocar(ambiente, smtp_user="Fulano <a@b.co>")
+        assert resposta.status_code == 422
         issuer = ambiente.store.read_issuer()
         assert issuer is not None and issuer.smtp_user == SMTP_USER
 
@@ -759,7 +787,7 @@ class TestEmitir:
         ambiente.como(EMISSOR)
 
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": "Fulano@Exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "Fulano@Exemplo.com"}
         )
 
         assert resposta.status_code == 201, resposta.text
@@ -790,7 +818,7 @@ class TestEmitir:
         ambiente.envio.ok = False
 
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "fulano@exemplo.com"}
         )
 
         assert resposta.status_code == 201, resposta.text
@@ -799,36 +827,50 @@ class TestEmitir:
         assert verify_invite(corpo["code"], ambiente.public_key).email == "fulano@exemplo.com"
         assert [s.email_sent for s in ambiente.store.list_sent()] == [False]
 
-    @pytest.mark.parametrize("senha", ["senha-errada-1234", " ", "x" * 200])
-    def test_senha_da_chave_errada_retorna_400_sem_enviar_nem_gravar(
-        self, ambiente: Ambiente, senha: str
+    def test_segredo_local_que_nao_abre_a_chave_retorna_409_sem_enviar_nem_gravar(
+        self, ambiente: Ambiente
     ) -> None:
-        """Senha da chave incorreta → 400 em português; nada enviado, nada registrado."""
+        """Arquivos locais misturados: pede para ativar de novo; nada enviado nem registrado."""
         ambiente.configurar_emissor()
+        ambiente.store.write_local_secret("outro-segredo-local-qualquer")
         ambiente.como(EMISSOR)
 
-        resposta = ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": senha}
-        )
+        resposta = ambiente.client.post("/api/invites", json={"email": "fulano@exemplo.com"})
 
-        assert resposta.status_code == 400
-        assert "Senha da chave incorreta" in resposta.json()["detail"]
+        assert resposta.status_code == 409
+        assert "Ative os convites de novo" in resposta.json()["detail"]
         assert ambiente.envio.chamadas == []
         assert not ambiente.store.sent_path.exists()
 
+    def test_segredo_local_ilegivel_retorna_409_com_o_nome_do_arquivo(
+        self, ambiente: Ambiente
+    ) -> None:
+        ambiente.configurar_emissor()
+        ambiente.store.local_secret_path.write_text("curto", encoding="ascii")
+        ambiente.como(EMISSOR)
+        resposta = ambiente.client.post("/api/invites", json={"email": "fulano@exemplo.com"})
+        assert resposta.status_code == 409
+        assert "invite_local.key" in resposta.json()["detail"]
+        assert ambiente.envio.chamadas == []
+
     @pytest.mark.parametrize(
-        "cenario", ["outro_usuario", "sem_chave_privada", "sem_emissor", "recurso_desligado"]
-    )
-    def test_sem_permissao_retorna_403_sem_tentar_a_senha(
+        "cenario",
+        ["outro_usuario", "sem_chave_privada", "sem_segredo_local", "sem_emissor",
+         "recurso_desligado"],
+    )  # fmt: skip
+    def test_sem_permissao_retorna_403(
         self, ambiente: Ambiente, cenario: str
     ) -> None:
-        """Quem não é o emissor (ou não tem a chave) leva 403, mesmo com a senha certa."""
+        """Quem não é o emissor (ou não tem a chave e o segredo local) leva 403."""
         usuario = EMISSOR
         if cenario == "outro_usuario":
             ambiente.configurar_emissor()
             usuario = "colega@exemplo.com"
         elif cenario == "sem_chave_privada":
             ambiente.configurar_emissor(com_chave=False)
+        elif cenario == "sem_segredo_local":
+            ambiente.configurar_emissor()
+            ambiente.store.local_secret_path.unlink()
         elif cenario == "sem_emissor":
             ambiente.store.write_private_key(ambiente.pem)
         else:
@@ -837,7 +879,7 @@ class TestEmitir:
         ambiente.como(usuario)
 
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "fulano@exemplo.com"}
         )
 
         assert resposta.status_code == 403
@@ -878,7 +920,7 @@ class TestEmitir:
         ambiente.configurar_emissor()
         ambiente.como(EMISSOR)
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": email, "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": email}
         )
         assert resposta.status_code == 422, resposta.text
         assert resposta.json()["detail"] == (
@@ -896,30 +938,14 @@ class TestEmitir:
         ambiente.configurar_emissor()
         ambiente.como(EMISSOR)
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": email, "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": email}
         )
         assert resposta.status_code == 201, resposta.text
         assert resposta.json()["email"] == email.strip().casefold()
 
-    def test_senha_da_chave_vazia_retorna_422_em_portugues_sem_tentar_abrir_a_chave(
-        self, ambiente: Ambiente
-    ) -> None:
-        """Campo em branco: pede a senha em vez de dizer que ela está incorreta."""
-        ambiente.configurar_emissor()
-        ambiente.como(EMISSOR)
-        resposta = ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": ""}
-        )
-        assert resposta.status_code == 422, resposta.text
-        detalhe = resposta.json()["detail"]
-        assert isinstance(detalhe, str)
-        assert "senha da chave" in detalhe.lower()
-        assert ambiente.envio.chamadas == []
-
     @pytest.mark.parametrize(
         "corpo",
-        [{}, {"email": "a@b.co"}, {"key_password": "x"}, {"email": 1, "key_password": "x"},
-         {"email": "a@b.co", "key_password": None}],
+        [{}, {"key_password": "x"}, {"email": 1}, {"email": None}],
     )  # fmt: skip
     def test_corpo_incompleto_ou_de_tipo_errado_retorna_422_em_portugues(
         self, ambiente: Ambiente, corpo: dict[str, object]
@@ -942,41 +968,29 @@ class TestEmitir:
             IssuerConfig(EMISSOR, SMTP_USER, encrypt_secret(APP_PASSWORD, KEY_PASSWORD))
         )
         ambiente.store.write_private_key(outro_pem)  # par diferente do invites.yaml em uso
+        ambiente.store.write_local_secret(KEY_PASSWORD)
         ambiente.como(EMISSOR)
 
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "fulano@exemplo.com"}
         )
 
         assert resposta.status_code == 409, resposta.text
         assert resposta.json()["detail"] == (
             "A chave de convites deste computador não é a da versão instalada. Se você "
-            "recebeu um código de ativação novo, clique em \"Esqueci a senha da chave\" e "
-            "ative de novo com ele; senão, instale a versão do MCRA mais recente."
+            "recebeu um código de ativação novo, clique em \"Ativar de novo\" na tela Convidar "
+            "e cole o código novo; senão, instale a versão do MCRA mais recente."
         )
         assert ambiente.envio.chamadas == []
         assert not ambiente.store.sent_path.exists()
         assert "MCRA1" not in resposta.text
-
-    def test_senha_errada_com_chave_de_outro_par_continua_400(self, ambiente: Ambiente) -> None:
-        """Sem abrir a chave não dá para comparar o par: a senha errada é o primeiro erro."""
-        outro_pem, _ = generate_keypair(KEY_PASSWORD)
-        ambiente.store.write_issuer(
-            IssuerConfig(EMISSOR, SMTP_USER, encrypt_secret(APP_PASSWORD, KEY_PASSWORD))
-        )
-        ambiente.store.write_private_key(outro_pem)
-        ambiente.como(EMISSOR)
-        resposta = ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": "errada-12345"}
-        )
-        assert resposta.status_code == 400
 
     def test_email_com_espacos_nas_pontas_e_normalizado(self, ambiente: Ambiente) -> None:
         """Quem cola o e-mail com espaço ou maiúscula leva um convite para o e-mail limpo."""
         ambiente.configurar_emissor()
         ambiente.como(EMISSOR)
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": "  Fulano@Exemplo.COM ", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "  Fulano@Exemplo.COM "}
         )
         assert resposta.status_code == 201, resposta.text
         assert resposta.json()["email"] == "fulano@exemplo.com"
@@ -987,7 +1001,7 @@ class TestEmitir:
         ambiente.configurar_emissor()
         ambiente.como(EMISSOR)
         ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "fulano@exemplo.com"}
         )
         [enviado] = ambiente.store.list_sent()
         assert enviado.expires_at - enviado.issued_at == timedelta(days=3)
@@ -999,7 +1013,7 @@ class TestEmitir:
         ambiente.store.issuer_path.write_text("issuer: [", encoding="utf-8")
         ambiente.como(EMISSOR)
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "fulano@exemplo.com"}
         )
         assert resposta.status_code == 409
         assert "invite_issuer.yaml" in resposta.json()["detail"]
@@ -1011,10 +1025,11 @@ class TestEmitir:
         """invite_key.pem corrompido não é 'senha incorreta' (400): é 409 com o arquivo."""
         ambiente.configurar_emissor(com_chave=False)
         ambiente.store.write_private_key(conteudo)
+        ambiente.store.write_local_secret(KEY_PASSWORD)
         ambiente.como(EMISSOR)
 
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "fulano@exemplo.com"}
         )
 
         assert resposta.status_code == 409, resposta.text
@@ -1028,10 +1043,11 @@ class TestEmitir:
         """A senha de app cifrada ilegível no invite_issuer.yaml: 409, sem e-mail e sem registro."""
         ambiente.store.write_issuer(IssuerConfig(EMISSOR, SMTP_USER, "isto-esta-corrompido"))
         ambiente.store.write_private_key(ambiente.pem)
+        ambiente.store.write_local_secret(KEY_PASSWORD)
         ambiente.como(EMISSOR)
 
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "fulano@exemplo.com"}
         )
 
         assert resposta.status_code == 409, resposta.text
@@ -1047,7 +1063,7 @@ class TestEmitir:
         ambiente.como(EMISSOR)
         ambiente.invites_path.write_text("public_key: [\n", encoding="utf-8")
         resposta = ambiente.client.post(
-            "/api/invites", json={"email": "fulano@exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "fulano@exemplo.com"}
         )
         assert resposta.status_code == 409
         assert "invites.yaml" in resposta.json()["detail"]
@@ -1073,7 +1089,7 @@ class TestListar:
         ambiente.como(EMISSOR)
         for email in ("um@exemplo.com", "dois@exemplo.com"):
             ambiente.client.post(
-                "/api/invites", json={"email": email, "key_password": KEY_PASSWORD}
+                "/api/invites", json={"email": email}
             )
 
         resposta = ambiente.client.get("/api/invites")
@@ -1090,7 +1106,7 @@ class TestListar:
         ambiente.configurar_emissor()
         ambiente.como(EMISSOR)
         ambiente.client.post(
-            "/api/invites", json={"email": "um@exemplo.com", "key_password": KEY_PASSWORD}
+            "/api/invites", json={"email": "um@exemplo.com"}
         )
         with ambiente.store.sent_path.open("a", encoding="utf-8") as handle:
             handle.write('{"email": "meio@exemplo.com", "issued_at": "2026-11\n')
@@ -1134,7 +1150,7 @@ class TestLoginObrigatorio:
         [
             ("get", "/api/invites/capability", None),
             ("get", "/api/invites", None),
-            ("post", "/api/invites", {"email": "a@b.co", "key_password": "x"}),
+            ("post", "/api/invites", {"email": "a@b.co"}),
         ],
     )
     def test_rotas_de_emissao_sem_token_retornam_401(
@@ -1161,10 +1177,7 @@ class TestLog:
         ambiente.como(EMISSOR)
         with caplog.at_level(logging.DEBUG, logger="ranking_msc"):
             emitido = ambiente.client.post(
-                "/api/invites", json={"email": "Fulano@Exemplo.com", "key_password": KEY_PASSWORD}
-            )
-            ambiente.client.post(  # senha da chave errada: recusa na emissão
-                "/api/invites", json={"email": "x@exemplo.com", "key_password": "errada-errada-1"}
+                "/api/invites", json={"email": "Fulano@Exemplo.com"}
             )
             code = emitido.json()["code"]
             ambiente.sem_login()
@@ -1181,7 +1194,7 @@ class TestLog:
             for r in infos
         )
         avisos = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert len(avisos) >= 3  # reuso, adulterado e senha da chave errada
+        assert len(avisos) >= 2  # reuso e adulterado
 
         tudo = caplog.text + "".join(str(r.__dict__) for r in caplog.records)
         corpo_do_codigo = code.split(".")

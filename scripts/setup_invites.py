@@ -5,12 +5,12 @@ Dois comandos:
 
 ``init``
     Gera o par de chaves Ed25519, grava a chave privada cifrada e o
-    ``invite_issuer.yaml`` (conta do Gmail e senha de app, cifrada com a senha da
-    chave) na pasta de config do MCRA e a chave pública em ``config/invites.yaml``.
-    Pede a senha da chave (duas vezes, 12 caracteres ou mais) e a senha de app do
-    Gmail, sem eco. Recusa sobrescrever uma chave existente sem ``--force``. ``--issuer``
-    e ``--smtp-user`` precisam ser só o endereço (sem nome, ``;`` ou sinais). A chave
-    privada fica cifrada com a senha da chave (scrypt + Fernet), nunca em claro.
+    ``invite_issuer.yaml`` (conta do Gmail e senha de app cifrada) na pasta de config
+    do MCRA e a chave pública em ``config/invites.yaml``. Pede só a senha de app do
+    Gmail, sem eco: a chave privada e a senha de app são cifradas (scrypt + Fernet)
+    com um segredo local aleatório (``invite_local.key``), e ninguém digita senha da
+    chave para convidar. Recusa sobrescrever uma chave existente sem ``--force``.
+    ``--issuer`` e ``--smtp-user`` precisam ser só o endereço (sem nome, ``;`` ou sinais).
 
 ``set-url``
     Troca o link do instalador (``installer_url``) em ``config/invites.yaml``; o link
@@ -27,7 +27,7 @@ Uso (rode no PowerShell: o ``getpass`` no Git Bash não foi medido)::
 Uso não interativo (as senhas vêm de variáveis de ambiente)::
 
     python scripts/setup_invites.py init --issuer ... --smtp-user ... \\
-        --key-password-env MCRA_KEY_PASSWORD --smtp-password-env MCRA_SMTP_PASSWORD
+        --smtp-password-env MCRA_SMTP_PASSWORD
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ import getpass
 import json
 import os
 import re
+import secrets
 import sys
 from pathlib import Path
 
@@ -51,7 +52,6 @@ from desktop.bootstrap import data_home  # noqa: E402
 
 from ranking_msc.exceptions import ConfigError, InviteError  # noqa: E402
 from ranking_msc.services.invites import (  # noqa: E402
-    MIN_KEY_PASSWORD_LENGTH,
     MSG_INVALID_EMAIL,
     InviteStore,
     IssuerConfig,
@@ -138,10 +138,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Conta do Gmail que envia os convites.",
     )
     init.add_argument(
-        "--key-password-env",
-        help="Variável de ambiente com a senha da chave (uso não interativo).",
-    )
-    init.add_argument(
         "--smtp-password-env",
         help="Variável de ambiente com a senha de app do Gmail (uso não interativo).",
     )
@@ -212,11 +208,11 @@ def _write_invites_text(path: Path, text: str) -> None:
     os.replace(temporary, path)
 
 
-def _resolve_password(env_name: str | None, prompt: str, *, confirm: bool) -> str:
+def _resolve_password(env_name: str | None, prompt: str) -> str:
     """Obtém uma senha da variável de ambiente ou do prompt (sem eco).
 
     Raises:
-        ConfigError: variável vazia ou inexistente, senha vazia ou confirmação diferente.
+        ConfigError: variável vazia ou inexistente, ou senha vazia.
     """
     if env_name:
         value = os.environ.get(env_name, "")
@@ -226,8 +222,6 @@ def _resolve_password(env_name: str | None, prompt: str, *, confirm: bool) -> st
     value = getpass.getpass(prompt)
     if not value:
         raise ConfigError("Senha vazia não é permitida.")
-    if confirm and getpass.getpass("Repita a senha da chave: ") != value:
-        raise ConfigError("As duas senhas da chave são diferentes. Rode o comando de novo.")
     return value
 
 
@@ -261,25 +255,20 @@ def _run_init(args: argparse.Namespace) -> int:
             "convites já emitidos; contas criadas continuam. Para trocar mesmo assim, "
             "rode de novo com --force."
         )
-    key_password = _resolve_password(
-        args.key_password_env, "Senha da chave (12 caracteres ou mais): ", confirm=True
-    )
-    if len(key_password) < MIN_KEY_PASSWORD_LENGTH:
-        raise ConfigError(
-            f"A senha da chave precisa ter {MIN_KEY_PASSWORD_LENGTH} caracteres ou mais."
-        )
     smtp_password = _resolve_password(
-        args.smtp_password_env, "Senha de app do Gmail: ", confirm=False
+        args.smtp_password_env, "Senha de app do Gmail: "
     )
 
     # 2. Só então gera e grava. O invites.yaml vai por último.
-    pem, public_key = generate_keypair(key_password)
+    local_secret = secrets.token_urlsafe(32)
+    pem, public_key = generate_keypair(local_secret)
     issuer = IssuerConfig(
         email=issuer_email,
         smtp_user=smtp_user,
-        smtp_password_encrypted=encrypt_secret(smtp_password, key_password),
+        smtp_password_encrypted=encrypt_secret(smtp_password, local_secret),
     )
     new_invites_text = replace_yaml_value(invites_text, "public_key", public_key)
+    store.write_local_secret(local_secret)
     store.write_private_key(pem)
     store.write_issuer(issuer)
     _write_invites_text(invites_file, new_invites_text)
@@ -297,8 +286,8 @@ def _run_init(args: argparse.Namespace) -> int:
         )
     print(
         "Próximos passos: faça o commit do config/invites.yaml (só a chave pública mudou), "
-        "gere o instalador novo e guarde uma cópia do invite_key.pem e do invite_issuer.yaml "
-        "num lugar seguro."
+        "gere o instalador novo e guarde uma cópia do invite_key.pem, do invite_local.key "
+        "e do invite_issuer.yaml num lugar seguro."
     )
     return 0
 

@@ -71,8 +71,7 @@ def state_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def senhas_por_ambiente(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Senhas nas variáveis de ambiente que os testes de init passam nas flags."""
-    monkeypatch.setenv("T_KEY_PW", SENHA_CHAVE)
+    """Senha de app na variável de ambiente que os testes de init passam na flag."""
     monkeypatch.setenv("T_SMTP_PW", SENHA_APP)
 
 
@@ -84,7 +83,6 @@ def _init(
             "init",
             "--issuer", issuer,
             "--smtp-user", SMTP_USER,
-            "--key-password-env", "T_KEY_PW",
             "--smtp-password-env", "T_SMTP_PW",
             "--state-dir", str(state_dir),
             "--invites-file", str(invites_file),
@@ -216,13 +214,14 @@ class TestInit:
         config = load_invite_config(invites_file)
         assert config.enabled
         assert config.installer_url == URL_ANTIGA  # o resto do arquivo não mudou
-        convite = issue_invite(store.read_private_key(), SENHA_CHAVE, "Novo@X.com", EMISSOR)
+        segredo = store.read_local_secret()
+        convite = issue_invite(store.read_private_key(), segredo, "Novo@X.com", EMISSOR)
         assert verify_invite(convite.code, config.public_key).email == "novo@x.com"
         emissor = store.read_issuer()
         assert emissor is not None
         assert (emissor.email, emissor.smtp_user) == (EMISSOR, SMTP_USER)
         assert SENHA_APP not in store.issuer_path.read_text(encoding="utf-8")
-        assert decrypt_secret(emissor.smtp_password_encrypted, SENHA_CHAVE) == SENHA_APP
+        assert decrypt_secret(emissor.smtp_password_encrypted, segredo) == SENHA_APP
         # Só a linha public_key mudou, sem CR.
         bruto = invites_file.read_bytes()
         assert b"\r" not in bruto
@@ -242,12 +241,14 @@ class TestInit:
         senhas_por_ambiente: None,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Nem a senha da chave, nem a de app, nem o PEM aparecem na saída."""
+        """Nem o segredo local, nem a senha de app, nem o PEM aparecem na saída."""
         _init(invites_file, state_dir)
         saida = capsys.readouterr()
-        arquivo = InviteStore(state_dir).read_private_key().decode("ascii")
+        store = InviteStore(state_dir)
+        arquivo = store.read_private_key().decode("ascii")
+        segredo = store.read_local_secret()
         for texto in (saida.out, saida.err):
-            assert SENHA_CHAVE not in texto
+            assert segredo not in texto
             assert SENHA_APP not in texto
             assert "PRIVATE KEY" not in texto
             assert arquivo[:40] not in texto
@@ -261,22 +262,21 @@ class TestInit:
         gravado = InviteStore(state_dir).private_key_path.read_text(encoding="ascii")
         assert "PRIVATE KEY" not in gravado
         assert "BEGIN" not in gravado
-        aberto = decrypt_secret(gravado, SENHA_CHAVE)
+        aberto = decrypt_secret(gravado, InviteStore(state_dir).read_local_secret())
         assert aberto.startswith("-----BEGIN PRIVATE KEY-----")
 
-    def test_senhas_pelo_prompt_com_confirmacao(
+    def test_senha_de_app_pelo_prompt_e_unica_pergunta(
         self,
         invites_file: Path,
         state_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Sem variáveis de ambiente: pede a senha da chave (duas vezes) e a de app."""
-        respostas = iter([SENHA_CHAVE, SENHA_CHAVE, SENHA_APP])
+        """Sem variável de ambiente: pede só a senha de app (não há senha da chave)."""
         prompts: list[str] = []
 
         def falso(prompt: str = "") -> str:
             prompts.append(prompt)
-            return next(respostas)
+            return SENHA_APP
 
         monkeypatch.setattr(cli.getpass, "getpass", falso)
         codigo = cli.run_cli(
@@ -285,55 +285,12 @@ class TestInit:
         )  # fmt: skip
 
         assert codigo == 0
-        assert len(prompts) == 3
+        assert len(prompts) == 1
         store = InviteStore(state_dir)
         issuer = store.read_issuer()
         assert issuer is not None
-        assert decrypt_secret(issuer.smtp_password_encrypted, SENHA_CHAVE) == SENHA_APP
-
-    def test_confirmacao_diferente_retorna_2_e_nao_grava_nada(
-        self, invites_file: Path, state_dir: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """As duas senhas da chave diferem → erro, sem chave, sem emissor, invites.yaml igual."""
-        respostas = iter([SENHA_CHAVE, "outra-senha-da-chave"])
-        monkeypatch.setattr(cli.getpass, "getpass", lambda prompt="": next(respostas))
-        codigo = cli.run_cli(
-            ["init", "--issuer", EMISSOR, "--smtp-user", SMTP_USER,
-             "--state-dir", str(state_dir), "--invites-file", str(invites_file)]
-        )  # fmt: skip
-        assert codigo == 2
-        self._nada_gravado(invites_file, state_dir)
-
-    def test_senha_da_chave_curta_retorna_2_e_nao_grava_nada(
-        self,
-        invites_file: Path,
-        state_dir: Path,
-        senhas_por_ambiente: None,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """11 caracteres (o mínimo é 12) → erro antes de gerar qualquer coisa."""
-        monkeypatch.setenv("T_KEY_PW", "x" * 11)
-        assert _init(invites_file, state_dir) == 2
-        self._nada_gravado(invites_file, state_dir)
-
-    def test_senha_curta_e_recusada_antes_de_pedir_a_senha_de_app(
-        self, invites_file: Path, state_dir: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """No prompt, a senha curta da chave para o comando sem perguntar a senha de app."""
-        pedidos: list[str] = []
-
-        def falso(prompt: str = "") -> str:
-            pedidos.append(prompt)
-            return "curta"
-
-        monkeypatch.setattr(cli.getpass, "getpass", falso)
-        codigo = cli.run_cli(
-            ["init", "--issuer", EMISSOR, "--smtp-user", SMTP_USER,
-             "--state-dir", str(state_dir), "--invites-file", str(invites_file)]
-        )  # fmt: skip
-        assert codigo == 2
-        assert len(pedidos) == 2  # a chave e a confirmação; a senha de app nem foi pedida
-        self._nada_gravado(invites_file, state_dir)
+        segredo = store.read_local_secret()
+        assert decrypt_secret(issuer.smtp_password_encrypted, segredo) == SENHA_APP
 
     def test_variavel_de_ambiente_ausente_retorna_2(
         self,
@@ -395,7 +352,7 @@ class TestInit:
         """Quem cola com espaço nas pontas grava o endereço limpo."""
         codigo = cli.run_cli(
             ["init", "--issuer", f"  {EMISSOR}\n", "--smtp-user", f" {SMTP_USER} ",
-             "--key-password-env", "T_KEY_PW", "--smtp-password-env", "T_SMTP_PW",
+             "--smtp-password-env", "T_SMTP_PW",
              "--state-dir", str(state_dir), "--invites-file", str(invites_file)]
         )  # fmt: skip
         assert codigo == 0
@@ -467,7 +424,8 @@ class TestInit:
         assert load_invite_config(invites_file).public_key != antiga_publica
         store = InviteStore(state_dir)
         assert store.read_private_key() != antiga_privada
-        convite = issue_invite(store.read_private_key(), SENHA_CHAVE, "a@b.co", EMISSOR)
+        segredo = store.read_local_secret()
+        convite = issue_invite(store.read_private_key(), segredo, "a@b.co", EMISSOR)
         assert verify_invite(convite.code, load_invite_config(invites_file).public_key)
 
     def test_emissor_sem_conta_avisa_como_criar(
@@ -508,7 +466,7 @@ class TestInit:
         monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
         codigo = cli.run_cli(
             ["init", "--issuer", EMISSOR, "--smtp-user", SMTP_USER,
-             "--key-password-env", "T_KEY_PW", "--smtp-password-env", "T_SMTP_PW",
+             "--smtp-password-env", "T_SMTP_PW",
              "--invites-file", str(invites_file)]
         )  # fmt: skip
         assert codigo == 0
@@ -519,6 +477,7 @@ class TestInit:
         store = InviteStore(state_dir)
         assert not store.has_private_key()
         assert not store.issuer_path.exists()
+        assert not store.has_local_secret()
         assert invites_file.read_text(encoding="utf-8") == INVITES_YAML
 
 

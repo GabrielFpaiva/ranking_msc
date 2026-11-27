@@ -21,6 +21,10 @@ Segredos (decisão da spec do convite):
   derivada por scrypt); o ``invite_key.pem`` guarda só esse token, nunca o PEM;
 * a senha de app do Gmail é cifrada com a mesma senha da chave e do mesmo jeito,
   para nunca ficar em texto puro no disco;
+* no app, a "senha da chave" não é pedida a ninguém: é um segredo aleatório
+  gerado na ativação e guardado no ``invite_local.key`` da pasta de config local
+  (``InviteStore.create_local_secret``). Quem convida só informa o e-mail; o
+  login no MCRA é o que autoriza;
 * o código do convite, a senha da chave e a senha de app nunca vão para log
   nem para mensagem de exceção.
 
@@ -78,6 +82,8 @@ PRIVATE_KEY_FILENAME = "invite_key.pem"
 ISSUER_FILENAME = "invite_issuer.yaml"
 SENT_FILENAME = "invites_sent.jsonl"
 USED_FILENAME = "invites_used.json"
+LOCAL_SECRET_FILENAME = "invite_local.key"
+_LOCAL_SECRET_BYTES = 32
 
 _B64URL_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 # Endereço estrito, só o endereço: sem nome, sem ponto e vírgula, sem sinais nas pontas.
@@ -221,8 +227,8 @@ _MSG_EXPIRED = "O convite venceu. Peça um novo convite ao responsável técnico
 _MSG_KEY_PASSWORD = "Senha da chave incorreta. Confira a senha e tente de novo."
 _MSG_KEY_MISMATCH = (
     "A chave de convites deste computador não é a da versão instalada. Se você recebeu "
-    "um código de ativação novo, clique em \"Esqueci a senha da chave\" e ative de novo "
-    "com ele; senão, instale a versão do MCRA mais recente."
+    "um código de ativação novo, clique em \"Ativar de novo\" na tela Convidar e cole o "
+    "código novo; senão, instale a versão do MCRA mais recente."
 )
 
 MSG_INVALID_EMAIL = "E-mail inválido. Digite só o endereço, sem nome, ponto e vírgula ou sinais."
@@ -667,6 +673,48 @@ class InviteStore:
     def used_path(self) -> Path:
         """Convites já aceitos neste computador (``invites_used.json``)."""
         return self.directory / USED_FILENAME
+
+    @property
+    def local_secret_path(self) -> Path:
+        """Segredo local que faz o papel da senha da chave (``invite_local.key``)."""
+        return self.directory / LOCAL_SECRET_FILENAME
+
+    # segredo local
+
+    def has_local_secret(self) -> bool:
+        """Indica se o ``invite_local.key`` existe."""
+        return self.local_secret_path.is_file()
+
+    def create_local_secret(self) -> str:
+        """Gera e grava (de forma atômica) um segredo local novo, substituindo o anterior.
+
+        O segredo cifra a chave privada e a senha de app no lugar da senha da chave:
+        quem convida não precisa decorar nem digitar senha nenhuma.
+
+        Returns:
+            O segredo gravado (texto base64url, bem acima do mínimo da senha da chave).
+        """
+        secret = secrets.token_urlsafe(_LOCAL_SECRET_BYTES)
+        self.write_local_secret(secret)
+        return secret
+
+    def write_local_secret(self, secret: str) -> None:
+        """Grava o segredo local de forma atômica (substitui o anterior)."""
+        _atomic_write_bytes(self.local_secret_path, secret.encode("ascii"))
+
+    def read_local_secret(self) -> str:
+        """Lê o segredo local (confira antes com ``has_local_secret``).
+
+        Raises:
+            ConfigError: arquivo ilegível ou curto demais.
+        """
+        try:
+            secret = self.local_secret_path.read_text(encoding="ascii").strip()
+        except (OSError, UnicodeDecodeError) as exc:
+            raise _corrupt_secret(LOCAL_SECRET_FILENAME) from exc
+        if len(secret) < MIN_KEY_PASSWORD_LENGTH:
+            raise _corrupt_secret(LOCAL_SECRET_FILENAME)
+        return secret
 
     # chave privada
 

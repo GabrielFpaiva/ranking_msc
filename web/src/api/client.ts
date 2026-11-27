@@ -162,9 +162,8 @@ export interface InviteAccess {
   smtp_user: string | null;
 }
 
-/** Conta de envio; a senha da chave autoriza a troca. */
+/** Conta de envio (o login de quem convida autoriza a troca). */
 export interface InviteSenderInput {
-  keyPassword: string;
   smtpUser: string;
   smtpPassword: string;
 }
@@ -356,7 +355,7 @@ export const api = {
         smtp_user: data.smtp_user ?? null,
       })),
 
-  // Código de ativação, senha da chave e senha de app só passam por aqui, no
+  // Código de ativação e senha de app só passam por aqui, no
   // corpo da requisição; nada é guardado.
   activateInvites: (
     activationCode: string,
@@ -367,7 +366,6 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         activation_code: activationCode,
-        key_password: sender.keyPassword,
         smtp_user: sender.smtpUser,
         smtp_password: sender.smtpPassword,
       }),
@@ -378,19 +376,17 @@ export const api = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        key_password: sender.keyPassword,
         smtp_user: sender.smtpUser,
         smtp_password: sender.smtpPassword,
       }),
     }).then((r) => jsonOrThrow<InviteAccess>(r)),
 
-  // A senha da chave só passa por aqui: vai no corpo da requisição e não é
-  // guardada em lugar nenhum.
-  createInvite: (email: string, keyPassword: string): Promise<InviteCreated> =>
+  /** Convida pelo e-mail: é só isso que quem convida informa. */
+  createInvite: (email: string): Promise<InviteCreated> =>
     fetchAuth(`${BASE}/invites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, key_password: keyPassword }),
+      body: JSON.stringify({ email }),
     }).then((r) => jsonOrThrow<InviteCreated>(r)),
 
   listInvites: (): Promise<InviteSent[]> =>

@@ -227,7 +227,7 @@ class TestKeypair:
         """Chave privada que não é o par da pública esperada → nada é emitido (C1)."""
         pem, _ = keypair
         _, outra_publica = generate_keypair(KEY_PASSWORD)
-        with pytest.raises(InviteKeyMismatchError, match="Esqueci a senha da chave"):
+        with pytest.raises(InviteKeyMismatchError, match="Ativar de novo"):
             issue_invite(
                 pem, KEY_PASSWORD, "a@b.co", "g@b.co", now=AGORA, expected_public_key=outra_publica
             )
@@ -536,6 +536,34 @@ class TestInviteStore:
         assert store.has_private_key() is True
         assert store.read_private_key() == keypair[0]
         assert store.private_key_path.name == "invite_key.pem"
+
+    def test_segredo_local_criado_e_lido_abre_a_chave(self, tmp_path: Path) -> None:
+        """create_local_secret grava um segredo longo que serve de senha da chave."""
+        store = InviteStore(tmp_path / "estado")
+        assert store.has_local_secret() is False
+        segredo = store.create_local_secret()
+        assert store.has_local_secret() is True
+        assert store.local_secret_path.name == "invite_local.key"
+        assert store.read_local_secret() == segredo
+        assert len(segredo) >= 32
+        pem, _ = generate_keypair(segredo)
+        assert issue_invite(pem, segredo, "a@b.co", "c@d.co").code.startswith("MCRA1.")
+
+    def test_segredo_local_novo_a_cada_criacao(self, tmp_path: Path) -> None:
+        """Cada ativação gera outro segredo (substitui o anterior)."""
+        store = InviteStore(tmp_path)
+        primeiro = store.create_local_secret()
+        assert store.create_local_secret() != primeiro
+        assert store.read_local_secret() != primeiro
+
+    @pytest.mark.parametrize("conteudo", [b"", b"curto", b"\xff\xfe" * 10])
+    def test_segredo_local_ilegivel_levanta_configerror_com_o_arquivo(
+        self, tmp_path: Path, conteudo: bytes
+    ) -> None:
+        store = InviteStore(tmp_path)
+        store.local_secret_path.write_bytes(conteudo)
+        with pytest.raises(ConfigError, match="invite_local.key"):
+            store.read_local_secret()
 
     def test_emissor_ida_e_volta_sem_senha_de_app_em_texto_puro(self, tmp_path: Path) -> None:
         """O invite_issuer.yaml guarda e-mails e a senha de app só cifrada."""
