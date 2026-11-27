@@ -127,6 +127,53 @@ nenhum valor diferente. Notas para a F7-12:
   indicadores vem de RREO/RGF; a estimativa precisa bater com a CAPAG oficial de João Pessoa
   antes de aparecer como nota. Amostras de RREO/RGF/DCA em `ref/amostras/`.
 
+**Resultado do spike F7-04 (27/11/2026): a CAPAG sai da MSC — João Pessoa dá B+, igual à oficial.**
+Fonte oficial: planilha "Capag Municípios 2026 - 01/09/2026" do Tesouro Transparente (CKAN
+`capag-municipios`), aba "CAPAG Ano Base 2025". Dados da MSC: dezembro (MSCC, mês 12) de 2023,
+2024 e 2025, puxados pela API (ver 7.2). Valores = `ending_balance`.
+
+| Indicador | Fórmula | MSC | Oficial | Nota |
+|---|---|---|---|---|
+| I — Endividamento | DC / RCL | 0,260358 | 0,260358 | A |
+| II — Poupança corrente | média 50/30/20 (ano, -1, -2) de despesa corrente / RCA | 0,891227 | 0,891227 | B |
+| III — Liquidez relativa | (DCB − OF + insuficiência) / RCL | ≈0,03052 | 0,030504 | B |
+| CAPAG | combinação (A, B, B) | B | B | |
+| Com ICF Aicf | B → B+ | **B+** | **B+** | |
+
+Como cada variável sai da MSC (exato, centavo a centavo, salvo onde indicado):
+
+- **Despesa corrente (II):** contas `6221304` + `6221305` + `6221307` com ND começando em 3.
+- **RCA:** `6212` com NR iniciada em 1 (receita corrente) + `6212` com NR iniciada em 7
+  (intra) + deduções `6213` com NR iniciada em 1 (`6213101` = FUNDEB; demais = outras).
+- **RCL:** receita corrente líquida de deduções (RCA sem intra) − contribuição do servidor ao
+  RPPS (NR `1215…`) − compensação previdenciária (NR `19990301`, `19990302`) − rendimentos do
+  RPPS (NR `13210401`). Bateu exato para JP; a lista de deduções precisa ser conferida no MDF
+  antes de generalizar.
+- **Dívida consolidada:** empréstimos e financiamentos (`2121`, `2122`, `2123`, `2221`, `2222`,
+  `2223`, qualquer FP) + precatórios a partir de 05/05/2000 (`211110503`) + renegociação de
+  dívidas com fornecedores (`213110103`, `223110103`). Para outros entes, entram também as
+  demais contas de precatório e parcelamento — conferir no MDF.
+- **DCB (caixa bruto, não vinculados):** `1111` exceto `11112` (conta única, espelhada em
+  `218920106`), FR com código-base 500/501/502, PO do Executivo e RPPS (Legislativo `20231`
+  fica fora: é o RGF do Executivo).
+- **OF (obrigações financeiras, não vinculados):** RP liquidados não pagos de exercícios
+  anteriores (`6321000` + `6313000`), RP liquidados não pagos do exercício (`6327000`),
+  RP não processados de exercícios anteriores (`6311000`) — exatos; demais obrigações
+  financeiras (`2188` + `2189` sem `218920106` + `214`) ficou ~R$ 81 mil abaixo do RGF
+  (efeito de 0,002 p.p. no indicador). Insuficiência de caixa das fontes vinculadas não foi
+  conferida (usar DCL negativa por fonte vinculada).
+
+Faixas e combinação (tiradas das 5.570 linhas da planilha oficial):
+
+- I: A < 60%, B < 100%, C ≥ 100%. II: A < 85%, B < 95%, C ≥ 95%. III: A ≥ 5%, B > 0, C ≤ 0.
+- Final: (A,A,A), (A,A,B), (A,B,A) → A; (A,B,B), (B,A,A), (B,A,B), (B,B,A), (B,B,B),
+  (C,A,A), (C,B,A), (C,B,B) → B; (C,C,C) → D; o resto → C.
+- ICF do Ranking: Aicf sobe A → A+ e B → B+; Eicf torna "n.e." (não elegível). O ICF pode vir da
+  nossa própria estimativa do Ranking (score), o que liga a F7-19 ao motor.
+
+Para a F7-19: a estimativa usa três dezembros (dois anteriores vêm da API, sem upload) e deve
+ter teste de regressão com os números oficiais de JP 2025 acima.
+
 ### 7.7 Limpeza
 - Exportar Excel aparece em `Home.tsx` e `Pendencias.tsx`; Exportar PDF em `Home.tsx` e
   `TopBar.tsx`. Proposta: ficar só na `TopBar` (PDF e Excel), que já aparece em toda tela.
