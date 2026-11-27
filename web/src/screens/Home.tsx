@@ -19,8 +19,6 @@ export function Home() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [run, setRun] = useState<RunSummary | null>(lastRun);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [exportBusy, setExportBusy] = useState<'excel' | 'pdf' | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
 
   // Score, contagem e top-regras refletem a competência ATIVA (dropdown da
   // TopBar), não o último upload — buscamos um resumo por competência.
@@ -106,49 +104,6 @@ export function Home() {
                   <dt>Pendências</dt>
                   <dd className="mono">{run.total_pendencias.toLocaleString('pt-BR')}</dd>
                 </div>
-              </div>
-              <div className="samid-export-btns">
-                {exportError && (
-                  <p className="samid-error" role="alert">{exportError}</p>
-                )}
-                <button
-                  type="button"
-                  className="samid-btn samid-btn-primary"
-                  disabled={exportBusy !== null}
-                  id="btn-export-excel"
-                  onClick={() => {
-                    setExportError(null);
-                    setExportBusy('excel');
-                    api
-                      .exportExcel(run.siconfi, run.competencia)
-                      .catch((err: unknown) => {
-                  const msg = err instanceof ApiError ? err.userMessage : 'Erro ao exportar.';
-                  setExportError(msg);
-                })
-                      .finally(() => setExportBusy(null));
-                  }}
-                >
-                  {exportBusy === 'excel' ? 'Gerando…' : '⬇ Exportar Excel'}
-                </button>
-                <button
-                  type="button"
-                  className="samid-btn samid-btn-gold"
-                  disabled={exportBusy !== null}
-                  id="btn-export-pdf"
-                  onClick={() => {
-                    setExportError(null);
-                    setExportBusy('pdf');
-                    api
-                      .exportPdf(run.siconfi, run.competencia)
-                      .catch((err: unknown) => {
-                  const msg = err instanceof ApiError ? err.userMessage : 'Erro ao exportar.';
-                  setExportError(msg);
-                })
-                      .finally(() => setExportBusy(null));
-                  }}
-                >
-                  {exportBusy === 'pdf' ? 'Gerando…' : '📄 Exportar PDF'}
-                </button>
               </div>
             </>
           )}

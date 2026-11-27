@@ -29,8 +29,6 @@ export function Pendencias() {
   const [page, setPage] = useState<PendenciasPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [exportBusy, setExportBusy] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
   const [filterSev, setFilterSev] = useState<Severidade | ''>('');
   const [filterRegra, setFilterRegra] = useState('');
   const [filterConta, setFilterConta] = useState('');
@@ -211,35 +209,7 @@ export function Pendencias() {
                   : 'Sem dados'}
             </h2>
           </div>
-          <button
-            type="button"
-            className="samid-btn samid-btn-ghost"
-            disabled={exportBusy || !page}
-            onClick={() => {
-              setExportError(null);
-              setExportBusy(true);
-              api
-                .exportExcel(siconfi, competencia)
-                .catch((err: unknown) => {
-                  const msg = err instanceof ApiError
-                    ? err.status === 404
-                      ? 'Relatório não encontrado. Execute o pipeline primeiro.'
-                      : err.userMessage
-                    : 'Erro ao exportar.';
-                  setExportError(msg);
-                })
-                .finally(() => setExportBusy(false));
-            }}
-          >
-            {exportBusy ? 'Gerando...' : 'Exportar Excel'}
-          </button>
         </div>
-
-        {exportError && (
-          <p className="samid-pill samid-pill-erro" role="alert">
-            {exportError}
-          </p>
-        )}
 
         {error && (
           <p className="samid-pill samid-pill-erro" role="alert">

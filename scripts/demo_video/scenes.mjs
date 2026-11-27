@@ -67,7 +67,7 @@ export async function execucao(page, { csv }) {
     'As 78 regras são aplicadas ao arquivo inteiro. Sem planilha paralela e sem conferência manual.',
   );
   await page.waitForSelector('.samid-drop-title:has-text("Processando")', { timeout: 8000 }).catch(() => {});
-  await page.waitForSelector('.samid-export-btns', { timeout: 120000 });
+  await page.waitForSelector('.samid-kv', { timeout: 120000 });
   await page.waitForTimeout(900);
 
   await moveTo(page, '.samid-kv');
