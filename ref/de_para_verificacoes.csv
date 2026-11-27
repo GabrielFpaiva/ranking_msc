@@ -1,0 +1,196 @@
+codigo;dimensao;declaracao;descricao;tipo;regras;cobertura;capag;observacao
+D1_00001;DI;RREO;Homologação de todos os RREOs;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00002;DI;DCA;Homologação da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00003;DI;RGF;Homologação de todos os RGFs do poder Executivo;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00004;DI;RGF;Homologação de todos os RGFs do poder Legislativo;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00006;DI;RREO;Tempestividade na homologação dos RREOs;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00007;DI;DCA;Tempestividade na homologação da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00008;DI;RGF;Tempestividade na homologação dos RGFs do poder Executivo;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00009;DI;RGF;Tempestividade na homologação dos RGFs do poder Legislativo;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00011;DI;RREO;Quantidade de retificações dos RREOs do exercício;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00012;DI;DCA;Quantidade de retificações da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00013;DI;RGF;Quantidade de retificações dos RGFs do poder executivo no exercício;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00014;DI;RGF;Quantidade de retificações dos RGFs do poder Legislativo no exercício;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D1_00016;DI;MSC;Envio de todas as MSCs do período;so_msc;;nenhuma;;Entrega, não conteúdo: depende do extrato de entregas (tela Entregas).
+D1_00019;DI;MSC;Envio de MSCs com códigos de poder/órgão incorretos;so_msc;"R021;R039";total;;
+D1_00020;DI;MSC;Envio de MSCs com diferenças nos saldos entre meses diferentes;so_msc;R054;total;;
+D1_00021;DI;MSC;Envio de MSCs com contas do ativo com saldo invertido incorretamente;so_msc;R086;total;;"R086 cobre todo o ativo; a oficial só os grupos 1111, 1121, 1125, 1231, 1232."
+D1_00022;DI;MSC;Envio de de MSCs com todos os códigos de poder/órgão;so_msc;R034;parcial;;"R034 exige PO em cada linha; a oficial exige que todos os PO do ente apareçam na matriz."
+D1_00023;DI;MSC;Envio de MSCs com dados do poder executivo iguais entre meses diferentes;so_msc;R083;total;;
+D1_00024;DI;MSC;Envio de MSCs com dados do legislativo iguais entre meses diferentes;so_msc;R083;parcial;;"R083 só olha o Executivo; falta o Legislativo."
+D1_00025;DI;MSC;Envio de MSCs com contas do passivo com saldo invertido incorretamente;so_msc;R087;total;;
+D1_00026;DI;MSC;Envio de MSCs com contas de patrimônio líquido com saldo invertido incorretamente;so_msc;R088;total;;
+D1_00027;DI;MSC;Envio de MSCs com contas com atributo F (financeiro) sem detalhamento de fonte ou destinação de recursos;so_msc;R084;total;;
+D1_00028;DI;MSC;Envio de MSCs com todas as classes de contas (Patrimonial, orçamentária e controle);so_msc;R068;parcial;;"R068 confere presença das classes; a oficial exige valor diferente de zero em cada classe."
+D1_00029;DI;MSC;Envio de MSCs com contas de receita orçamentária e deduções sem detalhamento de fonte ou destinação de recurso;so_msc;R089;total;;
+D1_00030;DI;MSC;Envio de MSCs com contas de receita orçamentária e deduções sem o detalhamento de natureza de receita;so_msc;R090;total;;
+D1_00031;DI;MSC;Envio de MSCs com contas de despesa orçamentária sem o detalhamento de natureza de despesa;so_msc;R091;total;;
+D1_00032;DI;MSC;Envio de MSCs com contas de despesa orçamentária sem o detalhamento de função/subfunção;so_msc;R092;total;;
+D1_00033;DI;MSC;Envio de MSCs com contas de despesa orçamentária sem o detalhamento de fonte ou destinação de recursos;so_msc;R093;total;;
+D1_00034;DI;MSC;Envio de MSC com contas de VPD com saldo invertido incorretamente;so_msc;R032;total;;R032 não exclui a MSC de encerramento: pode sinalizar a mais no mês 13.
+D1_00035;DI;MSC;Envio de MSC com contas de VPA com saldo invertido incorretamente;so_msc;R032;total;;R032 não exclui a MSC de encerramento: pode sinalizar a mais no mês 13.
+D1_00036;DI;MSC;Envio de MSC encerramento com saldo final nas contas VPA e VPD;so_msc;R069;total;;
+D1_00037;DI;MSC;Quantidade de MSC de estados e municípios com fontes de recursos da União;so_msc;;nenhuma;;R024 aceita fontes da União (000 a 499) em município: a tabela FR traz os códigos de todas as esferas.
+D1_00038;DI;MSC;Quantidade de MSC com contas de previsão e execução orçamentária com saldos invertidos.;so_msc;R032;total;;
+D1_00039;DI;MSC;Verifica se há despesas orçamentárias registradas indevidamente com o primeiro dígito “9” (recursos condicionados) na codificação de fontes.;so_msc;;nenhuma;;"R048 aceita FR com 1º dígito 9; a oficial penaliza 9 em despesa orçamentária."
+D1_00040;DI;MSC;Verifica se há receitas orçamentárias registradas indevidamente com o primeiro dígito “9” (recursos condicionados) na codificação de fontes.;so_msc;;nenhuma;;"R048 aceita FR com 1º dígito 9; a oficial penaliza 9 em receita orçamentária."
+D1_00041;DI;MSC;Verifica se há informação de execução de despesas com ações e serviços públicos de saúde detalhados no Código de Acompanhamento Orçamentário (CO) específico.;so_msc;;nenhuma;;Presença do CO de ASPS (saúde) na despesa executada.
+D1_00042;DI;MSC;Verifica se há informação de execução de despesas com manutenção e desenvolvimento do ensino detalhados no Código de Acompanhamento Orçamentário (CO) específico.;so_msc;;nenhuma;;Presença do CO de MDE (ensino) na despesa executada.
+D1_00043;DI;MSC;Verifica se há informação de execução de despesas com remuneração dos profissionais da educação básica com recursos do Fundeb detalhados no Código de Acompanhamento Orçamentário (CO) específico.;so_msc;;nenhuma;;Presença do CO de remuneração Fundeb na despesa executada.
+D1_00044;DI;MSC;Verifica se há a informação complementar AI - Ano de Inscrição de Restos a Pagar na MSC do ente.;so_msc;"R020;R029";parcial;;"R020 cobra o conjunto de IC da conta e R029 valida o AI; conferir a lista de contas da oficial."
+D2_00002;DII;DCA;Informação da variação patrimonial diminutiva do FUNDEB no Anexo I-HI da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00003;DII;DCA;Informação de deduções de receitas para formação do FUNDEB no Anexo I-C da DCA;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00004;DII;DCA;Informação das receitas orçamentárias do FUNDEB no Anexo I-C da DCA;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00005;DII;DCA;Informação das despesas orçamentárias com encargos patronais no Anexo I-D da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00006;DII;DCA;Informação das despesas orçamentárias com pessoal no Anexo I-D da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00007;DII;DCA;Informação de despesas orçamentárias de custeio no Anexo I-D da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00008;DII;DCA;Informação das despesa orçamentárias por função no Anexo I-E da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00010;DII;DCA;Informação das receitas de transferências intergovernamentais no Anexo I-C da DCA;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00011;DII;DCA;Informação de receitas orçamentárias tributárias no Anexo I-C da DCA;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00012;DII;DCA;Avalia a existência de receitas orçamentárias menores que suas deduções no Anexo I-C da DCA;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00013;DII;DCA;"Avalia a existência de ajustes para perdas maiores que os ativos originais no Anexo I-AB da DCA para ""Créditos a curto e longo prazos""";sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00014;DII;DCA;"Avalia a existência de ajustes para perdas maiores que os ativos originais no Anexo I-AB da DCA para ""Demais créditos e valores a curto e longo prazo""";sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00015;DII;DCA;Informação de valor patrimonial de bens móveis no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00016;DII;DCA;Informação de Depreciação acumulada de bens móveis no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00017;DII;DCA;Informação de variação patrimonial diminutiva de depreciação de bens móveis e imóveis no Anexo I-HI da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00018;DII;DCA;Avalia se o valor dos bens móveis é maior que sua depreciação acumulada no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00019;DII;DCA;Informação do valor patrimonial de bens imóveis no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00020;DII;DCA;Informação de depreciação acumulada de bens imóveis no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00021;DII;DCA;Avalia se o valor dos bens imóveis é maior que sua depreciação acumulada no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00023;DII;DCA;Avalia se o valor de inscrição de restos a pagar não processados no Anexo I-D da DCA é menor ou igual à diferença entre despesas empenhadas e liquidadas;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00024;DII;DCA;Avalia se o valor de inscrição de restos a pagar processados no Anexo I-D da DCA é menor ou igual à diferença entre despesas liquidadas e pagas;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00028;DII;DCA;Avalia se o valor de Passivo Circulante Financeiro é menor ou igual ao Passivo Circulante no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00029;DII;DCA;Relação entre empréstimos e financiamentos no Anexo I-AB e a VPD de Juros e Encargos no Anexo I-HI - PIPCP item 10;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00030;DII;DCA;Existência de contas de terceiro nível do PCASP com saldos negativos no Anexo - I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00031;DII;DCA;Existência de contas de terceiro nível do PCASP com saldos negativos no Anexo - I-HI da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00032;DII;DCA;Informação de Ajuste de Dívida Ativa (Tributária + Não Tributária) no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00033;DII;DCA;Informação de receitas que não são de competência do ente no Anexo I-C da DCA;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00034;DII;DCA;Existência de contas de quinto nível do PCASP com saldos negativos no Anexo - I-HI da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00035;DII;DCA;Informação de deduções de Receitas com sinal negativo no Anexo I-C da DCA;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00036;DII;DCA;Verifica a evidenciação de créditos tributários na DCA, relacionando a existência de VPD no Anexo I-HI com créditos tributários no Anexo I-AB - PIPCP item 1;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00037;DII;DCA;Verifica a informação de registro de créditos tributários do período no Anexo I-HI da DCA - PIPCP item 1;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00039;DII;DCA;Verifica a evidenciação de provisões por competência, relacionando a existência de VPD no Anexo I-HI e passivos no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00040;DII;DCA;Existência de contas de quinto nível do PCASP com saldos negativos no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00044;DII;MSC DCA;Avalia a igualdade das receitas arrecadadas na MSC de encerramento e no Anexo I-C da DCA;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D2_00046;DII;MSC DCA;Avalia a igualdade das receitas com tributos municipais na MSC de encerramento e no Anexo I-C da DCA;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D2_00048;DII;MSC DCA;Verifica a igualdade das receitas municipais com transferências constitucionais na MSC de dezembro e no Anexo I-C da DCA;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D2_00049;DII;MSC DCA;Verifica a igualdade das Despesas Orçamentárias empenhadas, liquidadas e pagas na MSC de encerramento e no Anexo I-D da DCA;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D2_00050;DII;MSC DCA;Verifica a igualdade dos Restos a Pagar processados e não processados na MSC de encerramento e no Anexo I-D da DCA;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00051;DII;DCA;Verifica se o total de ajustes para perdas de estoques é maior que o saldo de estoques no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00052;DII;DCA;Avalia a relação entre VPA ou VPD com resultado de equivalência patrimonial no Anexo I-H e participações permanentes no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00053;DII;MSC;Verifica se o total de ajustes para perdas de estoques é maior que o saldo de estoques na MSC de Encerramento;so_msc;;nenhuma;;Ajuste para perdas de estoques maior que o estoque (encerramento).
+D2_00054;DII;MSC;Avalia, na MSC de encerramento, a relação entre VPA ou VPD com resultado de equivalência patrimonial e participações permanentes;so_msc;;nenhuma;;VPA/VPD de equivalência patrimonial sem investimento permanente (encerramento).
+D2_00055;DII;MSC;Avalia se o valor dos ativos intangíveis é maior que sua amortização acumulada na MSC de Encerramento;so_msc;;nenhuma;;Amortização acumulada maior que o intangível (encerramento).
+D2_00058;DII;MSC DCA;Avalia se os valores de VPA e VPD com Fundeb estão iguais entre a MSC de encerramento e o Anexo I-HI da DCA;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00059;DII;MSC;"Avalia a existência de ajustes para perdas maiores que os ativos originais na MSC de encerramento para ""Créditos a curto e longo prazos""";so_msc;;nenhuma;;Ajuste para perdas maior que créditos a curto e longo prazo (encerramento).
+D2_00060;DII;MSC;"Avalia a existência de ajustes para perdas maiores que os ativos originais na MSC de encerramento para ""Demais créditos e valores a curto e longo prazo""";so_msc;;nenhuma;;Ajuste para perdas maior que demais créditos (encerramento).
+D2_00061;DII;DCA;Informação da variação patrimonial aumentativa do FUNDEB no Anexo I-HI da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00066;DII;DCA;Avalia se o valor dos ativos intangíveis é maior que sua amortização acumulada no Anexo I-AB da DCA;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00067;DII;MSC;Avalia se o valor dos bens móveis é maior que sua depreciação acumulada na MSC de encerramento;so_msc;;nenhuma;;Depreciação maior que bens móveis (encerramento).
+D2_00068;DII;MSC;Avalia se o valor dos bens imóveis é maior que sua depreciação acumulada na MSC de encerramento;so_msc;;nenhuma;;Depreciação maior que bens imóveis (encerramento).
+D2_00069;DII;MSC DCA;Avalia se o valor de despesas exceto-intra na função 09 (Prev. Social) é igual entre a MSC de encerramento e o Anexo I-E da DCA;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00070;DII;MSC DCA;Avalia se o valor de despesas exceto-intra na função 10 (Saúde) é igual entre a MSC de encerramento e o Anexo I-E da DCA;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00071;DII;MSC DCA;Avalia se o valor de despesas exceto-intra na função 12 (Educação) é igual entre a MSC de encerramento e o Anexo I-E da DCA;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00072;DII;MSC DCA;Avalia se o valor de despesas exceto-intra nas funções diferentes de 09, 10 e 12 é igual entre a MSC de encerramento e o Anexo I-E da DCA;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00073;DII;MSC DCA;Avalia se o valor de despesas intraorçamentárias com detalhamento de função/subfunção é igual entre a MSC de encerramento e o Anexo I-E da DCA;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00074;DII;MSC DCA;Avalia a igualdade entre os saldos finais de RPP pagos e RPNP pagos na MSC de Encerramento e no Anexo I-F da DCA;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00076;DII;MSC;Verifica se houve evidenciação de créditos previdenciários parcelados, ou seja, se existir VPA de juros desse parcelamento, deverá haver o registro do crédito no ativo (curto/longo prazo).;so_msc;;nenhuma;;Créditos previdenciários parcelados (4.4.2.5.2.02 x 1.1.2.1.2.71 + 1.2.1.1.2.06 + 1.1.3.6.2.02).
+D2_00079;DII;MSC;Verifica se os valores pagos antecipadamente estão sendo baixados por competência.;so_msc;;nenhuma;;Pagamentos antecipados (grupo 119): janeiro x dezembro. Precisa de duas matrizes.
+D2_00081;DII;MSC;Verifica se houve evidenciação de obrigações por competência decorrentes de benefícios a empregados;so_msc;;nenhuma;;Lançamento mensal a crédito de férias e 13º (2.1.1.1.1.01.02/03).
+D2_00082;DII;MSC;Verifica se houve movimentação mensal nas contas patrimoniais de depreciação, exaustão ou amortização acumulada de bens móveis.;so_msc;R085;total;;
+D2_00083;DII;MSC;Verifica o cumprimento das regras de integridade de DDR;so_msc;R052;parcial;;"R052 compara classe 7 x classe 8 inteiras; a oficial compara 721 x 821 (DDR)."
+D2_00084;DII;MSC DCA;Avalia se a soma total de passivo financeiro e permanente da DCA é maior ou igual ao total da soma do passivo circulante e não circulante na MSC de dezembro.;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D2_00085;DII;DCA;Avalia se o total da soma do passivo financeiro e permanente na DCA é maior ou igual ao total de passivo circulante e passivo não circulante na DCA.;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00086;DII;MSC;Verifica se houve reconhecimento de VPD com material de consumo em todos os meses.;so_msc;;nenhuma;;VPD de material de consumo em todos os meses.
+D2_00087;DII;MSC;Verifica se houve reconhecimento de VPD com serviços em todos os meses.;so_msc;;nenhuma;;VPD de serviços em todos os meses.
+D2_00088;DII;MSC;Verifica se houve reconhecimento de variação patrimonial aumentativa com Transferências Intergovernamentais em todos os meses.;so_msc;;nenhuma;;VPA de transferências intergovernamentais em todos os meses.
+D2_00089;DII;DCA;Verifica a existência de VPD de Variações Monetárias e Cambiais quando foram informados valores de Obrigações decorrentes de empréstimos e financiamentos externos.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D2_00093;DII;MSC;Verifica se foi reconhecido, mensurado e evidenciado a movimentação patrimonial de consumo nas contas de almoxarifado (grupo 11561).;so_msc;;nenhuma;;Consumo de almoxarifado (grupo 11561).
+D2_00094;DII;MSC;Verificar se existem despesas previdenciárias devidamente registradas no período para servidores do RPPS.;so_msc;;nenhuma;;Despesa previdenciária de servidores (3.1.1.1.1.01.01 x 3.1.2.1.2.01.00).
+D2_00095;DII;MSC;Verificar se existem despesas previdenciárias devidamente registradas no período para funcionários contratados sob RGPS.;so_msc;;nenhuma;;Despesa previdenciária de funcionários (3.1.1.2.1.01.01 x 3.1.2.2.x).
+D2_00097;DII;MSC;Verificar se o valor total transferido pela União por meio de transferências especiais de emendas individuais é menor ou igual ao valor total de receitas decorrentes dessas transferências registrados pelo ente.;externo;;nenhuma;S;Precisa de dado de fora do Siconfi (SIOPE ou Tesouro Transparente).
+D2_00099;DII;DCA;Avalia a informação de deduções com transferências constitucionais por municípios.;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D2_00100;DII;MSC DCA;Compara os valores de execução de restos a pagar da função saúde do Anexo I-G da DCA com a MSC de encerramento. Apenas valores exceto-intra.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00101;DII;MSC DCA;Compara os valores de execução de restos a pagar da função educação do Anexo I-G da DCA com a MSC de encerramento. Apenas valores exceto-intra.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00102;DII;MSC DCA;Compara os valores de execução de restos a pagar da função previdência social do Anexo I-G da DCA com a MSC de encerramento. Apenas valores exceto-intra.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00103;DII;MSC DCA;Compara os valores de execução de restos a pagar de todas as funções (exceto função 09, 10 e 12) do Anexo I-G da DCA com a MSC de encerramento. Apenas valores exceto-intra.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00104;DII;MSC DCA;Compara os valores de execução de restos a pagar intra do Anexo I-G da DCA com a MSC de encerramento.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D2_00105;DII;MSC;Verificar se o valor total de transferências de FPM efetuadas pela União é igual ao valor total de receitas decorrentes dessas transferências registrado pelo ente.;externo;;nenhuma;;Precisa de dado de fora do Siconfi (SIOPE ou Tesouro Transparente).
+D3_00001;DIII;RREO;Avalia a correta informação do déficit ou superávit orçamentário no Anexo 01 do RREO;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00002;DIII;RREO;Igualdade da Informação de despesas orçamentárias entre os anexos 1 e 2 do RREO;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00005;DIII;RREO RGF;Igualdade da Receita Corrente Líquida (RCL) entre o Anexo 03 do RREO e os Anexos 01, 02, 03 e 04 do RGF do poder executivo;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00006;DIII;RREO RGF;Igualdade da Dívida Consolidada Líquida (DCL) entre o Anexo 06 do RREO e o Anexo 02 do RGF do poder executivo;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00008;DIII;RREO RGF;Igualdade dos restos a pagar não processados entre o Anexo 01 do RREO e o Anexo 05 do RGF de todos os poderes/órgãos;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00009;DIII;RREO RGF;Igualdade dos restos a pagar processados e não processados entre o Anexo 07 do RREO e o Anexo 05 do RGF de todos os poderes/órgãos;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00010;DIII;RGF;Igualdade da Receita Corrente Líquida (RCL) no Anexo 01 do RGF de todos os poderes/órgãos;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00011;DIII;RGF;Dedução de inativos e pensionistas com recursos vinculados menor ou igual ao valor com inativos e pensionistas no Anexo 01 do RGF de todos os poderes/órgãos;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00012;DIII;RREO;Informação de valores negativos no RREO;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00013;DIII;RGF;Informação de valores negativos no RGF de todos os poderes/órgãos;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00014;DIII;RGF;Igualdade das Transferências Obrigatórias da União Relativas às Emendas Individuais nos Anexos 01, 02 e 04 do RGF do poder executivo;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00015;DIII;RGF RREO;Igualdade das Transferências Relativas às Emendas Individuais entre o Anexo 03 do RREO e o Anexo 01 do RGF do poder executivo;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00016;DIII;RGF RREO;Igualdade das Transferências Relativas às Emendas de bancada entre o Anexo 03 do RREO e o Anexo 01 do RGF do poder executivo;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00017;DIII;RREO;Igualdade entre os Restos a Pagar (Processados e Não-Processados) Pagos no Exercício do Anexo 6 do RREO com os Restos a Pagar (Processados e Não-Processados) Pagos do Anexo 7 do RREO;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00021;DIII;MSC de Dezembro;Verifica se o somatório do passivo circulante e passivo não circulante (apenas financeiros) é maior ou igual aos Restos a Pagar (liquidados ou em liquidação) da MSC dezembro - PO - Poder Executivo mais PO RPPS;so_msc;;nenhuma;S;Passivo financeiro maior ou igual aos RP liquidados (MSC de dezembro).
+D3_00022;DIII;MSC de Dezembro RREO;"Igualdade das ""Receitas Correntes Orçamentárias"" e ""Receitas Correntes Intraorçamentárias"" no Anexo 1 do RREO e dos valores da MSC de dezembro.";cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D3_00023;DIII;MSC de Dezembro RREO;"Igualdade das ""Receitas de Capital Orçamentárias"" e ""Receitas de Capital Intraorçamentárias"" no Anexo 1 do RREO e da MSC de dezembro.";cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D3_00024;DIII;MSC de Dezembro RREO;"Igualdade das ""Despesas Correntes Orçamentárias"" e ""Despesas Correntes Intraorçamentárias"" no Anexo 1 do RREO e dos valores da MSC de dezembro.";cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D3_00025;DIII;MSC de Dezembro RREO;"Igualdade das ""Despesas de Capital Orçamentárias"" e ""Despesas de Capital Intraorçamentárias"" no Anexo 1 do RREO e da MSC de dezembro.";cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D3_00026;DIII;MSC de Dezembro RREO;Verifica os valores de Caixa e Equivalentes de Caixa por grupos de Fontes de Recursos do Anexo 5 do RGF;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D3_00027;DIII;RREO;Verifica a igualdade entre Dotação atualizada, Despesas empenhadas até o bimestre, Despesas Liquidadas até o bimestre nos Anexos 1 e 6;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00028;DIII;RREO;"Igualdade no total das ""Receitas Realizadas Até o Bimestre"" - Anexo 1 e Anexo 6.";sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00029;DIII;RGF MSC Dezembro;"O valor da linha de dedução ""Parcela dedutível referente ao piso salarial do Enfermeiro, Técnico de Enfermagem, Auxiliar de Enfermagem e Parteira (ADCT, art. 38, §2º)"" deve ser menor ou igual a 90% (2024) ou 81% (2025) do somatório dos valores informados na MSC Agregada mensal";cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D3_00030;DIII;RREO;Verificação de igualdade entre o total de receitas previdenciárias, Anexo 4 com o Anexo 6 do RREO;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00032;DIII;RREO;Verificação de igualdade de Recursos Arrecadados em Exercícios Anteriores (RPPS) entre os anexos 1 e 6 do RREO.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00033;DIII;RREO;Verificação de igualdade de Superávit Financeiro Utilizado para Créditos Adicionais entre os anexos 1 e 6 do RREO.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00034;DIII;RREO;Verificação de igualdade de Reserva do RPPS entre os anexos 1, 4 e 6 do RREO.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00035;DIII;RREO;Verificação de igualdade de Reserva de Contingência entre os anexos 1 e 6 do RREO.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00037;DIII;RREO;Verificação da igualdade de Investimentos (intra + exceto intra) do Anexo 1 e do Anexo 9 do RREO.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00038;DIII;RREO;Verificação da igualdade de Inversões Financeiras (intra + exceto intra) do Anexo 1 e do Anexo 9 do RREO.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00039;DIII;RREO;Verificação da igualdade de Amortização da Dívida (intra + exceto intra) do Anexo 1 e do Anexo 9 do RREO.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00040;DIII;RREO;Verificação da igualdade de Receitas de Operações de crédito do Anexo 1 e do Anexo 9 do RREO.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00044;DIII;RREO;Igualdade de Transferências da União relativas a remuneração dos agentes comunitários de saúde e de combate às endemias.;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00045;DIII;RGF;Verifica se foram informados valores negativos em todas a linhas que não sejam totais ou subtotais das colunas referentes aos Restos a Pagar.;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D3_00046;DIII;MSC RREO;Compara as Despesas de Exercícios Anteriores com gastos com pessoal no saldo final da MSC de dezembro e no Anexo 01 do RGF.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D3_00047;DIII;RREO;"Verifica a igualdade do valor da linha ""Valor"", do quadro ""RESERVA ORÇAMENTÁRIA DO RPPS"" do Anexo 4 RREO com o valor a linha "" Reserva Orçamentária do RPPS"", quadro ""Informações Adicionais"" do Anexo 6 RREO";sem_msc;;nao_se_aplica;;Não usa a MSC.
+D3_00048;DIII;MSC;Verifica se há despesas com inativos indevidamente computadas no cálculo do limite mínimo de ASPS.;so_msc;;nenhuma;;Inativos/pensionistas com CO 1002 (saúde).
+D3_00049;DIII;MSC;Verifica se há despesas com inativos indevidamente computadas no cálculo do limite mínimo de MDE.;so_msc;;nenhuma;;Inativos/pensionistas com CO 1001 (educação).
+D3_00050;DIII;SIOPE MSC;Verifica a igualdade entre o total de receitas de impostos na MSC de dezembro e no SIOPE.;externo;;nenhuma;;Precisa de dado de fora do Siconfi (SIOPE ou Tesouro Transparente).
+D3_00051;DIII;SIOPE MSC;Verifica a igualdade entre o total de receitas de Complementação da União ao Fundeb na MSC de dezembro e no SIOPE .;externo;;nenhuma;;Precisa de dado de fora do Siconfi (SIOPE ou Tesouro Transparente).
+D3_00052;DIII;SIOPE MSC;Verifica a igualdade entre o total de receitas de Fundeb decorrentes dos impostos na MSC de dezembro e no SIOPE.;externo;;nenhuma;;Precisa de dado de fora do Siconfi (SIOPE ou Tesouro Transparente).
+D3_00053;DIII;SIOPE MSC;Verifica a igualdade entre o total de receitas de transferências de impostos na MSC de dezembro e no SIOPE.;externo;;nenhuma;;Precisa de dado de fora do Siconfi (SIOPE ou Tesouro Transparente).
+D3_00054;DIII;MSC;Verifica se as despesas associadas à Informação Complementar CO 1002 estão devidamente ligadas à Função saúde ou encargos especiais com as Fontes ou Destinação de Recursos relacionadas aos impostos e transferências de impostos, incluídas as compensações.;so_msc;;nenhuma;;CO 1002 ligado à função saúde/encargos e às FR de impostos.
+D3_00055;DIII;MSC;Verifica se as despesas associadas à Informação Complementar CO 1001 estão devidamente ligadas à Função educação ou encargos especiais com as Fontes ou Destinação de Recursos relacionadas aos impostos e transferências de impostos, incluídas as compensações.;so_msc;;nenhuma;;CO 1001 ligado à função educação/encargos e às FR de impostos.
+D4_00001;DIV;DCA RREO;Igualdade da receita realizada entre o Anexo I-C da DCA e o Anexo 01 do RREO 6ºB.;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D4_00002;DIV;DCA RREO;Igualdade da execução da despesa entre o Anexo I-D da DCA e o Anexo 01 do RREO 6ºB.;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D4_00003;DIV;DCA RREO;Igualdade da execução da despesa por função entre o Anexo I-E da DCA e o Anexo 02 do RREO 6ºB (exceto intraorçamentária).;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D4_00004;DIV;DCA RREO;Igualdade da execução da despesa por função entre o Anexo I-E da DCA e o Anexo 02 do RREO 6ºB (intraorçamentária).;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D4_00005;DIV;DCA RREO;Igualdade dos restos a pagar não processados e processados entre o Anexo I-F da DCA e o Anexo 07 do RREO 6ºB.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D4_00006;DIV;DCA RREO;Igualdade dos restos a pagar não processados entre o Anexo I-G da DCA e o Anexo 07 do RREO 6ºB.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D4_00007;DIV;DCA RREO;Igualdade dos restos a pagar processados entre o Anexo I-G da DCA e o Anexo 07 do RREO 6ºB.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D4_00010;DIV;DCA RREO;Igualdade das receitas com tributos municipais entre o Anexo I-C da DCA e o Anexo 03 do RREO 6ºB.;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D4_00012;DIV;DCA RREO;Igualdade das transferências municipais entre o Anexo I-C da DCA e o Anexo 03 do RREO 6ºB.;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D4_00017;DIV;DCA RREO;Igualdade das contrib. dos servidores e compensações financeiras entre o Anexo I-C da DCA e o Anexo 03 do RREO 6ºB.;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D4_00019;DIV;DCA RREO;Igualdade do valor das despesas de capital entre o Anexo I-D da DCA e o Anexo 09 do RREO 6ºB.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D4_00020;DIV;MSC RREO;Igualdade nas receitas arrecadadas na MSC de dezembro e no Anexo 01 do RREO 6ºB.;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D4_00022;DIV;MSC RREO;Igualdade nas receitas com tributos municipais na MSC de dezembro e no Anexo 03 do RREO 6ºB.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D4_00024;DIV;MSC RREO;Igualdade nas receitas municipais com transferências constitucionais na MSC de dezembro e no Anexo 03 do RREO 6ºB.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D4_00025;DIV;MSC RREO;Igualdade das Despesas Orçamentárias empenhadas, liquidadas e pagas na MSC de dezembro e no RREO 6ºB.;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D4_00026;DIV;MSC RREO;Igualdade dos Restos a Pagar não processados no Anexo 01 do RREO 6ºB e na MSC de dezembro.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D4_00027;DIV;DCA RGF;Avalia se o valor de caixa e equivalente de caixas do Anexo 02 do RGF é menor ou igual ao saldo de caixa e equivalentes do Anexo 01 da DCA.;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D4_00028;DIV;DCA RGF;Avalia se o valor de caixa e equivalente de caixas do Anexo 05 do RGF é menor ou igual ao saldo de caixa e equivalentes do Anexo 01 da DCA.;sem_msc;;nao_se_aplica;S;Não usa a MSC.
+D4_00029;DIV;MSC RREO;Avalia se o valor de despesas exceto-intra na função 09 (Prev. Social) é igual entre a MSC de Dezembro e o Anexo 02 do RREO.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D4_00030;DIV;MSC RREO;Avalia se o valor de despesas exceto-intra na função 10 (Saúde) é igual entre a MSC de Dezembro e o Anexo 02 do RREO.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D4_00031;DIV;MSC RREO;Avalia se o valor de despesas exceto-intra na função 12 (Educação) é igual entre a MSC de Dezembro e o Anexo 02 do RREO.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D4_00032;DIV;MSC RREO;Avalia se o valor de despesas exceto-intra nas funções diferentes de 09, 10 e 12 é igual entre a MSC de Dezembro e o Anexo 02 do RREO.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D4_00033;DIV;MSC RREO;Avalia se o valor de despesas intraorçamentárias com detalhamento de função/subfunção é igual entre a MSC de Dezembro e o Anexo 02 do RREO.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D4_00034;DIV;MSC RREO;Avalia a igualdade entre os saldos finais de RPP pagos e RPNP pagos na MSC de Dezembro e no Anexo 07 do RREO.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D4_00035;DIV;MSC RREO;Avalia se o valor de caixa e equivalente de caixas do Anexo 05 do RGF é menor ou igual ao saldo de caixa e equivalentes da MSC de encerramento.;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D4_00036;DIV;MSC RREO;Avalia se o valor de caixa e equivalente de caixas do Anexo 02 do RGF é menor ou igual ao saldo de caixa e equivalentes do Anexo 01 da MSC de encerramento.;cruzamento;;nenhuma;;Cruza a MSC com DCA/RREO/RGF.
+D4_00038;DIV;MSC RREO;Igualdade nas receitas de Tributos ( IPTU, ISS, ITBI, IRRF ) entre os Anexos VI RREO X MSC de dezembro.;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D4_00040;DIV;MSC RREO;Igualdade no valor das transferências constitucionais ( Cota-Parte do FPM, Cota-Parte do ICMS, Cota-Parte do IPVA, Cota-Parte do ITR e Transferências do FUNDEB ) entre os anexos VI RREO X MSC de dezembro.;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D4_00041;DIV;DCA MSC de dezembro;Avalia o impacto nas contas de natureza patrimonial, Passivo Financeiro da DCA, se é maior ou igual a soma de restos a pagar do exercício, bem como dos restos a pagar pendentes de pagamento.;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D4_00042;DIV;MSC RGF;Relação entre valores restituíveis na MSC e Obrigações Financeiras Extraorçamentárias no Anexo 05 do RGF. O valor do RGF deve ser maior ou igual ao valor apurado na MSC.;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D4_00043;DIV;MSC RGF;Igualdade entre os valores de Recursos Não Vinculados às Disponibilidades de Caixa e aos Restos a Pagar Processados e Não Processados de exercícios anteriores com os saldos finais da MSC de dezembro.;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D4_00045;DIV;MSC RGF;Relação entre valores restituíveis na MSC e em Recursos Extraorçamentários no RGF. O valor do RGF deve ser maior ou igual ao valor apurado na MSC.;cruzamento;;nenhuma;S;Cruza a MSC com DCA/RREO/RGF.
+D4_00046;DIV;DCA RREO;Verificação da igualdade nas receitas (Contribuições, Receita Patrimonial, Receita Agropecuária, Receita Industrial e Receita de Serviços) entre os Anexos 3 do RREO com os valores da DCA - Anexo I-C;sem_msc;;nao_se_aplica;;Não usa a MSC.
+D4_00047;DIV;DCA RREO;Verificação da igualdade dos valores das deduções do Fundeb na DCA - Anexo I-C com os valores da dedução de Receita para Formação do FUNDEB do Anexo 3 do RREO;sem_msc;;nao_se_aplica;;Não usa a MSC.
