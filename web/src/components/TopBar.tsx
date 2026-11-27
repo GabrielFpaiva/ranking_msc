@@ -65,7 +65,11 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
       : api.exportPdf(siconfi, competencia);
     call
       .catch((err: unknown) => {
-        const msg = err instanceof ApiError ? err.userMessage : 'Erro ao exportar. Tente novamente.';
+        const msg = err instanceof ApiError
+          ? err.status === 404
+            ? 'Relatório não encontrado. Execute o pipeline primeiro.'
+            : err.userMessage
+          : 'Erro ao exportar. Tente novamente.';
         setExportError(msg);
         if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
         errorTimerRef.current = setTimeout(() => setExportError(null), 6000);

@@ -124,7 +124,7 @@
     "pergunta": "Como gero o Excel de pendências e o PDF executivo?",
     "passos": [
       "Processe a MSC do mês primeiro. Os arquivos só saem depois disso.",
-      "Na tela Início, clique em Exportar Excel ou Exportar PDF. O Excel também está na tela Pendências.",
+      "No alto de qualquer tela, ao lado da competência, clique em Excel ou Exportar PDF.",
       "Espere o botão terminar de gerar e o arquivo é baixado.",
       "O Excel traz o resumo, a lista completa de pendências e as evidências. Use quando houver muitas linhas.",
       "O PDF é a versão de uma página, com score, histórico, dimensões críticas e recomendações. Bom para reunião."
