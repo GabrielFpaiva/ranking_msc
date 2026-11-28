@@ -117,6 +117,13 @@ class SiconfiSettings:
 
 
 @dataclass(frozen=True)
+class DatabaseSettings:
+    """Conexão com o Postgres (Supabase). A variável DATABASE_URL tem precedência."""
+
+    url: str = ""
+
+
+@dataclass(frozen=True)
 class Settings:
     """Configuração consolidada do projeto."""
     app: AppSettings = field(default_factory=AppSettings)
@@ -124,6 +131,7 @@ class Settings:
     rules: RulesSettings = field(default_factory=RulesSettings)
     security: SecuritySettings = field(default_factory=SecuritySettings)
     siconfi: SiconfiSettings = field(default_factory=SiconfiSettings)
+    database: DatabaseSettings = field(default_factory=DatabaseSettings)
 
 
 # ---------------------------------------------------------------------------
@@ -255,4 +263,7 @@ def load_settings(path: Path | str | None = None) -> Settings:
         rules=_parse_section(raw.get("rules", {}), RulesSettings, "rules"),
         security=security,
         siconfi=_parse_section(raw.get("siconfi", {}), SiconfiSettings, "siconfi"),
+        database=DatabaseSettings(
+            url=os.environ.get("DATABASE_URL") or (raw.get("database") or {}).get("url") or "",
+        ),
     )
