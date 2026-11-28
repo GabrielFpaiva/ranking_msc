@@ -139,18 +139,19 @@ def test_run_cli_fluxo_feliz_orquestra_pipeline(
             executed_rule_ids=[],
         )
 
-    def fake_write_snapshot_atomic(
-        df: pd.DataFrame,
-        competencia: str,
-        *,
-        base_dir: str | Path,
-        label: str,
-    ) -> Path:
-        captured["snapshot_rows"] = len(df)
-        captured["snapshot_competencia"] = competencia
-        captured["snapshot_base"] = Path(base_dir)
-        captured["snapshot_label"] = label
-        return Path(base_dir) / competencia / f"{label}.parquet"
+    class FakeStore:
+        """Captura o que o pipeline grava."""
+
+        def save_msc(self, ref: object, df: pd.DataFrame, *, usuario: str) -> None:
+            captured["msc_usuario"] = usuario
+
+        def save_resultado(self, ref: object, pendencias: pd.DataFrame, execucao: object) -> None:
+            captured["snapshot_rows"] = len(pendencias)
+            captured["snapshot_competencia"] = ref.competencia  # type: ignore[attr-defined]
+
+    def fake_make_store(settings: object, snapshots_dir: Path) -> FakeStore:
+        captured["snapshot_base"] = Path(snapshots_dir)
+        return FakeStore()
 
     def fake_export_issues_excel(
         df_pendencias: pd.DataFrame,
@@ -178,7 +179,8 @@ def test_run_cli_fluxo_feliz_orquestra_pipeline(
     # A orquestração vive em ranking_msc.services.pipeline (compartilhada com a API).
     monkeypatch.setattr(pipeline_service, "normalize_ic", fake_normalize_ic)
     monkeypatch.setattr(pipeline_service, "run_engine", fake_run_engine)
-    monkeypatch.setattr(pipeline_service, "write_snapshot_atomic", fake_write_snapshot_atomic)
+    monkeypatch.setattr(cli, "make_store", fake_make_store)
+    monkeypatch.setattr(pipeline_service, "registro_execucao", lambda *_a: None)
     monkeypatch.setattr(pipeline_service, "export_issues_excel", fake_export_issues_excel)
     monkeypatch.setattr(pipeline_service, "log_execucao", fake_log_execucao)
 
@@ -202,8 +204,8 @@ def test_run_cli_fluxo_feliz_orquestra_pipeline(
     assert captured["engine_context_competencia"] == "2025-11"
     assert captured["snapshot_rows"] == 0
     assert captured["snapshot_competencia"] == "2025-11"
-    assert captured["snapshot_base"] == (output_base / "snapshots" / "2507507EX").resolve()
-    assert captured["snapshot_label"] == "resultado_regras"
+    assert captured["snapshot_base"] == (output_base / "snapshots").resolve()
+    assert captured["msc_usuario"] == "cli"
     assert captured["report_rows"] == 0
     assert captured["report_competencia"] == "2025-11"
     assert captured["report_dir"] == (output_base / "reports").resolve()

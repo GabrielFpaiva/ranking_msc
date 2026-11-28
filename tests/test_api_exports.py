@@ -13,6 +13,7 @@ from app.api.main import app
 from fastapi.testclient import TestClient
 
 from ranking_msc.exceptions import SnapshotError
+from ranking_msc.io.store import ParquetStore
 from tests.conftest import _build_msc_csv_bytes  # type: ignore[attr-defined]
 
 
@@ -34,7 +35,7 @@ def populated_exports(
     from app.api.routes import score as score_module
 
     for module in (run_module, score_module, reco_module, exports_module):
-        monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots, raising=False)
     monkeypatch.setattr(run_module, "absolute_reports_dir", lambda: reports)
     monkeypatch.setattr(exports_module, "absolute_reports_dir", lambda: reports)
 
@@ -142,7 +143,9 @@ class TestPdfExport:
         monkeypatch.setattr(api_deps, "absolute_reports_dir", lambda: reports)
         from app.api.routes import exports as exports_module
 
-        monkeypatch.setattr(exports_module, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(
+            exports_module, "absolute_snapshots_dir", lambda: snapshots, raising=False
+        )
         monkeypatch.setattr(exports_module, "absolute_reports_dir", lambda: reports)
 
         corrupt_dir = snapshots / "2507507EX" / "2025-12"
@@ -172,13 +175,15 @@ class TestPdfExport:
         monkeypatch.setattr(api_deps, "absolute_reports_dir", lambda: reports)
         from app.api.routes import exports as exports_module
 
-        monkeypatch.setattr(exports_module, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(
+            exports_module, "absolute_snapshots_dir", lambda: snapshots, raising=False
+        )
         monkeypatch.setattr(exports_module, "absolute_reports_dir", lambda: reports)
 
         def _raise_operational_failure(*args: object, **kwargs: object) -> object:
             raise SnapshotError("Falha de permissão ao ler arquivo Parquet")
 
-        monkeypatch.setattr(exports_module, "read_snapshot", _raise_operational_failure)
+        monkeypatch.setattr(ParquetStore, "load_resultado", _raise_operational_failure)
 
         client = TestClient(app, raise_server_exceptions=False)
         response = client.get(
@@ -206,7 +211,7 @@ class TestPdfExport:
         from app.api.routes import score as score_module
 
         for module in (run_module, score_module, reco_module, exports_module):
-            monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots)
+            monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots, raising=False)
         monkeypatch.setattr(run_module, "absolute_reports_dir", lambda: reports)
         monkeypatch.setattr(exports_module, "absolute_reports_dir", lambda: reports)
 
@@ -251,7 +256,7 @@ class TestPdfExport:
         from app.api.routes import score as score_module
 
         for module in (run_module, score_module, reco_module, exports_module):
-            monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots)
+            monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots, raising=False)
         monkeypatch.setattr(run_module, "absolute_reports_dir", lambda: reports)
         monkeypatch.setattr(exports_module, "absolute_reports_dir", lambda: reports)
 
