@@ -115,6 +115,11 @@ security:
   #   - username: "admin"
   #     hashed_password: "$2b$12$SUBSTITUA_PELO_HASH_REAL"
 
+database:
+  # Postgres do Supabase (pooler, porta 6543). Em produção use a variável de
+  # ambiente DATABASE_URL, que tem precedência sobre este campo.
+  url: ""
+
 siconfi:
   id_ente: 2507507              # codigo IBGE do ente (Joao Pessoa - PB)
   cache_ttl_horas: 24

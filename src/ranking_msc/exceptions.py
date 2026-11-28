@@ -75,6 +75,10 @@ class BenchmarkError(RankingMSCError):
     """Falha no módulo de benchmark (gerador, profiler ou reporter)."""
 
 
+class DatabaseError(RankingMSCError):
+    """Falha ao conectar no Postgres ou ao aplicar uma migração."""
+
+
 class SiconfiIndisponivelError(RankingMSCError):
     """A API do Siconfi não pôde ser consultada (rede, timeout ou erro HTTP)."""
 

@@ -31,6 +31,8 @@ dependencies = [
     # Antes ela só chegava como extra do python-jose; declarada aqui, deixa de
     # depender de outro pacote manter esse extra.
     "cryptography>=42.0",
+    # Postgres do Supabase (F7-05): SQL puro + migrações .sql, sem ORM.
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]
