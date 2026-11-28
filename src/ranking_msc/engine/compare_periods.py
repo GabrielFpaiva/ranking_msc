@@ -8,7 +8,7 @@ Uso:
     from ranking_msc.engine.compare_periods import compare_periods
     result = compare_periods(
         siconfi="250400",
-        snapshots_dir=Path("data/snapshots"),
+        store=ParquetStore("data/snapshots"),
         settings=settings,
     )
     for i, period in enumerate(result.periods):
@@ -30,12 +30,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from ranking_msc.config.settings import Settings
 from ranking_msc.engine.score_engine import ScoreResult, calculate_score
 from ranking_msc.exceptions import SnapshotError, SnapshotNotFoundError
-from ranking_msc.io import read_scoring_metadata, read_snapshot
+from ranking_msc.io.store import MatrizRef, SnapshotStore
 
 logger = logging.getLogger("ranking_msc")
 
@@ -95,9 +94,10 @@ class PeriodComparison:
 def compare_periods(
     siconfi: str,
     *,
-    snapshots_dir: str | Path,
+    store: SnapshotStore,
     settings: Settings,
     competencias: list[str] | None = None,
+    origem: str = "previa",
 ) -> PeriodComparison:
     """Compara scores de múltiplas competências para um ente SICONFI.
 
@@ -106,11 +106,12 @@ def compare_periods(
 
     Args:
         siconfi: código do ente SICONFI.
-        snapshots_dir: diretório raiz de snapshots (ex: data/snapshots).
+        store: armazenamento de snapshots (``make_store()``).
         settings: configurações do projeto (usa settings.rules.enabled como
             proxy de regras executadas em cada período).
         competencias: lista de "YYYY-MM" a comparar. Se None, descobre
-            automaticamente todos os períodos disponíveis em disco.
+            automaticamente todos os períodos disponíveis no armazenamento.
+        origem: ``"previa"`` ou ``"homologada"``.
 
     Returns:
         PeriodComparison com todos os períodos encontrados, ordenados.
@@ -118,27 +119,21 @@ def compare_periods(
     Raises:
         Nenhuma — períodos sem snapshot são logados como aviso e ignorados.
     """
-    base_dir = Path(snapshots_dir)
     executed_rule_ids = list(settings.rules.enabled)
 
     if competencias is None:
-        competencias = _discover_competencias(base_dir, siconfi)
+        competencias = [r.competencia for r in store.list_refs(siconfi, origem)]
 
     if not competencias:
-        logger.warning(
-            "Nenhuma competência encontrada para siconfi=%s em %s",
-            siconfi,
-            base_dir / siconfi,
-        )
+        logger.warning("Nenhuma competência encontrada para siconfi=%s (%s)", siconfi, origem)
         return PeriodComparison(siconfi=siconfi)
 
     periods: list[PeriodScore] = []
 
     for competencia in sorted(competencias):
         period = _load_period_score(
-            siconfi=siconfi,
-            competencia=competencia,
-            base_dir=base_dir,
+            store=store,
+            ref=MatrizRef(siconfi, competencia, origem),
             executed_rule_ids=executed_rule_ids,
         )
         if period is not None:
@@ -152,63 +147,36 @@ def compare_periods(
 # ---------------------------------------------------------------------------
 
 
-def _discover_competencias(base_dir: Path, siconfi: str) -> list[str]:
-    """Descobre competências disponíveis varrendo o diretório de snapshots.
-
-    Args:
-        base_dir: diretório raiz de snapshots.
-        siconfi: código do ente.
-
-    Returns:
-        Lista de competências no formato YYYY-MM, ordenadas.
-    """
-    siconfi_dir = base_dir / siconfi
-    if not siconfi_dir.is_dir():
-        return []
-
-    competencias = [
-        p.parent.name
-        for p in siconfi_dir.glob("*/resultado_regras.parquet")
-    ]
-    return sorted(competencias)
-
-
 def _load_period_score(
     *,
-    siconfi: str,
-    competencia: str,
-    base_dir: Path,
+    store: SnapshotStore,
+    ref: MatrizRef,
     executed_rule_ids: list[str],
 ) -> PeriodScore | None:
     """Lê snapshot e calcula score de um único período.
 
     Args:
-        siconfi: código do ente.
-        competencia: período YYYY-MM.
-        base_dir: diretório raiz de snapshots.
+        store: armazenamento de snapshots.
+        ref: endereço da matriz do período.
         executed_rule_ids: regras a considerar no cálculo.
 
     Returns:
         PeriodScore calculado, ou None se snapshot ausente.
     """
     try:
-        pendencias = read_snapshot(
-            competencia,
-            base_dir=base_dir / siconfi,
-            label="resultado_regras",
-        )
+        pendencias = store.load_resultado(ref)
     except SnapshotNotFoundError:
         logger.warning(
             "Snapshot ausente para siconfi=%s competencia=%s — período ignorado.",
-            siconfi,
-            competencia,
+            ref.siconfi,
+            ref.competencia,
         )
         return None
     except SnapshotError as exc:
         logger.warning(
             "Snapshot inválido para siconfi=%s competencia=%s — período ignorado: %s",
-            siconfi,
-            competencia,
+            ref.siconfi,
+            ref.competencia,
             exc,
         )
         return None
@@ -216,8 +184,8 @@ def _load_period_score(
         logger.warning(
             "Falha inesperada ao ler snapshot para siconfi=%s competencia=%s "
             "— período ignorado: %s: %s",
-            siconfi,
-            competencia,
+            ref.siconfi,
+            ref.competencia,
             type(exc).__name__,
             exc,
         )
@@ -226,17 +194,14 @@ def _load_period_score(
     # Usa regras realmente executadas no período, se disponíveis.
     # Sem metadados (snapshots anteriores à F4-fix), cai de volta na lista atual
     # com aviso explícito — scores históricos podem ser imprecisos.
-    persisted_ids = read_scoring_metadata(
-        competencia,
-        base_dir=base_dir / siconfi,
-    )
+    persisted_ids = store.load_rule_ids(ref)
     if persisted_ids is None:
         logger.warning(
             "Metadados de scoring ausentes para siconfi=%s competencia=%s — "
             "usando regras configuradas como fallback. "
             "Scores históricos podem ser imprecisos se o conjunto de regras mudou.",
-            siconfi,
-            competencia,
+            ref.siconfi,
+            ref.competencia,
         )
         rule_ids_to_use = executed_rule_ids
     else:
@@ -245,7 +210,7 @@ def _load_period_score(
     score_result = calculate_score(pendencias, rule_ids_to_use)
 
     return PeriodScore(
-        competencia=competencia,
+        competencia=ref.competencia,
         score_result=score_result,
         total_pendencias=len(pendencias),
     )

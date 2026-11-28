@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import absolute_snapshots_dir, get_current_user
+from app.api.deps import get_current_user, get_store
 from app.api.schemas import PendenciaOut, PendenciasPageOut
 from ranking_msc.exceptions import SnapshotNotFoundError
+from ranking_msc.io.store import MatrizRef
 from ranking_msc.outputs.aggregations import filter_pendencias
-from ranking_msc.outputs.snapshot import read_snapshot
 
 router = APIRouter(
     prefix="/api",
@@ -43,9 +43,9 @@ def list_pendencias(
     limit: int = Query(100, ge=1, le=1000),
 ) -> PendenciasPageOut:
     """Lê o snapshot ``resultado_regras`` e aplica filtros + paginação."""
-    base = absolute_snapshots_dir() / siconfi
+    store, ref = get_store(), MatrizRef(siconfi, competencia)
     try:
-        df = read_snapshot(competencia, base_dir=base, label="resultado_regras")
+        df = store.load_resultado(ref)
     except SnapshotNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

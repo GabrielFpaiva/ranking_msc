@@ -21,6 +21,7 @@ from app.api.deps import (
     get_current_user,
     get_logger,
     get_settings,
+    get_store,
 )
 from app.api.schemas import (
     DimensionScoreOut,
@@ -94,7 +95,7 @@ async def run_pipeline(
             run = run_full_pipeline(
                 raw,
                 settings=settings,
-                snapshots_dir=snapshots_dir,
+                store=get_store(),
                 reports_dir=reports_dir,
                 logger=api_logger,
                 usuario=current_user,

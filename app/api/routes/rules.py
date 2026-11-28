@@ -13,7 +13,7 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import absolute_snapshots_dir, get_current_user
+from app.api.deps import get_current_user, get_store
 from app.api.schemas import (
     HeatmapCellOut,
     HeatmapOut,
@@ -88,7 +88,7 @@ def get_heatmap(
     meses: int = Query(6, ge=1, le=24),
 ) -> HeatmapOut:
     """Heatmap completo da tela Regras."""
-    matrix = build_heatmap(absolute_snapshots_dir(), siconfi, meses=meses)
+    matrix = build_heatmap(get_store(), siconfi, meses=meses)
     return HeatmapOut(
         siconfi=siconfi,
         competencias=matrix.competencias,
@@ -120,7 +120,7 @@ def get_rule_history(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Regra {rule_id} não está registrada.",
         )
-    cells = rule_history(absolute_snapshots_dir(), siconfi, rule_id, meses=meses)
+    cells = rule_history(get_store(), siconfi, rule_id, meses=meses)
     return RuleHistoryOut(
         siconfi=siconfi,
         rule_id=rule_id,

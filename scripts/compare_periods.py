@@ -32,8 +32,10 @@ for _p in (str(_SRC_DIR), str(_SCRIPTS_DIR)):
         sys.path.insert(0, _p)
 
 from _cli_helpers import _log_failure, _resolve_config_path, _resolve_project_path  # noqa: E402
+
 from ranking_msc.config.settings import load_settings  # noqa: E402
 from ranking_msc.engine.compare_periods import PeriodComparison, compare_periods  # noqa: E402
+from ranking_msc.io.store import make_store  # noqa: E402
 from ranking_msc.exceptions import RankingMSCError  # noqa: E402
 from ranking_msc.outputs.logs import setup_logging  # noqa: E402
 from ranking_msc.outputs.report_consolidado import export_consolidado_excel  # noqa: E402
@@ -108,7 +110,7 @@ def run_cli(argv: list[str] | None = None) -> int:
 
         result = compare_periods(
             siconfi=args.siconfi,
-            snapshots_dir=snapshots_dir,
+            store=make_store(settings, snapshots_dir),
             settings=settings,
             competencias=args.competencias,
         )

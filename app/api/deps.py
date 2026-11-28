@@ -28,6 +28,7 @@ sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
 import ranking_msc.rules  # noqa: E402, F401  -- popular RULE_REGISTRY
 from ranking_msc.config.settings import Settings, load_settings  # noqa: E402
+from ranking_msc.io.store import SnapshotStore, make_store  # noqa: E402
 from ranking_msc.outputs.logs import setup_logging  # noqa: E402
 
 PROJECT_ROOT: Path = _PROJECT_ROOT
@@ -88,6 +89,11 @@ def absolute_snapshots_dir() -> Path:
     """Retorna o diretório de snapshots resolvido absolutamente."""
     settings = get_settings()
     return (PROJECT_ROOT / settings.paths.snapshots_dir).resolve()
+
+
+def get_store() -> SnapshotStore:
+    """Armazenamento de snapshots da API: Postgres com DATABASE_URL, senão Parquet em disco."""
+    return make_store(get_settings(), absolute_snapshots_dir())
 
 
 def absolute_reports_dir() -> Path:

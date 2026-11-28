@@ -31,6 +31,7 @@ from _cli_helpers import (  # noqa: E402, F401
 from ranking_msc.config.settings import Settings, load_settings  # noqa: E402
 from ranking_msc.exceptions import InputFormatError, RankingMSCError  # noqa: E402
 from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
+from ranking_msc.io.store import make_store  # noqa: E402
 from ranking_msc.outputs.logs import setup_logging  # noqa: E402
 from ranking_msc.services.pipeline import run_full_pipeline  # noqa: E402
 
@@ -136,7 +137,7 @@ def _execute_pipeline(
     run = run_full_pipeline(
         raw_msc,
         settings=settings,
-        snapshots_dir=output_paths.snapshots_dir,
+        store=make_store(settings, output_paths.snapshots_dir),
         reports_dir=output_paths.reports_dir,
         logger=logger,
         usuario="cli",
@@ -144,10 +145,10 @@ def _execute_pipeline(
     )
 
     logger.info(
-        "Pipeline concluído: status=%s pendencias=%d snapshot=%s report=%s",
+        "Pipeline concluído: status=%s pendencias=%d matriz=%s report=%s",
         run.engine_result.status,
         run.engine_result.total_pendencias,
-        run.snapshot_path,
+        run.ref,
         run.report_path,
         extra={
             "execucao_id": run.context.execucao_id,
