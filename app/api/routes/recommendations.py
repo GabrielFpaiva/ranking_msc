@@ -11,13 +11,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import absolute_snapshots_dir, get_current_user, get_settings
+from app.api.deps import get_current_user, get_settings, get_store
 from app.api.schemas import RecommendationOut, RecommendationsOut
 from ranking_msc.engine.compare_periods import compare_periods
 from ranking_msc.engine.score_engine import calculate_score
 from ranking_msc.exceptions import SnapshotNotFoundError
+from ranking_msc.io.store import MatrizRef
 from ranking_msc.outputs.aggregations import derive_recommendations
-from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
 
 router = APIRouter(
     prefix="/api",
@@ -35,9 +35,9 @@ def get_recommendations(
     siconfi: str = Query(..., description="Código SICONFI", pattern=r"^[a-zA-Z0-9_-]+$"),
     competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> RecommendationsOut:
-    base = absolute_snapshots_dir() / siconfi
+    store, ref = get_store(), MatrizRef(siconfi, competencia)
     try:
-        pendencias = read_snapshot(competencia, base_dir=base, label="resultado_regras")
+        pendencias = store.load_resultado(ref)
     except SnapshotNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -45,14 +45,14 @@ def get_recommendations(
         ) from exc
 
     settings = get_settings()
-    meta = read_scoring_metadata(competencia, base_dir=base)
+    meta = store.load_rule_ids(ref)
     rule_ids = meta if meta is not None else list(settings.rules.enabled)
     score_atual = calculate_score(pendencias, rule_ids)
 
     # Score anterior — pega o último ponto antes da competência atual
     comparison = compare_periods(
         siconfi=siconfi,
-        snapshots_dir=absolute_snapshots_dir(),
+        store=get_store(),
         settings=settings,
     )
     score_anterior: float | None = None

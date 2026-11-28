@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import absolute_snapshots_dir, get_current_user, get_settings
+from app.api.deps import get_current_user, get_settings, get_store
 from app.api.schemas import (
     DimensionScoreOut,
     ScoreOut,
@@ -19,8 +19,8 @@ from app.api.schemas import (
 )
 from ranking_msc.engine.score_engine import calculate_score
 from ranking_msc.exceptions import SnapshotNotFoundError
+from ranking_msc.io.store import MatrizRef
 from ranking_msc.outputs.aggregations import top_violated_rules
-from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
 
 router = APIRouter(
     prefix="/api",
@@ -39,16 +39,16 @@ def get_summary(
     competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> SummaryOut:
     """Lê o snapshot e devolve score, total de pendências e top 8 regras."""
-    base = absolute_snapshots_dir() / siconfi
+    store, ref = get_store(), MatrizRef(siconfi, competencia)
     try:
-        pendencias = read_snapshot(competencia, base_dir=base, label="resultado_regras")
+        pendencias = store.load_resultado(ref)
     except SnapshotNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Snapshot não encontrado para {siconfi}/{competencia}.",
         ) from exc
 
-    meta = read_scoring_metadata(competencia, base_dir=base)
+    meta = store.load_rule_ids(ref)
     rule_ids = meta if meta is not None else list(get_settings().rules.enabled)
     score_result = calculate_score(pendencias, rule_ids)
     top = top_violated_rules(pendencias, limit=8)

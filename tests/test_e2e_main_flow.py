@@ -50,7 +50,7 @@ def e2e_env(
         run_module,
         score_module,
     ):
-        monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots, raising=False)
 
     for module in (exports_module, run_module):
         monkeypatch.setattr(module, "absolute_reports_dir", lambda: reports)

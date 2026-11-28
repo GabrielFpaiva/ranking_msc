@@ -97,6 +97,16 @@ def _fake_engine_erro(_df: pd.DataFrame, _ctx: object) -> SimpleNamespace:
     )
 
 
+class _NullStore:
+    """Store que não grava nada (o teste só olha a orquestração)."""
+
+    def save_msc(self, *_args: object, **_kwargs: object) -> None:
+        """Ignora a matriz."""
+
+    def save_resultado(self, *_args: object, **_kwargs: object) -> None:
+        """Ignora o resultado."""
+
+
 def _noop(*_args: object, **_kwargs: object) -> Path:
     """Stub genérico para funções de I/O que retornam um Path."""
     return Path("/tmp/fake")
@@ -250,8 +260,8 @@ def test_execute_single_csv_fluxo_feliz(
 
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
-    monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
-    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
+    monkeypatch.setattr(batch, "make_store", lambda *_a: _NullStore())
+    monkeypatch.setattr(batch, "registro_execucao", lambda *_a: None)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
     monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
@@ -299,8 +309,8 @@ def test_execute_single_csv_usuario_e_batch(
 
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
-    monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
-    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
+    monkeypatch.setattr(batch, "make_store", lambda *_a: _NullStore())
+    monkeypatch.setattr(batch, "registro_execucao", lambda *_a: None)
     monkeypatch.setattr(batch, "run_engine", fake_run_engine)
     monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
@@ -405,8 +415,8 @@ def test_run_cli_batch_fluxo_feliz_retorna_zero(
     monkeypatch.setattr(batch, "setup_logging", lambda *, log_dir, **kw: logger)
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
-    monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
-    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
+    monkeypatch.setattr(batch, "make_store", lambda *_a: _NullStore())
+    monkeypatch.setattr(batch, "registro_execucao", lambda *_a: None)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
     monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
@@ -446,8 +456,8 @@ def test_run_cli_batch_csv_com_erro_continua_proximo(
     monkeypatch.setattr(batch, "setup_logging", lambda *, log_dir, **kw: logger)
     monkeypatch.setattr(batch, "read_msc_csv", fake_read)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
-    monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
-    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
+    monkeypatch.setattr(batch, "make_store", lambda *_a: _NullStore())
+    monkeypatch.setattr(batch, "registro_execucao", lambda *_a: None)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
     monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
@@ -515,8 +525,8 @@ def test_run_cli_batch_processa_dois_csvs_corretamente(
     monkeypatch.setattr(batch, "setup_logging", lambda *, log_dir, **kw: logger)
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
-    monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
-    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
+    monkeypatch.setattr(batch, "make_store", lambda *_a: _NullStore())
+    monkeypatch.setattr(batch, "registro_execucao", lambda *_a: None)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
     monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
@@ -549,8 +559,8 @@ def test_execute_single_csv_engine_parcial_propaga_status(
 
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
-    monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
-    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
+    monkeypatch.setattr(batch, "make_store", lambda *_a: _NullStore())
+    monkeypatch.setattr(batch, "registro_execucao", lambda *_a: None)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_erro)
     monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", _noop)
@@ -624,8 +634,8 @@ def test_filenames_unicos_para_csvs_da_mesma_competencia(
         csv_path.touch()
         monkeypatch.setattr(batch, "read_msc_csv", lambda _: raw_same)
         monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
-        monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
-        monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
+        monkeypatch.setattr(batch, "make_store", lambda *_a: _NullStore())
+        monkeypatch.setattr(batch, "registro_execucao", lambda *_a: None)
         monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
         monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
         monkeypatch.setattr(batch, "export_issues_excel", capture_export)
@@ -678,8 +688,8 @@ def test_batch_gera_aba_score_no_excel(
 
     monkeypatch.setattr(batch, "read_msc_csv", lambda _: _SAMPLE_RAW_MSC)
     monkeypatch.setattr(batch, "normalize_ic", lambda df: df)
-    monkeypatch.setattr(batch, "write_snapshot_atomic", _noop)
-    monkeypatch.setattr(batch, "write_scoring_metadata", _noop)
+    monkeypatch.setattr(batch, "make_store", lambda *_a: _NullStore())
+    monkeypatch.setattr(batch, "registro_execucao", lambda *_a: None)
     monkeypatch.setattr(batch, "run_engine", _fake_engine_ok)
     monkeypatch.setattr(batch, "calculate_score", lambda df, ids: _FAKE_SCORE)
     monkeypatch.setattr(batch, "export_issues_excel", capture_export)

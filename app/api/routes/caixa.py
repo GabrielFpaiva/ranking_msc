@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import absolute_snapshots_dir, get_current_user
+from app.api.deps import get_current_user, get_store
 from app.api.schemas import ContaListGroupOut, ContaListOut, ContaResumoOut
 from ranking_msc.exceptions import SnapshotNotFoundError
 from ranking_msc.outputs.aggregations import accounts_by_prefix
@@ -32,7 +32,7 @@ def get_caixa(
 ) -> ContaListOut:
     try:
         items = accounts_by_prefix(
-            absolute_snapshots_dir(),
+            get_store(),
             siconfi,
             competencia,
             prefixes=["111"],

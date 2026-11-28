@@ -37,11 +37,7 @@ def populated_snapshots(
     from app.api.routes import score as score_module
 
     for module in (run_module, score_module, competencias_module, pendencias_module):
-        monkeypatch.setattr(
-            module,
-            "absolute_snapshots_dir",
-            lambda: snapshots,
-        )
+        monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots, raising=False)
     monkeypatch.setattr(run_module, "absolute_reports_dir", lambda: reports)
 
     client = TestClient(app)

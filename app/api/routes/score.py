@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import absolute_snapshots_dir, get_current_user, get_settings
+from app.api.deps import get_current_user, get_settings, get_store
 from app.api.schemas import (
     DimensionScoreOut,
     ScoreHistoryOut,
@@ -20,7 +20,7 @@ from app.api.schemas import (
 from ranking_msc.engine.compare_periods import compare_periods
 from ranking_msc.engine.score_engine import calculate_score
 from ranking_msc.exceptions import SnapshotNotFoundError
-from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
+from ranking_msc.io.store import MatrizRef
 
 router = APIRouter(
     prefix="/api",
@@ -39,16 +39,16 @@ def get_score(
     competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> ScoreOut:
     """Lê snapshot e devolve score com breakdown por dimensão."""
-    base = absolute_snapshots_dir() / siconfi
+    store, ref = get_store(), MatrizRef(siconfi, competencia)
     try:
-        pendencias = read_snapshot(competencia, base_dir=base, label="resultado_regras")
+        pendencias = store.load_resultado(ref)
     except SnapshotNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Snapshot não encontrado para {siconfi}/{competencia}.",
         ) from exc
 
-    meta = read_scoring_metadata(competencia, base_dir=base)
+    meta = store.load_rule_ids(ref)
     rule_ids = meta if meta is not None else list(get_settings().rules.enabled)
     score_result = calculate_score(pendencias, rule_ids)
 
@@ -86,7 +86,7 @@ def get_score_history(
     settings = get_settings()
     comparison = compare_periods(
         siconfi=siconfi,
-        snapshots_dir=absolute_snapshots_dir(),
+        store=get_store(),
         settings=settings,
     )
 

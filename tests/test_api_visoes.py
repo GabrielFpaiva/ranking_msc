@@ -40,7 +40,7 @@ def populated_two_periods(
     from app.api.routes import run as run_module
 
     for module in (run_module, compare_module, reco_module):
-        monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots, raising=False)
     monkeypatch.setattr(run_module, "absolute_reports_dir", lambda: reports)
     monkeypatch.setattr(log_module, "PROJECT_ROOT", tmp_path)
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import absolute_snapshots_dir, get_current_user, get_settings
+from app.api.deps import get_current_user, get_settings, get_store
 from app.api.schemas import CompareDimensionOut, CompareOut, CompareSideOut
 from ranking_msc.engine.compare_periods import compare_periods
 
@@ -41,7 +41,7 @@ def get_compare(
     settings = get_settings()
     comparison = compare_periods(
         siconfi=siconfi,
-        snapshots_dir=absolute_snapshots_dir(),
+        store=get_store(),
         settings=settings,
         competencias=[a, b],
     )

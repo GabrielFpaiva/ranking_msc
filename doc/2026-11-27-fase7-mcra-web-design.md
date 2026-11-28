@@ -70,6 +70,22 @@ Render free sem persistência (só demo). Escolhido Render free + Supabase por c
 - Login segue o JWT atual; usuários migram do `settings.yaml` para tabela no banco.
 - Ping semanal para o Supabase não pausar (mesma ideia do keep-alive do Render).
 
+**Persistência (F7-05/F7-06, 28/11/2026).** Decisão do Gabriel: um armazenamento único que
+todos usam, com a origem como campo (opção 2, em vez de trocar por dentro de `read_snapshot`).
+
+- Schema em `src/ranking_msc/io/migrations/0001_schema_inicial.sql` (psycopg 3, SQL puro;
+  `scripts/db_migrate.py` aplica). RLS ligado sem policy: o Supabase expõe `public` pela REST.
+- `ranking_msc.io.store`: `MatrizRef(siconfi, competencia, origem)` e o contrato
+  `SnapshotStore` (`save_msc`/`load_msc`, `save_resultado`/`load_resultado`, `load_rule_ids`,
+  `list_refs`). `PostgresStore` quando há `DATABASE_URL`; `ParquetStore` sem banco (testes e
+  CLI local; prévia no caminho antigo, homologada em `<ente>/homologada/<mês>/`).
+- Motor: `EngineContext.get_store()` e `ref()`; R054/R083 leem o mês anterior da mesma origem.
+- Gravar a prévia de novo apaga a anterior (cascade leva execução e pendências); cada matriz
+  guarda só a última execução. O score de cada execução vai para `historico_score`, que
+  sobrevive à matriz apagada.
+- O CSV original no Storage fica para a F7-10 (upload da prévia), que precisa da chave
+  `service_role`.
+
 ### 7.2 Ciclo da matriz
 - **Prévia:** upload do CSV. Usuário escolhe ano e mês; o sistema confere com a competência
   do CSV e recusa se não bater. Se já existe prévia do mesmo mês/ano, avisa ("já existe

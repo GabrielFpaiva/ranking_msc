@@ -383,7 +383,7 @@ class TestR054:
         # Simula falha de I/O: read_snapshot levanta SnapshotError (não NotFound)
         io_error = SnapshotError("Falha de permissão ao ler arquivo Parquet")
         with patch(
-            "ranking_msc.rules.r054.read_snapshot",
+            "ranking_msc.io.store.ParquetStore.load_msc",
             side_effect=io_error,
         ):
             with pytest.raises(SnapshotError):

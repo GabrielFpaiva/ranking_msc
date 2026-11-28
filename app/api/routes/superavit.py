@@ -11,7 +11,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import PROJECT_ROOT, absolute_snapshots_dir, get_current_user, get_settings
+from app.api.deps import PROJECT_ROOT, get_current_user, get_settings, get_store
 from app.api.schemas import SuperavitOut, SuperavitRowOut
 from ranking_msc.exceptions import ConfigError, SnapshotNotFoundError
 from ranking_msc.io.ref_loader import load_pcasp
@@ -47,7 +47,7 @@ def get_superavit(
 
     try:
         summary = aggregate_superavit(
-            absolute_snapshots_dir(),
+            get_store(),
             siconfi,
             competencia,
             pcasp=pcasp,

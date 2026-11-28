@@ -16,11 +16,11 @@ from ranking_msc.config.settings import RulesSettings, Settings
 from ranking_msc.engine.compare_periods import (
     PeriodComparison,
     PeriodScore,
-    _discover_competencias,
     _load_period_score,
     compare_periods,
 )
 from ranking_msc.engine.score_engine import ScoreResult
+from ranking_msc.io.store import MatrizRef, ParquetStore
 from ranking_msc.outputs.snapshot import write_scoring_metadata, write_snapshot_atomic
 from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS
 
@@ -118,7 +118,7 @@ class TestPeriodComparisonScoreDelta:
 
 
 # ---------------------------------------------------------------------------
-# _discover_competencias
+# ParquetStore.list_refs (descoberta de competências)
 # ---------------------------------------------------------------------------
 
 
@@ -129,19 +129,19 @@ class TestDiscoverCompetencias:
         for comp in ("2024-01", "2024-02", "2024-03"):
             _write_resultado_snapshot(tmp_path, "250400", comp, empty)
 
-        found = _discover_competencias(tmp_path, "250400")
+        found = [r.competencia for r in ParquetStore(tmp_path).list_refs("250400")]
         assert found == ["2024-01", "2024-02", "2024-03"]
 
     def test_diretorio_inexistente_retorna_lista_vazia(self, tmp_path: Path) -> None:
         """Diretório de siconfi ausente → lista vazia."""
-        result = _discover_competencias(tmp_path, "999999")
+        result = [r.competencia for r in ParquetStore(tmp_path).list_refs("999999")]
         assert result == []
 
     def test_ignora_subpastas_sem_snapshot(self, tmp_path: Path) -> None:
         """Subpastas sem resultado_regras.parquet não são incluídas."""
         (tmp_path / "250400" / "2024-01").mkdir(parents=True)
         # sem arquivo parquet
-        result = _discover_competencias(tmp_path, "250400")
+        result = [r.competencia for r in ParquetStore(tmp_path).list_refs("250400")]
         assert result == []
 
 
@@ -157,9 +157,8 @@ class TestLoadPeriodScore:
         _write_resultado_snapshot(tmp_path, "250400", "2024-01", pendencias)
 
         period = _load_period_score(
-            siconfi="250400",
-            competencia="2024-01",
-            base_dir=tmp_path,
+            store=ParquetStore(tmp_path),
+            ref=MatrizRef("250400", "2024-01"),
             executed_rule_ids=[],
         )
         assert period is not None
@@ -169,9 +168,8 @@ class TestLoadPeriodScore:
     def test_snapshot_ausente_retorna_none(self, tmp_path: Path) -> None:
         """Snapshot ausente → retorna None sem levantar exceção."""
         period = _load_period_score(
-            siconfi="250400",
-            competencia="2024-01",
-            base_dir=tmp_path,
+            store=ParquetStore(tmp_path),
+            ref=MatrizRef("250400", "2024-01"),
             executed_rule_ids=[],
         )
         assert period is None
@@ -182,9 +180,8 @@ class TestLoadPeriodScore:
         _write_resultado_snapshot(tmp_path, "250400", "2024-01", pendencias)
 
         period = _load_period_score(
-            siconfi="250400",
-            competencia="2024-01",
-            base_dir=tmp_path,
+            store=ParquetStore(tmp_path),
+            ref=MatrizRef("250400", "2024-01"),
             executed_rule_ids=[],
         )
         assert period is not None
@@ -197,9 +194,8 @@ class TestLoadPeriodScore:
         (target_dir / "resultado_regras.parquet").write_text("nao-e-parquet", encoding="utf-8")
 
         period = _load_period_score(
-            siconfi="250400",
-            competencia="2024-01",
-            base_dir=tmp_path,
+            store=ParquetStore(tmp_path),
+            ref=MatrizRef("250400", "2024-01"),
             executed_rule_ids=[],
         )
         assert period is None
@@ -219,7 +215,7 @@ class TestComparePeriods:
                 pd.DataFrame(columns=FACT_RESULTADO_REGRAS_COLUMNS),
             )
 
-        result = compare_periods("250400", snapshots_dir=tmp_path, settings=_make_settings())
+        result = compare_periods("250400", store=ParquetStore(tmp_path), settings=_make_settings())
         assert [p.competencia for p in result.periods] == ["2024-01", "2024-02"]
 
     def test_autodescobre_quando_competencias_omitidas(self, tmp_path: Path) -> None:
@@ -230,13 +226,13 @@ class TestComparePeriods:
                 pd.DataFrame(columns=FACT_RESULTADO_REGRAS_COLUMNS),
             )
 
-        result = compare_periods("250400", snapshots_dir=tmp_path, settings=_make_settings())
+        result = compare_periods("250400", store=ParquetStore(tmp_path), settings=_make_settings())
         assert len(result.periods) == 2
         assert result.siconfi == "250400"
 
     def test_sem_snapshots_retorna_lista_vazia(self, tmp_path: Path) -> None:
         """Ente sem snapshots → lista de períodos vazia."""
-        result = compare_periods("999999", snapshots_dir=tmp_path, settings=_make_settings())
+        result = compare_periods("999999", store=ParquetStore(tmp_path), settings=_make_settings())
         assert result.periods == []
 
     def test_snapshot_ausente_em_competencias_explicitas_ignorado(
@@ -250,7 +246,7 @@ class TestComparePeriods:
 
         result = compare_periods(
             "250400",
-            snapshots_dir=tmp_path,
+            store=ParquetStore(tmp_path),
             settings=_make_settings(),
             competencias=["2024-01", "2024-02"],  # 2024-02 não existe
         )
@@ -265,7 +261,7 @@ class TestComparePeriods:
                 pd.DataFrame(columns=FACT_RESULTADO_REGRAS_COLUMNS),
             )
 
-        result = compare_periods("250400", snapshots_dir=tmp_path, settings=_make_settings())
+        result = compare_periods("250400", store=ParquetStore(tmp_path), settings=_make_settings())
         assert len(result.periods) == 2
         assert result.score_delta(0) is None
         assert result.score_delta(1) == pytest.approx(0.0)
@@ -280,7 +276,7 @@ class TestComparePeriods:
         corrupt_dir.mkdir(parents=True)
         (corrupt_dir / "resultado_regras.parquet").write_text("nao-e-parquet", encoding="utf-8")
 
-        result = compare_periods("250400", snapshots_dir=tmp_path, settings=_make_settings())
+        result = compare_periods("250400", store=ParquetStore(tmp_path), settings=_make_settings())
         assert [p.competencia for p in result.periods] == ["2024-02"]
 
 
@@ -396,7 +392,7 @@ class TestScoreEstabilidadeHistorica:
         # Chamada com settings original (só R001) — deve usar metadados
         settings_original = _make_settings(enabled=["R001"])
         result_original = compare_periods(
-            "250400", snapshots_dir=tmp_path, settings=settings_original
+            "250400", store=ParquetStore(tmp_path), settings=settings_original
         )
         assert len(result_original.periods) == 1
         score_original = result_original.periods[0].score_result.pontuacao
@@ -405,7 +401,7 @@ class TestScoreEstabilidadeHistorica:
         # Se metadados forem ignorados, R002 (sem erros) eleva o score → falso positivo
         settings_ampliado = _make_settings(enabled=["R001", "R002"])
         result_ampliado = compare_periods(
-            "250400", snapshots_dir=tmp_path, settings=settings_ampliado
+            "250400", store=ParquetStore(tmp_path), settings=settings_ampliado
         )
         assert len(result_ampliado.periods) == 1
         score_ampliado = result_ampliado.periods[0].score_result.pontuacao
@@ -431,7 +427,7 @@ class TestScoreEstabilidadeHistorica:
         with caplog.at_level(logging.WARNING, logger="ranking_msc"):
             result = compare_periods(
                 "250400",
-                snapshots_dir=tmp_path,
+                store=ParquetStore(tmp_path),
                 settings=settings,
             )
 
@@ -442,14 +438,6 @@ class TestScoreEstabilidadeHistorica:
 # ---------------------------------------------------------------------------
 # Regressão — Finding 2: validação de metadados corrompidos
 # ---------------------------------------------------------------------------
-
-
-class TestComparePeriodsArchitecture:
-    def test_engine_usa_leitores_de_io_e_nao_outputs_snapshot(self) -> None:
-        import ranking_msc.engine.compare_periods as module
-
-        assert module.read_snapshot.__module__ == "ranking_msc.io.snapshot_store"
-        assert module.read_scoring_metadata.__module__ == "ranking_msc.io.snapshot_store"
 
 
 class TestReadScoringMetadataValidacao:

@@ -10,6 +10,7 @@ from openpyxl import load_workbook
 import ranking_msc.rules  # noqa: F401  -- popular RULE_REGISTRY
 from ranking_msc.config.settings import PathsSettings, RulesSettings, Settings
 from ranking_msc.io.reader_msc import read_msc_csv
+from ranking_msc.io.store import ParquetStore
 from ranking_msc.services.pipeline import run_full_pipeline
 
 
@@ -45,7 +46,7 @@ def test_pipeline_normaliza_usando_o_ref_dir_configurado(
     run_full_pipeline(
         raw,
         settings=settings,
-        snapshots_dir=tmp_path / "snapshots",
+        store=ParquetStore(tmp_path / "snapshots"),
         reports_dir=tmp_path / "reports",
         logger=logging.getLogger("ranking_msc_test_service"),
         usuario="teste",
@@ -68,14 +69,14 @@ class TestRunFullPipeline:
         run = run_full_pipeline(
             raw,
             settings=_settings_com_r082(),
-            snapshots_dir=snapshots_dir,
+            store=ParquetStore(snapshots_dir),
             reports_dir=reports_dir,
             logger=logging.getLogger("ranking_msc_test_service"),
             usuario="teste",
         )
 
         assert run.engine_result.status in {"OK", "PARCIAL", "ERRO"}
-        assert run.snapshot_path.exists()
+        assert (snapshots_dir / raw.siconfi / raw.competencia / "resultado_regras.parquet").exists()
         assert run.report_path.exists()
         normalizado = (
             snapshots_dir / raw.siconfi / raw.competencia / "msc_normalizado.parquet"
@@ -97,7 +98,7 @@ class TestRunFullPipeline:
         run = run_full_pipeline(
             raw,
             settings=_settings_com_r082(),
-            snapshots_dir=tmp_path / "snapshots",
+            store=ParquetStore(tmp_path / "snapshots"),
             reports_dir=tmp_path / "reports",
             logger=logging.getLogger("ranking_msc_test_service"),
             usuario="teste",

@@ -9,21 +9,19 @@ e devolvem estruturas prontas para o frontend MCRA PMJP. As rotas FastAPI em
 ``app/api/routes/`` consomem estas funções; assim a camada API não duplica lógica
 de pandas.
 
-A leitura de disco (snapshots Parquet, scoring_metadata.json) continua em
-``ranking_msc.outputs.snapshot`` — este módulo só transforma o que já foi lido.
+As funções que leem snapshots recebem um ``SnapshotStore`` (``ranking_msc.io.store``).
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import pandas as pd
 
 from ranking_msc.engine.score_engine import scoring_dimension
 from ranking_msc.exceptions import ConfigError, SnapshotNotFoundError
-from ranking_msc.outputs.snapshot import read_snapshot
+from ranking_msc.io.store import MatrizRef, SnapshotStore
 from ranking_msc.rules.base import RULE_REGISTRY, ic_mask_informada
 
 logger = logging.getLogger("ranking_msc")
@@ -152,20 +150,13 @@ class HeatmapMatrix:
     cells: list[HeatmapCell] = field(default_factory=list)
 
 
-def discover_competencias(snapshots_dir: Path, siconfi: str) -> list[str]:
-    """Varre o diretório de snapshots e devolve competências disponíveis para o ente."""
-    base = snapshots_dir / siconfi
-    if not base.is_dir():
-        return []
-    out = [
-        p.parent.name
-        for p in base.glob("*/resultado_regras.parquet")
-    ]
-    return sorted(out)
+def discover_competencias(store: SnapshotStore, siconfi: str) -> list[str]:
+    """Competências com resultado para o ente, em ordem crescente."""
+    return [r.competencia for r in store.list_refs(siconfi, "previa")]
 
 
 def build_heatmap(
-    snapshots_dir: Path,
+    store: SnapshotStore,
     siconfi: str,
     *,
     meses: int = 6,
@@ -173,7 +164,7 @@ def build_heatmap(
     """Monta a matriz regras × competências a partir dos snapshots em disco.
 
     Args:
-        snapshots_dir: diretório raiz de snapshots (ex: ``data/snapshots``).
+        store: armazenamento de snapshots.
         siconfi: código SICONFI do ente.
         meses: limite de competências (mais recentes) a considerar.
 
@@ -185,7 +176,7 @@ def build_heatmap(
         Regras presentes no RULE_REGISTRY mas sem pendências em uma competência
         aparecem como células com ``pendencias=0`` e ``severidade_max=None``.
     """
-    competencias = discover_competencias(snapshots_dir, siconfi)[-meses:]
+    competencias = discover_competencias(store, siconfi)[-meses:]
     regras = sorted(RULE_REGISTRY.keys())
     matrix = HeatmapMatrix(
         competencias=competencias,
@@ -203,11 +194,10 @@ def build_heatmap(
         return matrix
 
     inv_rank = {v: k for k, v in _SEVERIDADE_RANK.items()}
-    base = snapshots_dir / siconfi
 
     for competencia in competencias:
         try:
-            df = read_snapshot(competencia, base_dir=base, label="resultado_regras")
+            df = store.load_resultado(MatrizRef(siconfi, competencia))
         except SnapshotNotFoundError:
             continue
 
@@ -245,7 +235,7 @@ def build_heatmap(
 
 
 def rule_history(
-    snapshots_dir: Path,
+    store: SnapshotStore,
     siconfi: str,
     rule_id: str,
     *,
@@ -255,14 +245,13 @@ def rule_history(
 
     Reaproveita a mesma estrutura de célula do heatmap.
     """
-    competencias = discover_competencias(snapshots_dir, siconfi)[-meses:]
+    competencias = discover_competencias(store, siconfi)[-meses:]
     out: list[HeatmapCell] = []
     inv_rank = {v: k for k, v in _SEVERIDADE_RANK.items()}
-    base = snapshots_dir / siconfi
 
     for competencia in competencias:
         try:
-            df = read_snapshot(competencia, base_dir=base, label="resultado_regras")
+            df = store.load_resultado(MatrizRef(siconfi, competencia))
         except SnapshotNotFoundError:
             continue
         sub = df[df["regra_id"] == rule_id] if not df.empty else df
@@ -318,7 +307,7 @@ class ContaDetail:
 
 
 def aggregate_conta(
-    snapshots_dir: Path,
+    store: SnapshotStore,
     siconfi: str,
     competencia: str,
     conta_contabil: str,
@@ -328,7 +317,7 @@ def aggregate_conta(
     """Agrega saldos e classificadores de uma conta a partir do snapshot MSC.
 
     Args:
-        snapshots_dir: raiz de snapshots.
+        store: armazenamento de snapshots.
         siconfi: ente.
         competencia: YYYY-MM.
         conta_contabil: código contábil (sem pontos, ex: ``111110200``).
@@ -338,9 +327,8 @@ def aggregate_conta(
     Returns:
         ContaDetail ou None se a conta não existir no snapshot.
     """
-    base = snapshots_dir / siconfi
     try:
-        df = read_snapshot(competencia, base_dir=base, label="msc_normalizado")
+        df = store.load_msc(MatrizRef(siconfi, competencia))
     except SnapshotNotFoundError:
         return None
 
@@ -380,7 +368,7 @@ def aggregate_conta(
 
     pendencias_count = 0
     try:
-        pend = read_snapshot(competencia, base_dir=base, label="resultado_regras")
+        pend = store.load_resultado(MatrizRef(siconfi, competencia))
         pendencias_count = int(
             len(pend[pend["conta_contabil"].astype(str) == str(conta_contabil)])
         )
@@ -414,7 +402,7 @@ class ContaResumo:
 
 
 def accounts_by_prefix(
-    snapshots_dir: Path,
+    store: SnapshotStore,
     siconfi: str,
     competencia: str,
     prefixes: list[str],
@@ -427,7 +415,7 @@ def accounts_by_prefix(
     devolvendo um único registro por conta com os saldos consolidados.
 
     Args:
-        snapshots_dir: raiz dos snapshots.
+        store: armazenamento de snapshots.
         siconfi: ente.
         competencia: YYYY-MM.
         prefixes: lista de prefixos (ex: ``["111"]`` para Caixa,
@@ -440,8 +428,7 @@ def accounts_by_prefix(
     Returns:
         Lista ordenada por conta_contabil.
     """
-    base = snapshots_dir / siconfi
-    df = read_snapshot(competencia, base_dir=base, label="msc_normalizado")
+    df = store.load_msc(MatrizRef(siconfi, competencia))
     if df.empty:
         return []
 
@@ -633,15 +620,14 @@ def aggregate_superavit_rows(
 
 
 def aggregate_superavit(
-    snapshots_dir: Path,
+    store: SnapshotStore,
     siconfi: str,
     competencia: str,
     *,
     pcasp: pd.DataFrame,
 ) -> SuperavitSummary:
     """Lê o snapshot da competência e deriva o resultado financeiro por FR."""
-    base = snapshots_dir / siconfi
-    df = read_snapshot(competencia, base_dir=base, label="msc_normalizado")
+    df = store.load_msc(MatrizRef(siconfi, competencia))
     return aggregate_superavit_rows(df, pcasp=pcasp)
 
 

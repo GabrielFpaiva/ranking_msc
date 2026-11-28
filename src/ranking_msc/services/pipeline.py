@@ -14,16 +14,16 @@ API era exportado sem ``score_result`` e saía sem a aba Score).
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from ranking_msc.config.settings import Settings
 from ranking_msc.engine.executor import EngineContext, EngineResult, run_engine
 from ranking_msc.engine.score_engine import ScoreResult, calculate_score
 from ranking_msc.io.reader_msc import RawMSC
+from ranking_msc.io.store import ExecucaoRegistro, MatrizRef, SnapshotStore
 from ranking_msc.outputs.logs import log_execucao
 from ranking_msc.outputs.reports import export_issues_excel
-from ranking_msc.outputs.snapshot import write_scoring_metadata, write_snapshot_atomic
 from ranking_msc.transform.ic_normalize import normalize_ic
 
 
@@ -34,21 +34,37 @@ class PipelineRunResult:
     context: EngineContext
     engine_result: EngineResult
     score_result: ScoreResult
-    snapshot_path: Path
+    ref: MatrizRef
     report_path: Path
+
+
+def registro_execucao(engine_result: EngineResult, score_result: ScoreResult) -> ExecucaoRegistro:
+    """Monta o registro da execução gravado junto com as pendências."""
+    context = engine_result.context
+    return ExecucaoRegistro(
+        execucao_id=context.execucao_id,
+        usuario=context.usuario,
+        inicio=context.inicio,
+        status=engine_result.status,
+        regras_executadas=engine_result.executed_rule_ids,
+        pontuacao=score_result.pontuacao,
+        banda=score_result.banda,
+        dimensoes={k: asdict(v) for k, v in score_result.dimensions.items()},
+    )
 
 
 def run_full_pipeline(
     raw: RawMSC,
     *,
     settings: Settings,
-    snapshots_dir: Path,
+    store: SnapshotStore,
     reports_dir: Path,
     logger: logging.Logger,
     usuario: str,
     lock_token: str | None = None,
     report_filename: str | None = None,
     log_message: str = "Execução concluída",
+    origem: str = "previa",
 ) -> PipelineRunResult:
     """Executa a sequência completa do pipeline sobre um MSC já lido.
 
@@ -59,8 +75,7 @@ def run_full_pipeline(
     Args:
         raw: MSC lido por ``read_msc_csv()``.
         settings: configurações carregadas do projeto.
-        snapshots_dir: diretório base de snapshots (o serviço cria o
-            namespace ``<snapshots_dir>/<siconfi>/``).
+        store: armazenamento das matrizes e resultados (``make_store()``).
         reports_dir: diretório de saída do Excel de pendências.
         logger: logger configurado do projeto.
         usuario: quem disparou a execução (``"cli"`` ou usuário autenticado).
@@ -68,6 +83,7 @@ def run_full_pipeline(
         report_filename: nome do arquivo Excel. Se ``None``, usa o padrão
             de ``export_issues_excel()``.
         log_message: mensagem registrada em ``log_execucao()``.
+        origem: ``"previa"`` (upload) ou ``"homologada"`` (API do SICONFI).
 
     Returns:
         ``PipelineRunResult`` com contexto, resultados do motor e do score
@@ -81,19 +97,20 @@ def run_full_pipeline(
     """
     df = normalize_ic(raw.df, mapping_path=Path(settings.paths.ref_dir) / "mapeamento_ic_tipo.csv")
 
-    snap_base = snapshots_dir / raw.siconfi
-    # Snapshot do normalizado ANTES das regras — R054 e demais regras
-    # temporais leem este snapshot para comparar com meses anteriores.
-    write_snapshot_atomic(df, raw.competencia, base_dir=snap_base, label="msc_normalizado")
+    ref = MatrizRef(raw.siconfi, raw.competencia, origem)
+    # Matriz gravada ANTES das regras — R054 e demais regras temporais leem a
+    # do mês anterior para comparar.
+    store.save_msc(ref, df, usuario=usuario)
 
     context = EngineContext(
         competencia=raw.competencia,
         siconfi=raw.siconfi,
         settings=settings,
-        snapshots_dir=snapshots_dir,
         usuario=usuario,
         pre_pivot_issues=raw.pre_pivot_issues,
         lock_token=lock_token,
+        origem=origem,
+        store=store,
     )
     logger.info(
         "Executando motor de regras para competencia=%s siconfi=%s",
@@ -125,16 +142,8 @@ def run_full_pipeline(
         },
     )
 
-    snapshot_path = write_snapshot_atomic(
-        engine_result.pendencias,
-        raw.competencia,
-        base_dir=snap_base,
-        label="resultado_regras",
-    )
-    write_scoring_metadata(
-        engine_result.executed_rule_ids,
-        raw.competencia,
-        base_dir=snap_base,
+    store.save_resultado(
+        ref, engine_result.pendencias, registro_execucao(engine_result, score_result)
     )
     report_path = export_issues_excel(
         engine_result.pendencias,
@@ -158,6 +167,6 @@ def run_full_pipeline(
         context=context,
         engine_result=engine_result,
         score_result=score_result,
-        snapshot_path=snapshot_path,
+        ref=ref,
         report_path=report_path,
     )

@@ -16,13 +16,14 @@ from fastapi.responses import FileResponse
 
 from app.api.deps import (
     absolute_reports_dir,
-    absolute_snapshots_dir,
     get_current_user,
     get_settings,
+    get_store,
 )
 from ranking_msc.engine.compare_periods import compare_periods
 from ranking_msc.engine.score_engine import calculate_score
 from ranking_msc.exceptions import SnapshotCorruptError, SnapshotNotFoundError
+from ranking_msc.io.store import MatrizRef
 from ranking_msc.outputs.aggregations import derive_recommendations
 from ranking_msc.outputs.executive_pdf import (
     DimItem,
@@ -31,7 +32,6 @@ from ranking_msc.outputs.executive_pdf import (
     RecItem,
     write_executive_pdf,
 )
-from ranking_msc.outputs.snapshot import read_scoring_metadata, read_snapshot
 
 router = APIRouter(
     prefix="/api",
@@ -41,9 +41,9 @@ router = APIRouter(
 
 
 def _load_snapshot_or_404(siconfi: str, competencia: str):
-    base = absolute_snapshots_dir() / siconfi
+    store, ref = get_store(), MatrizRef(siconfi, competencia)
     try:
-        return read_snapshot(competencia, base_dir=base, label="resultado_regras")
+        return store.load_resultado(ref)
     except SnapshotNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -58,15 +58,10 @@ def _load_snapshot_or_404(siconfi: str, competencia: str):
 
 def _discover_pdf_history_competencias(siconfi: str, competencia: str) -> list[str]:
     """Descobre apenas competências relevantes ao PDF solicitado."""
-    siconfi_dir = absolute_snapshots_dir() / siconfi
-    if not siconfi_dir.is_dir():
-        return [competencia]
-
-    competencias = sorted(
-        path.parent.name
-        for path in siconfi_dir.glob("*/resultado_regras.parquet")
-        if path.parent.name <= competencia
-    )
+    competencias = [
+        r.competencia for r in get_store().list_refs(siconfi, "previa")
+        if r.competencia <= competencia
+    ]
     if competencia not in competencias:
         competencias.append(competencia)
         competencias.sort()
@@ -75,12 +70,12 @@ def _discover_pdf_history_competencias(siconfi: str, competencia: str) -> list[s
 def _build_pdf_payload(siconfi: str, competencia: str) -> ExecutivePdfPayload:
     settings = get_settings()
     pendencias = _load_snapshot_or_404(siconfi, competencia)
-    meta = read_scoring_metadata(competencia, base_dir=absolute_snapshots_dir() / siconfi)
+    meta = get_store().load_rule_ids(MatrizRef(siconfi, competencia))
     rule_ids = meta if meta is not None else list(settings.rules.enabled)
     score = calculate_score(pendencias, rule_ids)
     comparison = compare_periods(
         siconfi=siconfi,
-        snapshots_dir=absolute_snapshots_dir(),
+        store=get_store(),
         settings=settings,
         competencias=_discover_pdf_history_competencias(siconfi, competencia),
     )

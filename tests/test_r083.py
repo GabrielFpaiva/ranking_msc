@@ -40,7 +40,7 @@ class TestR083:
         rule = R083()
         df = _make_exec_df()
         with patch(
-            "ranking_msc.rules.r083.read_snapshot",
+            "ranking_msc.io.store.ParquetStore.load_msc",
             side_effect=SnapshotNotFoundError("not found"),
         ):
             result = rule.execute(df, engine_context)
@@ -51,7 +51,7 @@ class TestR083:
         rule = R083()
         df = _make_exec_df(sf_deb=100.0, sf_cred=0.0)
         prev_df = _make_exec_df(sf_deb=100.0, sf_cred=0.0)
-        with patch("ranking_msc.rules.r083.read_snapshot", return_value=prev_df):
+        with patch("ranking_msc.io.store.ParquetStore.load_msc", return_value=prev_df):
             result = rule.execute(df, engine_context)
         assert len(result) == 1
         assert result.iloc[0]["severidade"] == "ALERTA"
@@ -63,7 +63,7 @@ class TestR083:
         rule = R083()
         df = _make_exec_df(sf_deb=200.0, sf_cred=0.0)
         prev_df = _make_exec_df(sf_deb=100.0, sf_cred=0.0)
-        with patch("ranking_msc.rules.r083.read_snapshot", return_value=prev_df):
+        with patch("ranking_msc.io.store.ParquetStore.load_msc", return_value=prev_df):
             result = rule.execute(df, engine_context)
         assert len(result) == 0
 
@@ -72,7 +72,7 @@ class TestR083:
         rule = R083()
         df = _make_exec_df()
         with patch(
-            "ranking_msc.rules.r083.read_snapshot",
+            "ranking_msc.io.store.ParquetStore.load_msc",
             side_effect=SnapshotError("io error"),
         ):
             with pytest.raises(SnapshotError):
@@ -99,7 +99,7 @@ class TestR083:
             "saldo_final_credito": [0.0],
         })
         prev_df = df.copy()
-        with patch("ranking_msc.rules.r083.read_snapshot", return_value=prev_df):
+        with patch("ranking_msc.io.store.ParquetStore.load_msc", return_value=prev_df):
             result = rule.execute(df, engine_context)
         assert len(result) == 0
 
@@ -107,7 +107,7 @@ class TestR083:
         """Snapshot anterior vazio → skip, sem pendências."""
         rule = R083()
         df = _make_exec_df()
-        with patch("ranking_msc.rules.r083.read_snapshot", return_value=pd.DataFrame()):
+        with patch("ranking_msc.io.store.ParquetStore.load_msc", return_value=pd.DataFrame()):
             result = rule.execute(df, engine_context)
         assert len(result) == 0
 
@@ -127,7 +127,7 @@ class TestR083:
             "saldo_final_debito": [100.0],
             "saldo_final_credito": [0.0],
         })
-        with patch("ranking_msc.rules.r083.read_snapshot", return_value=prev_df):
+        with patch("ranking_msc.io.store.ParquetStore.load_msc", return_value=prev_df):
             result = rule.execute(df, engine_context)
         assert len(result) == 0
 
@@ -146,7 +146,7 @@ class TestR083:
             "saldo_final_debito": [100.0, 200.0],
             "saldo_final_credito": [0.0, 0.0],
         })
-        with patch("ranking_msc.rules.r083.read_snapshot", return_value=prev_df):
+        with patch("ranking_msc.io.store.ParquetStore.load_msc", return_value=prev_df):
             result = rule.execute(df, engine_context)
         assert len(result) == 0
 
@@ -165,6 +165,6 @@ class TestR083:
             "saldo_final_debito": [100.0, 200.0],
             "saldo_final_credito": [0.0, 0.0],
         })
-        with patch("ranking_msc.rules.r083.read_snapshot", return_value=prev_df):
+        with patch("ranking_msc.io.store.ParquetStore.load_msc", return_value=prev_df):
             result = rule.execute(df, engine_context)
         assert len(result) == 0

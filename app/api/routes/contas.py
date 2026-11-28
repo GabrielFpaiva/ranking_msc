@@ -12,7 +12,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import PROJECT_ROOT, absolute_snapshots_dir, get_current_user, get_settings
+from app.api.deps import PROJECT_ROOT, get_current_user, get_settings, get_store
 from app.api.schemas import ContaDetailOut, ContaSaldosOut
 from ranking_msc.exceptions import ConfigError
 from ranking_msc.io.ref_loader import load_pcasp
@@ -47,7 +47,7 @@ def get_conta(
         pcasp = None
 
     detail = aggregate_conta(
-        absolute_snapshots_dir(),
+        get_store(),
         siconfi,
         competencia,
         conta_contabil,

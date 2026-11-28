@@ -27,13 +27,11 @@ Referência:
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from ranking_msc.exceptions import SnapshotError, SnapshotNotFoundError
-from ranking_msc.outputs.snapshot import read_snapshot
 from ranking_msc.rules.base import Rule, register_rule
 
 if TYPE_CHECKING:
@@ -93,8 +91,8 @@ class R083(Rule):
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
         """Compara saldos finais do executivo entre o mês atual e o anterior.
 
-        Usa context.snapshots_dir quando definido (ex: CLI com --output-dir),
-        caindo para settings.paths.snapshots_dir como padrão. Se o snapshot
+        Lê a matriz do mês anterior (mesmo ente e origem) por
+        ``context.get_store()``. Se o snapshot
         anterior não existir, a regra é saltada silenciosamente. Erros de I/O
         propagam para o engine como erro operacional.
 
@@ -121,22 +119,8 @@ class R083(Rule):
 
         prev_comp = _prev_competencia(context.competencia)
 
-        # P1: Respeita --output-dir via context.snapshots_dir
-        snapshots_base: Path = (
-            context.snapshots_dir
-            if context.snapshots_dir is not None
-            else Path(context.settings.paths.snapshots_dir)
-        )
-        snapshots_dir = snapshots_base / context.siconfi
-
-        # P2: Dois except separados — SnapshotNotFoundError é legítimo (skip);
-        #     SnapshotError indica falha de I/O e deve propagar.
         try:
-            prev_df = read_snapshot(
-                prev_comp,
-                base_dir=snapshots_dir,
-                label="msc_normalizado",
-            )
+            prev_df = context.get_store().load_msc(context.ref(prev_comp))
         except SnapshotNotFoundError:
             logger.info(
                 "R083: snapshot do mês anterior (%s) ausente — regra saltada.",

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import absolute_snapshots_dir, get_current_user
+from app.api.deps import get_current_user, get_store
 from app.api.schemas import ContaListGroupOut, ContaListOut, ContaResumoOut
 from ranking_msc.exceptions import SnapshotNotFoundError
 from ranking_msc.outputs.aggregations import accounts_by_prefix
@@ -31,7 +31,7 @@ def get_passivos(
     siconfi: str = Query(..., description="Código SICONFI", pattern=r"^[a-zA-Z0-9_-]+$"),
     competencia: str = Query(..., description="YYYY-MM", pattern=r"^[0-9]{4}-[0-9]{2}$"),
 ) -> ContaListOut:
-    snapshots = absolute_snapshots_dir()
+    store = get_store()
 
     groups: list[ContaListGroupOut] = []
     for label, prefixes in (
@@ -40,7 +40,7 @@ def get_passivos(
     ):
         try:
             items = accounts_by_prefix(
-                snapshots, siconfi, competencia, prefixes=prefixes, nat_saldo="C"
+                store, siconfi, competencia, prefixes=prefixes, nat_saldo="C"
             )
         except SnapshotNotFoundError as exc:
             from fastapi import HTTPException, status

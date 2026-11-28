@@ -41,7 +41,8 @@ from ranking_msc.exceptions import RankingMSCError  # noqa: E402
 from ranking_msc.io.reader_msc import read_msc_csv  # noqa: E402
 from ranking_msc.outputs.logs import log_execucao, setup_logging  # noqa: E402
 from ranking_msc.outputs.reports import export_issues_excel  # noqa: E402
-from ranking_msc.outputs.snapshot import write_scoring_metadata, write_snapshot_atomic  # noqa: E402
+from ranking_msc.io.store import MatrizRef, make_store  # noqa: E402
+from ranking_msc.services.pipeline import registro_execucao  # noqa: E402
 from ranking_msc.transform.ic_normalize import normalize_ic  # noqa: E402
 
 
@@ -266,19 +267,16 @@ def _execute_single_csv(
 
         normalized_df = normalize_ic(raw_msc.df)
 
-        write_snapshot_atomic(
-            normalized_df,
-            raw_msc.competencia,
-            base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
-            label="msc_normalizado",
-        )
+        store = make_store(settings, output_paths.snapshots_dir)
+        ref = MatrizRef(raw_msc.siconfi, raw_msc.competencia)
+        store.save_msc(ref, normalized_df, usuario="batch")
 
         context = EngineContext(
             competencia=raw_msc.competencia,
             siconfi=raw_msc.siconfi,
             settings=settings,
-            snapshots_dir=output_paths.snapshots_dir,
             usuario="batch",
+            store=store,
             pre_pivot_issues=raw_msc.pre_pivot_issues,
         )
 
@@ -289,16 +287,8 @@ def _execute_single_csv(
             engine_result.executed_rule_ids,
         )
 
-        write_snapshot_atomic(
-            engine_result.pendencias,
-            raw_msc.competencia,
-            base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
-            label="resultado_regras",
-        )
-        write_scoring_metadata(
-            engine_result.executed_rule_ids,
-            raw_msc.competencia,
-            base_dir=output_paths.snapshots_dir / raw_msc.siconfi,
+        store.save_resultado(
+            ref, engine_result.pendencias, registro_execucao(engine_result, score_result)
         )
         # Filename inclui siconfi + competencia + stem do CSV para eliminar
         # colisões mesmo quando dois arquivos distintos representam o mesmo

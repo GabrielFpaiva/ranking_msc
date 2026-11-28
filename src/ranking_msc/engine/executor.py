@@ -31,6 +31,7 @@ import pandas as pd
 
 from ranking_msc.config.settings import Settings
 from ranking_msc.exceptions import RuleExecutionError
+from ranking_msc.io.store import MatrizRef, SnapshotStore, make_store
 from ranking_msc.rules.base import RULE_REGISTRY
 from ranking_msc.schemas import FACT_RESULTADO_REGRAS_COLUMNS
 
@@ -59,6 +60,20 @@ class EngineContext:
     lock_token: str | None = None
     # Token do lock de concorrência, preenchido pela API ao adquirir o lock
     # via ``engine.locks.acquire_execution_lock()``.
+    origem: str = "previa"            # "previa" ou "homologada"
+    store: SnapshotStore | None = None
+    # Armazenamento de snapshots. Sem ele, ``get_store()`` monta o da config.
+
+    def get_store(self) -> SnapshotStore:
+        """Armazenamento desta execução: o injetado ou o da configuração."""
+        if self.store is None:
+            base = self.snapshots_dir or Path(self.settings.paths.snapshots_dir)
+            self.store = make_store(self.settings, base)
+        return self.store
+
+    def ref(self, competencia: str | None = None) -> MatrizRef:
+        """Endereço da matriz desta execução (ou de outra competência do mesmo ente/origem)."""
+        return MatrizRef(self.siconfi, competencia or self.competencia, self.origem)
 
 
 @dataclass

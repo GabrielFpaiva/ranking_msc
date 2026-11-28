@@ -66,7 +66,7 @@ def populated(
     from app.api.routes import superavit as superavit_module
 
     for module in (run_module, caixa_module, passivos_module, superavit_module):
-        monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots)
+        monkeypatch.setattr(module, "absolute_snapshots_dir", lambda: snapshots, raising=False)
     monkeypatch.setattr(run_module, "absolute_reports_dir", lambda: reports)
 
     client = TestClient(app)

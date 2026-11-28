@@ -18,13 +18,11 @@ Referência:
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from ranking_msc.exceptions import SnapshotError, SnapshotNotFoundError
-from ranking_msc.outputs.snapshot import read_snapshot
 from ranking_msc.rules.base import TOLERANCIA_CENTAVO, Rule, register_rule
 
 if TYPE_CHECKING:
@@ -83,8 +81,8 @@ class R054(Rule):
     def execute(self, df: pd.DataFrame, context: EngineContext) -> pd.DataFrame:
         """Compara SI líquido do mês N com SF líquido do mês N-1.
 
-        Usa context.snapshots_dir quando definido (ex: CLI com --output-dir),
-        caindo para settings.paths.snapshots_dir como padrão. Se o snapshot
+        Lê a matriz do mês anterior (mesmo ente e origem) por
+        ``context.get_store()``. Se o snapshot
         do mês anterior não existir, a regra é saltada silenciosamente. Erros
         de I/O ou permissão propagam para o engine como erro operacional.
 
@@ -99,24 +97,8 @@ class R054(Rule):
         _extra = {"regra_id": self.rule_id, "competencia": context.competencia}
 
         prev_comp = _prev_competencia(context.competencia)
-        snapshots_base: Path = (
-            context.snapshots_dir
-            if context.snapshots_dir is not None
-            else Path(context.settings.paths.snapshots_dir)
-        )
-        # Isola por ente: evita que snapshots de SICONFIs diferentes no mesmo
-        # diretório se sobrescrevam ou sejam comparados incorretamente.
-        snapshots_dir = snapshots_base / context.siconfi
-
-        # Tenta ler o snapshot do mês anterior.
-        # SnapshotNotFoundError → mês anterior não processado ainda, regra saltada.
-        # SnapshotError (I/O, permissão) → erro operacional, deve propagar.
         try:
-            prev_df = read_snapshot(
-                prev_comp,
-                base_dir=snapshots_dir,
-                label="msc_normalizado",
-            )
+            prev_df = context.get_store().load_msc(context.ref(prev_comp))
         except SnapshotNotFoundError:
             logger.info(
                 "R054: snapshot do mês anterior (%s) ausente — regra saltada.",
